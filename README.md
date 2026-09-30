@@ -11,6 +11,36 @@
 | **26%** | arrive usable as data: coded, right unit, right patient |
 | **87%** | recovered by this pipeline after code maps, unit maths, identity matching, OCR and PDF reading (0 wrong values) |
 
+## What this is, in plain words
+
+Doctors and researchers at hospitals keep saying the same thing: *"we only get partial data."* That sounds odd, because hospitals store everything. But they store it for a **person to look at**, not for a **computer to use**. An ultrasound machine saves a picture of its screen with the numbers on it. A neighbouring lab sends results with its own codes and units. An emergency result goes by fax and never enters any system at all. It is like handing your accountant photos of receipts instead of a spreadsheet.
+
+We can't use real patient data, so we made up a hospital:
+
+1. **Simulator.** Invents 20 fake patients and their care, and writes every department's files in its real, messy format. It also writes a hidden answer key with the true values.
+2. **Assembler.** Tries to turn all those files into clean data: works out which patient each file belongs to, translates codes and units, and reads numbers off images and PDFs.
+3. **Scoring.** Compares the result against the answer key the assembler never saw.
+
+The result: the archive **looks** 91% complete, but only 26% of it arrives as usable data. With a lot of repair work the assembler gets that to 87%, with zero wrong values. The gap is the problem, and the repair work is the part nobody currently owns.
+
+**Follow one patient.** The [explainer page](https://irdiz.github.io/six-systems/explained.html) walks through one invented patient's heart scare, using their actual files:
+
+1. A faxed emergency-room result that is lost.
+2. A regional lab file that needs its units converted.
+3. The hospital's own lab result, which arrives clean.
+4. An echo whose numbers must be read off a screenshot (OCR misread "cm" as "¢m").
+5. A CT scan whose raw data was thrown away.
+6. A finding that exists only as a sentence in a PDF.
+
+**The question it asks.** The same gap shows up in two places with different owners. One is care between organisations: neighbouring hospitals, regional labs, GPs. The other is getting data out for research and AI. The prototype exists to ask which of the two hurts more in practice.
+
+**What's in the demo:**
+- Every fact shown as one coloured square.
+- Each patient's timeline, which flips from "archive view" (everything looks present) to "data view" (colour-coded by outcome).
+- Click any value to see where it came from, with the spot highlighted on the echo image or PDF.
+- A coverage map of patients by facts.
+- A one-click de-identified research export with a check that no names or IDs leak.
+
 ## What it does
 
 Twenty synthetic patients move through three care paths (chest pain, lung nodule, kidney follow-up) across a fictional Dutch academic hospital, a neighbouring hospital, a regional lab and a shared pathology lab. Six sources, six formats:
