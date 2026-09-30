@@ -1,0 +1,18 @@
+[project]
+name = "six-systems"
+version = "0.1.0"
+description = "One patient, six systems: simulate how hospital departments hand over data, then measure how much of a 'complete' case is usable as data."
+requires-python = ">=3.11"
+dependencies = [
+    "faker>=30",
+    "hl7>=0.4.5",
+    "numpy>=1.26",
+    "pdfplumber>=0.11",
+    "pillow>=10.1",
+    "pydicom>=3.0",
+    "pytesseract>=0.3.10",
+    "reportlab>=4.0",
+]
+
+[tool.uv]
+package = false
