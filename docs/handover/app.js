@@ -59,6 +59,127 @@ const RANK = { LOST: 4, PICTURE: 3, CONFIRMED: 2, CONFLICT: 1, DATA: 0 };
 // The six-sys codes stay in the data; these are the words on screen.
 const WORD = { DATA: "Structured", CONFLICT: "Converted", PICTURE: "Unverified", CONFIRMED: "Verified", LOST: "Not received" };
 
+// ------------------------------------------------------------ demo scenarios (scenarios.js), patched into CASES before anything below is built
+// With ?s= or ?t= the clock is fixed and random IDs are seeded, so a scene replays the same; without, nothing changes.
+
+const Q = new URLSearchParams(location.search);
+const SC = (window.SCENARIOS || {})[Q.get("s")] || {};
+const DEMO = Q.has("s") || Q.has("t");
+const CLOCK = (Q.get("t") || SC.now || (DEMO ? C.generated : "")).replace("T", " ").slice(0, 16);
+let SEED = 7; // six-sys's own seed; mulberry32
+const rand = DEMO ? () => { let t = (SEED += 0x6d2b79f5); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; } : Math.random;
+C.unlinked ||= [];
+const ABBR = { lvef: "LVEF", ivs_thickness: "IVSd", lv_diameter: "LVIDd", kidney_length: "Nier li" }; // labels burned into the screen captures
+const CM = ["ivs_thickness", "lv_diameter", "kidney_length"]; // shown in cm on the image, stored in mm
+const PDF_PREFIX = { calcium_score: "Agatston calciumscore: ", nodule_size: "diameter ", tumour_size: "Tumorgrootte: " }; // text before the value in the report
+const PATCH = {}; // image file → { name, values }: text to redraw on it (paintMedia)
+const patchOf = (png) => (PATCH[png] ||= { values: [] });
+// Swap one number in a string, not when it is part of a longer number.
+const swap = (s, a, b) => String(s ?? "").replace(new RegExp(`(?<![\\w.,])${String(a).replace(/\./g, "\\.")}(?![\\w]|[.,]\\d)`, "g"), b);
+// A result's value lives in got, truth_value, the conversion steps, the source excerpt and, for images, the pixels: all follow.
+function setFact(f, v, status) {
+  if (v != null && !Number.isNaN(v) && typeof (f.truth_value ?? 0) === "number") {
+    const was = f.truth_value ?? f.got;
+    if (f.source === "ext_lab") {
+      const conv = (f.steps || []).find((x) => x.includes("→") && x.includes("×")), k = conv ? Number(/×\s*([\d.]+)/.exec(conv)[1]) : 1;
+      const rep = /RSL\+NV\+([^+]+)\+/.exec(f.excerpt || "")?.[1] || (conv ? conv.split(" ")[0] : String(was));
+      const nr = (v / k).toFixed((rep.split(/[.,]/)[1] || "").length).replace(".", rep.includes(",") ? "," : ".");
+      f.steps = (f.steps || []).map((x) => (x === conv ? swap(x, rep, nr).replace(/→ [\d.]+/, `→ ${v.toFixed(1)}`) : swap(x, rep, nr)));
+      f.excerpt = (f.excerpt || "").replace(`RSL+NV+${rep}+`, `RSL+NV+${nr}+`);
+    } else if (f.source === "epic_lab") f.excerpt = (f.excerpt || "").replace(`|${was}|`, `|${v}|`);
+    else if (f.media?.box && f.media.png.endsWith(".jpg")) {
+      const img = (x) => (CM.includes(f.fact) ? (x / 10).toFixed(1) : String(x)), a = img(was), b = img(v);
+      f.steps = (f.steps || []).map((x) => (/ cm → /.test(x) ? `${b} cm → ${v} mm` : swap(x, a, b)));
+      Object.assign(f, { reason: swap(f.reason, a, b), excerpt: swap(f.excerpt, a, b) });
+      patchOf(f.media.png).values.push({ box: f.media.box, from: a, to: b });
+    } else if (f.media?.box && PDF_PREFIX[f.fact]) {
+      const b = String(v).replace(".", ",");
+      f.excerpt = swap(f.excerpt, String(was), b);
+      patchOf(f.media.png).values.push({ box: f.media.box, prefix: PDF_PREFIX[f.fact], from: String(was), to: b, pdf: true });
+    }
+    f.truth_value = v;
+  }
+  // Status set on purpose. An image read gets the steps its new status implies; no confidence is made up.
+  if (status && status !== f.status && ABBR[f.fact] && f.media?.box) {
+    const t = f.truth_value, line = `${ABBR[f.fact]} ${CM.includes(f.fact) ? (t / 10).toFixed(1) + " cm" : t + "%"}`, id = (f.steps || []).filter((x) => x.startsWith("hospital number"));
+    if (status === "LOST") f.steps = [(f.reason = `OCR found the label ${ABBR[f.fact]} but not a readable value: "${line}"`), ...id];
+    else if (f.status === "LOST") {
+      f.steps = ["OCR on pixels burned into a DICOM Secondary Capture", `OCR read: "${line}"`, ...(CM.includes(f.fact) ? [`${(t / 10).toFixed(1)} cm → ${t} mm`] : []), ...id];
+      f.reason = "Recovered by reading an image or PDF; there is no structured field behind it";
+    }
+  }
+  if (status) f.status = status;
+  f.got = f.status === "LOST" ? null : f.truth_value ?? f.got;
+}
+for (const s of [...(SC.set || []), ...Q.getAll("set")]) {
+  const [, key, val = "", status] = /^([^=]+)=([^:]*)(?::(\w+))?$/.exec(s) || [];
+  if (!key) continue;
+  const [pid, fact, ...rest] = key.split("."), src = rest.find((x) => !/^\d+$/.test(x)), n = Number(rest.find((x) => /^\d+$/.test(x)) || 1);
+  const f = C.patients.find((p) => p.pid === pid)?.facts.filter((x) => x.fact === fact && (!src || x.source === src))[n - 1];
+  if (f) setFact(f, val.trim() === "" ? null : Number(val.replace(",", ".")), ["DATA", "CONFLICT", "PICTURE", "LOST"].includes(status) ? status : null);
+}
+for (const s of [...(SC.name || []), ...Q.getAll("name")]) {
+  const [, pid, given, family] = /^(\w+)\.(\S+)\s+(.+)$/.exec(s.trim()) || [], p = C.patients.find((x) => x.pid === pid);
+  if (!p) continue;
+  Object.assign(p, { given, family, name: `${given} ${family}` });
+  for (const f of p.facts) if (/\.(jpg|pdf\.png)$/.test(f.media?.png || "")) patchOf(f.media.png).name = p;
+}
+// Redraw the changed text on the image: paint over the old value with the background, shift what follows, write the new value.
+const IMG = {}; // image file → patched data URL
+const mediaSrc = (png) => IMG[png] || window.MEDIA_DATA?.[png] || MEDIA + png;
+function paintMedia() {
+  return Promise.all(Object.entries(PATCH).map(([png, { name, values }]) => new Promise((done) => {
+    const img = new Image();
+    img.onerror = done;
+    img.onload = () => {
+      try {
+        const c = document.createElement("canvas"), g = c.getContext("2d"), W = (c.width = img.naturalWidth), H = (c.height = img.naturalHeight), pdf = png.endsWith(".pdf.png");
+        g.drawImage(img, 0, 0);
+        for (const v of values) {
+          const [x, y, w, h] = v.box.map((n, i) => (n * (i % 2 ? H : W)) / 100);
+          if (v.pdf) { // Helvetica 10 pt at 72 dpi; the box starts 4 pt left of and 3 pt above the label
+            g.font = "10px Helvetica, Arial, sans-serif";
+            const vx = x + 4 + g.measureText(v.prefix).width, ow = g.measureText(v.from).width, nw = g.measureText(v.to).width, top = Math.floor(y + 2), hh = Math.ceil(h - 4);
+            const x1 = Math.ceil(vx + ow), tail = g.getImageData(x1, top, W - x1, hh), d = g.getImageData(Math.floor(vx), top, x1 - Math.floor(vx), hh);
+            const ink = [...Array(hh).keys()].filter((j) => [...Array(d.width).keys()].some((i) => d.data[(j * d.width + i) * 4] < 140)); // the old digits: their bottom is the baseline
+            g.fillStyle = "#fff"; g.fillRect(Math.floor(vx), top, W, hh);
+            g.putImageData(tail, Math.round(x1 + nw - ow), top);
+            g.fillStyle = "#000"; g.fillText(v.to, vx, ink.length ? top + ink[ink.length - 1] + 1 : y + 3 + 7.18);
+            continue;
+          }
+          // Screen capture: find the value by its ink. Words are split by gaps of 7 px; the value follows the widest gap.
+          const X = Math.round(x), Y = Math.round(y), bw = Math.round(w), bh = Math.round(h), d = g.getImageData(X, Y, bw, bh).data, lum = (i, j) => d[(j * bw + i) * 4];
+          const words = [];
+          for (let i = 0; i < bw; i++) if ([...Array(bh).keys()].some((j) => lum(i, j) > 128)) { const l = words[words.length - 1]; if (l && i - l[1] < 7) l[1] = i; else words.push([i, i]); }
+          let k = 1;
+          for (let j = 2; j < words.length; j++) if (words[j][0] - words[j - 1][1] > words[k][0] - words[k - 1][1]) k = j;
+          if (!words[k]) continue;
+          const [a, b] = words[k], rows = [...Array(bh).keys()].filter((j) => [...Array(b - a + 1).keys()].some((i) => lum(a + i, j) > 128));
+          const top = rows[0], bot = rows[rows.length - 1];
+          g.font = `${Math.round((bot - top + 1) / 0.7)}px "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
+          const m = g.measureText(v.to), nw = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
+          const tail = g.getImageData(X + b + 1, Y, bw - b - 1, bh);
+          g.fillStyle = "#000"; g.fillRect(X + a, Y, bw - a, bh);
+          g.putImageData(tail, Math.round(X + a + nw), Y);
+          g.fillStyle = "#fff"; g.fillText(v.to, X + a + m.actualBoundingBoxLeft, Y + bot + 1);
+        }
+        if (name && pdf) { // the patient row of the report header
+          g.font = "10px Helvetica, Arial, sans-serif";
+          g.fillStyle = "#fff"; g.fillRect(163, 86, W - 170, 14);
+          g.fillStyle = "#000"; g.fillText(`${name.family}, ${name.given}`, 164.41, 96.38);
+        } else if (name) { // the second banner line of the capture
+          g.font = "15px Arial, Helvetica, sans-serif"; g.textBaseline = "top";
+          g.fillStyle = "#000"; g.fillRect(16, 34, 290, 22);
+          g.fillStyle = "rgb(150,150,150)"; g.fillText(`${name.family.toUpperCase()}, ${name.given}   ${name.mrn}`, 20, 37);
+        }
+        IMG[png] = c.toDataURL(pdf ? "image/png" : "image/jpeg", 0.95);
+      } catch {} // a canvas tainted by file:// keeps the original image
+      done();
+    };
+    img.src = mediaSrc(png);
+  })));
+}
+
 // ------------------------------------------------------------ session state
 
 const S = { q: {}, access: [], viewed: null, log: [], confirmed: {}, resolved: {}, added: {}, sel: {}, pick: {}, intake: [], off: {}, draft: null };
@@ -121,6 +242,13 @@ const patient = (pid) => C.patients.find((p) => p.pid === pid);
 const deptOf = (p) => Object.keys(DEPTS).find((d) => DEPTS[d].path === p.path);
 const lostOf = (p) => p.facts.filter((f) => f.status === "LOST");
 const unverifiedOf = (p) => p.facts.filter((f) => verdict(f) === "PICTURE");
+// Which patient each seeded story uses. Defaults by position in the care-path cohort, which in the published data gives
+// P001 and P004 answered by fax, P003 link opened, P004 fax, P005 chat, P007 GP letter, P014 no consent, P016 rejected.
+const cohort = (path) => C.patients.filter((p) => p.path === path).map((p) => p.pid);
+const CP = cohort("chest_pain"), KID = cohort("kidney");
+const ROLE = { answered: [CP[0], CP[3]], opened: [CP[2]], gp: CP[CP.length - 1], noConsent: [KID[0]], rejected: [KID[2]], ...SC.roles };
+ROLE.fax ??= [...ROLE.answered].reverse().find((pid) => patient(pid)?.facts.some((f) => f.fact === "troponin_poc"));
+ROLE.chat ??= CP.filter((pid) => patient(pid).facts.some((f) => f.source === "echo" && f.status === "LOST")).pop();
 
 // ------------------------------------------------------------ formatting
 
@@ -129,9 +257,9 @@ const stamp = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDat
 const fmtTime = (t) => (t ? t.replace("T", " ").slice(0, 16) : "");
 const fmtDate = (d) => d.split("-").reverse().join("-");
 const later = (t, min) => stamp(new Date(new Date(t.replace(" ", "T")).getTime() + min * 6e4));
-const now = () => stamp(new Date());
+const now = () => CLOCK || stamp(new Date());
 const age = (dob) => {
-  const n = new Date(), b = new Date(dob);
+  const n = CLOCK ? new Date(CLOCK.replace(" ", "T")) : new Date(), b = new Date(dob);
   return n.getFullYear() - b.getFullYear() - (n < new Date(n.getFullYear(), b.getMonth(), b.getDate()) ? 1 : 0);
 };
 const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
@@ -160,7 +288,7 @@ function remark(f) {
   if (v === "DATA") return f.source === "radiology" ? "DICOM header attribute." : "LOINC-coded result in SI units.";
   if (v === "CONFLICT") return "Local code mapped to LOINC and unit converted on receipt. Original value retained.";
   if (v === "CONFIRMED") return `Verified against the source image by ${S.confirmed[factKey(f)]}.`;
-  if (v === "PICTURE") return f.file.endsWith(".pdf")
+  if (v === "PICTURE") return (f.file || "").endsWith(".pdf")
     ? "Value extracted from the report text. No structured result available. Verification required."
     : `No structured report (DICOM SR). Value extracted from the image by optical character recognition${c}. Verification required.`;
   if (f.fact === "troponin_poc") return "Point-of-care result reported by fax. No electronic result received.";
@@ -208,12 +336,13 @@ function seedLog() {
     const items = ITEMS[p.pid], last = fmtTime(items[items.length - 1].time), dept = DEPTS[deptOf(p)].label;
     const hl7 = items.filter((i) => i.format === "HL7 v2 ORU^R01").map(full);
     if (p.path === "chest_pain") {
-      const t = later(last, 26 * 60), poc = p.facts.find((f) => f.fact === "troponin_poc"), tr = later(fmtTime(poc.time), 6 * 60);
+      const t = later(last, 26 * 60), poc = p.facts.find((f) => f.fact === "troponin_poc"), tr = poc && later(fmtTime(poc.time), 6 * 60);
       add({ time: t, kind: "send", from: dept, to: "Heuvelland Ziekenhuis", pid: p.pid, format: TWIIN_FORMAT, channel: "Twiin",
         what: [...hl7, ...items.filter((i) => i.cat === "echo" || i.format === "PDF report").map(full)],
         q: "Back-referral after chest pain work-up. Please continue follow-up. Echocardiography values are unverified.",
         history: hist(t, [[0, "Sent: notification to recipient"], [14, "Fetched by recipient"], [190, "Acknowledged"]]) });
-      const answered = p.pid.endsWith("1") || p.pid.endsWith("4"), opened = p.pid.endsWith("3");
+      if (!poc) continue;
+      const answered = ROLE.answered.includes(p.pid), opened = ROLE.opened.includes(p.pid);
       const steps = answered ? [[0, "Sent"], [1, "Delivered"], [2 * 24 * 60, "Answered: result provided by fax"]]
         : [[0, "Sent"], [1, "Delivered"], ...(opened ? [[3 * 60, "Link opened by recipient"]] : [])];
       const l = add({ time: tr, kind: "request", from: dept, to: SOURCE.offline.sender, pid: p.pid, what: [LABEL.troponin_poc], facts: ["troponin_poc"], format: "Result request",
@@ -234,10 +363,10 @@ function seedLog() {
       const t = later(last, 3 * 60);
       add({ time: t, kind: "send", from: dept, to: "General practitioner", pid: p.pid, what: hl7, format: "HL7 v2 ORU^R01", channel: "ZorgMail",
         q: "Progressive rise in creatinine over five visits. Please review medication and repeat renal function in four weeks.",
-        history: hist(t, p.pid === "P016" ? [[0, "Sent"], [0, "Rejected by recipient: unknown code"]] : [[0, "Sent"], [1, "Delivered"]]) });
+        history: hist(t, ROLE.rejected.includes(p.pid) ? [[0, "Sent"], [0, "Rejected by recipient: unknown code"]] : [[0, "Sent"], [1, "Delivered"]]) });
       // Results made available on the regional platform need the patient's explicit consent (Wabvpz art. 15a), checked in Mitz.
       // One patient has no consent registered, so nothing is made available for them (synthetic).
-      const ts = later(last, 4 * 60), yes = !p.pid.endsWith("4");
+      const ts = later(last, 4 * 60), yes = !ROLE.noConsent.includes(p.pid);
       add({ time: ts, kind: "share", from: dept, to: REGION, pid: p.pid, what: hl7.slice(-1), format: "FHIR Observations (laboratory results)", channel: "Regional platform",
         consent: yes ? "Mitz: explicit consent, category hospitals" : "Mitz: no consent registered", q: "Latest renal function results, for the regional care pathway.",
         history: hist(ts, yes ? [[0, "Consent check: consent registered"], [0, "Made available"], [1, "Accepted by platform"]] : [[0, "Consent check: no consent registered"], [0, "Not sent: no consent"]]) });
@@ -253,7 +382,7 @@ function seedLog() {
 // One-time upload link for a sender without an electronic link: one patient, one request, 7 days, single use.
 // Seeded links get a fixed token and code; links made during the session get random ones.
 function newLink(time, seed) {
-  const r = seed ? (k) => ((seed * 7919 * k) % 1e6) : () => Math.floor(Math.random() * 1e6);
+  const r = seed ? (k) => ((seed * 7919 * k) % 1e6) : () => Math.floor(rand() * 1e6);
   const b36 = (x) => x.toString(36).toUpperCase().padStart(4, "0").slice(-4);
   return { token: `UL-${b36(r(3))}-${b36(r(5))}`, code: String(r(11)).padStart(6, "0"), until: later(time, 7 * 24 * 60).slice(0, 10) + " 23:59", state: "active" };
 }
@@ -370,20 +499,20 @@ const ruleFor = (channel) => ({ Twiin: "R9", "Regional platform": "R12", ZorgMai
 
 function seedIntake() {
   const add = (o) => S.intake.push({ key: "I" + (S.intake.length + 1), status: "Open", ...o });
-  const p4 = patient("P004"), poc = p4?.facts.find((f) => f.fact === "troponin_poc");
+  const p4 = patient(ROLE.fax), poc = p4?.facts.find((f) => f.fact === "troponin_poc");
   if (poc) add({ time: later(fmtTime(poc.time), 6 * 60 + 2 * 24 * 60 + 40), channel: "fax", from: SOURCE.offline.sender, subject: "Fax, 1 page: point-of-care troponin",
     pid: p4.pid, match: "Name and date of birth read from the fax (OCR), one match in the patient master index", fact: "troponin_poc", value: poc.truth_value,
     text: `FAX  ${SOURCE.offline.sender}\nTo: Cardiology, ${HOSPITAL}\nPatient: ${p4.family}, ${p4.given[0]}.   Date of birth: ${fmtDate(p4.dob)}\nTroponin (POCT)  ${String(poc.truth_value).replace(".", ",")} ng/L   ${fmtTime(poc.time)}` });
-  const p5 = patient("P005"), ivs = p5?.facts.find((f) => f.fact === "ivs_thickness" && f.status === "LOST");
-  if (ivs) add({ time: later(fmtTime(ivs.time), 3 * 60), channel: "chat", internal: true, from: "Echocardiography, " + HOSPITAL, subject: "Chat message: IVSd measurement",
+  const p5 = patient(ROLE.chat), ivs = p5?.facts.find((f) => f.source === "echo" && f.status === "LOST");
+  if (ivs) add({ time: later(fmtTime(ivs.time), 3 * 60), channel: "chat", internal: true, from: "Echocardiography, " + HOSPITAL, subject: `Chat message: ${ABBR[ivs.fact]} measurement`,
     pid: p5.pid, match: "Patient number in the message", fact: "ivs_thickness", value: ivs.truth_value,
-    text: `[Cardiology department chat]\nSonographer: Patient no. ${p5.mrn}, echo today. IVSd ${ivs.truth_value} mm. Measurement is not legible on the exported image.` });
-  const p7 = patient("P007");
-  if (p7) add({ time: later(fmtTime(ITEMS.P007[0].time), -24 * 60), channel: "mail", title: "Referral letter and ECG, general practitioner", from: "Huisartsenpraktijk Molenveld", email: "praktijk@molenveld.example", subject: "Referral letter and ECG, 2 attachments",
+    text: `[Cardiology department chat]\nSonographer: Patient no. ${p5.mrn}, echo today. ${ABBR[ivs.fact]} ${ivs.truth_value} ${unit(C.fact_defs[ivs.fact].unit)}. Measurement is not legible on the exported image.` });
+  const p7 = patient(ROLE.gp);
+  if (p7 && ITEMS[p7.pid][0]) add({ time: later(fmtTime(ITEMS[p7.pid][0].time), -24 * 60), channel: "mail", title: "Referral letter and ECG, general practitioner", from: "Huisartsenpraktijk Molenveld", email: "praktijk@molenveld.example", subject: "Referral letter and ECG, 2 attachments",
     pid: p7.pid, match: "BSN in the letter, matched", fact: null,
     text: `From: praktijk@molenveld.example\nTo: cardiologie@azzuid.example\nSubject: Referral ${p7.family}, BSN ${p7.bsn}\nAttachments: referral_letter.pdf, ecg.pdf` });
   const pts = C.patients.filter((p) => p.path === "chest_pain"), last = pts.flatMap((p) => ITEMS[p.pid]).map((i) => fmtTime(i.time)).sort().pop();
-  add({ time: later(last, 60), channel: "folder", internal: true, title: "Scanned document", from: "Scanner, cardiology outpatient clinic", subject: "Scanned document, 2 pages", pid: null, match: "No patient identifiers found on the scan", fact: null,
+  if (last) add({ time: later(last, 60), channel: "folder", internal: true, title: "Scanned document", from: "Scanner, cardiology outpatient clinic", subject: "Scanned document, 2 pages", pid: null, match: "No patient identifiers found on the scan", fact: null,
     text: "\\\\fs01\\scan\\cardiology\\scan_0412.pdf\n2 pages, 300 dpi. OCR found no BSN, patient number or date of birth." });
 }
 seedIntake();
@@ -428,7 +557,7 @@ const flagCell = (x) => { const w = SHORT[x] || x; return td(/^(Not sent|Error|R
 // ------------------------------------------------------------ access log (NEN 7513): who did what, to which patient, on what basis
 // Seeded entries come from the seeded referrals and requests; users are synthetic.
 const USERS = { Cardiology: ["L. Hermans", "Cardiologist"], Pulmonology: ["S. Bakker", "Pulmonologist"], Nephrology: ["R. Jansen", "Nephrologist"], "Data management": ["M. Claessens", "Data manager"] };
-const reqId = () => "REQ-" + Math.random().toString(16).slice(2, 10).toUpperCase();
+const reqId = () => "REQ-" + rand().toString(16).slice(2, 10).toUpperCase();
 const ACTION = (l) => l.kind === "send" ? "Sent referral" : l.kind === "request" ? "Requested result" : /^Not sent/.test(lastStatus(l)) ? "Make available: blocked, no consent" : "Made available";
 function logAccess(o) {
   S.access.push({ id: "A" + (S.access.length + 1), time: now(), user: "Demo User", role: CTX?.admin ? "Data manager" : CTX?.dept ? `Clinician, ${DEPTS[CTX.dept].label}` : "Clinician",
@@ -504,7 +633,7 @@ function renderClinic(dept, pid, tab, itemId) {
     <a href="#/clinic/${dept}/intake" class="${pid === "intake" ? "on" : ""}"><span>Documents to File</span><span class="marks">${toFile || ""}</span></a>
     <a href="#/clinic/${dept}/recon" class="${pid === "recon" ? "on" : ""}"><span>Results to Resolve</span><span class="marks">${mark("PICTURE", unv, "unverified")}${mark("LOST", red, "not received or unmatched")}</span></a>
     <h3>${DEPTS[dept].label} worklist</h3><div class="sfilter">${filterBox("side")}</div>${pts.map((x) =>
-    `<a href="#/clinic/${dept}/${x.pid}" class="${x === p ? "on" : ""}" data-q="${esc([x.name, x.mrn, x.bsn, fmtDate(x.dob)].join(" "))}"><span>${esc(x.family)}, ${esc(x.given)}</span>
+    `<a href="#/clinic/${dept}/${x.pid}" class="${x === p ? "on" : ""}" data-pid="${x.pid}" data-q="${esc([x.name, x.mrn, x.bsn, fmtDate(x.dob)].join(" "))}"><span>${esc(x.family)}, ${esc(x.given)}</span>
       <span class="marks">${mark("PICTURE", unverifiedOf(x).length, "unverified")}${mark("LOST", lostOf(x).length, "not received")}</span></a>`).join("")}</aside>`;
 
   if (pid === "intake" || pid === "recon") return renderQueue(dept, pid, tab, side, pts);
@@ -521,7 +650,7 @@ function renderClinic(dept, pid, tab, itemId) {
 
   const count = (t) => (t === "transfers" ? auditOf(p).length : inTab(t).length);
   const tabs = `<nav class="tabs">${TABS.filter(([k]) => ["all", "missing", "transfers"].includes(k) || count(k)).map(([k, l]) =>
-    `<a href="#/clinic/${dept}/${p.pid}/${k}" class="${k === tab ? "on" : ""}">${l}<span class="n">${count(k)}</span></a>`).join("")}</nav>`;
+    `<a href="#/clinic/${dept}/${p.pid}/${k}" class="${k === tab ? "on" : ""}" data-tab="${k}">${l}<span class="n">${count(k)}</span></a>`).join("")}</nav>`;
 
   const body = tab === "transfers"
     ? `<div class="split"><div class="pane full">${auditGrid(p)}</div></div>`
@@ -551,7 +680,7 @@ function resolveDetail(r, dept) {
   return `<div class="block"><dl class="kv"><dt>Patient</dt><dd>${esc(r.p.name)} · ${fmtDate(r.p.dob)} · ${r.p.mrn}</dd><dt>Document</dt><dd>${esc(full(it))}</dd>
       <dt>Sender</dt><dd>${esc(it.origin)}</dd></dl>
       <div class="inline"><button data-href="#/clinic/${dept}/${r.p.pid}/all/${it.id}">Open patient record</button></div></div>
-    ${resultBlock(r.f)}${it.upload ? uploadView(it.upload) : viewer(r.f)}`;
+    ${resultBlock(r.f)}${it.upload ? uploadView(it.upload) : viewer(r.f, it)}`;
 }
 function renderQueue(dept, kind, key, side, pts) {
   const q = queues(dept), k = decodeURIComponent(key || "");
@@ -575,7 +704,7 @@ function renderQueue(dept, kind, key, side, pts) {
 function worklist(dept, pts) {
   const rows = pts.map((p, i) => {
     const items = itemsOf(p.pid), last = items[items.length - 1];
-    return `<tr class="row ${i === 0 ? "sel" : ""}" data-href="#/clinic/${dept}/${p.pid}" data-q="${esc([p.name, p.mrn, p.bsn, fmtDate(p.dob)].join(" "))}">
+    return `<tr class="row ${i === 0 ? "sel" : ""}" data-href="#/clinic/${dept}/${p.pid}" data-pid="${p.pid}" data-q="${esc([p.name, p.mrn, p.bsn, fmtDate(p.dob)].join(" "))}">
       ${tdt(`${p.family}, ${p.given}`)}${td(p.sex)}${td(age(p.dob), "num")}${td(fmtDate(p.dob))}${td(p.mrn)}${td(fmtTime(last.time))}
       ${td(items.length, "num")}${td(unverifiedOf(p).length || "", "num")}${td(lostOf(p).length || "", "num")}</tr>`;
   });
@@ -599,7 +728,7 @@ function banner(p, dept) {
 }
 
 function docGrid(items, sel, dept, p, tab) {
-  const rows = items.map((i) => `<tr class="row ${i === sel ? "sel" : ""}" data-href="#/clinic/${dept}/${p.pid}/${tab}/${i.id}">
+  const rows = items.map((i) => `<tr class="row ${i === sel ? "sel" : ""}" data-href="#/clinic/${dept}/${p.pid}/${tab}/${i.id}" data-doc="${i.id}">
     ${td(i.receivedAt || fmtTime(i.time))}${tdt(i.title)}${tdt(i.origin)}${td(docStatus(i))}</tr>`);
   return table([["Date and time", "152px", "", 2], ["Document"], ["Sender", "26%", "", 3], ["Status", "120px"]], rows);
 }
@@ -608,7 +737,7 @@ function docGrid(items, sel, dept, p, tab) {
 function docStatus(i) {
   const n = (v) => i.facts.filter((f) => verdict(f) === v).length, unv = n("PICTURE"), lost = n("LOST");
   if (i.added || unv + lost < 2) return st(worst(i));
-  return st(worst(i), [unv && `${unv} unverified`, lost && `${lost} not received`].filter(Boolean).join(", "));
+  return `<span class="stack">${unv ? st("PICTURE", `${unv} unverified`) : ""}${lost ? st("LOST", `${lost} not received`) : ""}</span>`;
 }
 function docDetail(it, admin = false) {
   const fsel = it.facts.find((f) => factKey(f) === S.sel.fact) || it.facts[0];
@@ -617,9 +746,9 @@ function docDetail(it, admin = false) {
   const src = SOURCE[it.source] || { system: it.via || "Manual upload" };
   const cap = it.facts.find((f) => f.captured)?.captured;
   return `
-    ${it.facts.length ? table([["Test", "46%"], ["Result", "", "num"], ["Status", "124px"]], rows) : `<p class="empty">Attached document. No structured results.</p>`}
+    ${it.facts.length ? table([["Test"], ["Result", "28%", "num"], ["Status", "30%"]], rows) : `<p class="empty">Attached document. No structured results.</p>`}
     ${resultBlock(fsel, admin)}
-    ${it.upload ? uploadView(it.upload) : viewer(fsel)}
+    ${it.upload ? uploadView(it.upload) : viewer(fsel, it)}
     ${admin ? `<div class="block"><h4>Provenance</h4><dl class="kv">
       <dt>Performing organisation</dt><dd>${esc(it.origin)}</dd>
       ${it.via ? `<dt>Received via</dt><dd>${esc(it.via)}, ${esc(it.receivedAt)}</dd>` : ""}
@@ -653,11 +782,17 @@ function resultBlock(f, admin = false) {
       ${admin ? `<dt>Code mapping</dt><dd>${m[0]} → LOINC ${loinc} · ${esc(mapNote(f))}</dd>` : `<dt>LOINC</dt><dd>${loinc}</dd>`}` : loinc ? `<dt>LOINC</dt><dd>${loinc}</dd>` : ""}
     <dt>Remark</dt><dd>${esc(remark(f))}</dd></dl>${action}</div>`;
 }
-function viewer(f) {
+function viewer(f, it) {
+  if (!f?.media && it && !it.added && !it.via) {
+    // only a laboratory message is printed as a page; anything else says plainly that there is nothing to show
+    if (["epic_lab", "ext_lab"].includes(it.source) && !it.facts.every((x) => x.status === "LOST")) return uploadView({ name: it.ref || it.title, type: "image/svg+xml", url: printPage(it), note: "Page 1" });
+    const why = it.file ? `No preview available for this format (${it.format})` : `Document not received · expected from ${it.origin}${it.format ? ` by ${it.format.toLowerCase()}` : ""}`;
+    return `<div class="viewer"><div class="bar"><b>${esc(it.ref || it.title)}</b></div><div class="stage"><p class="empty">${esc(why)}</p></div></div>`;
+  }
   if (!f?.media) return "";
   const b = f.media.box;
   return `<div class="viewer"><div class="bar"><b>${esc(f.media.png.replace(/^raw_\w+?_/, "").replace(/\.(pdf\.png|jpg|png)$/, ""))}</b><span>${esc(label(f))}</span>${expandBtn}</div>
-    <div class="stage" title="Double-click to expand"><div class="frame"><img src="${MEDIA + f.media.png}" alt="">${b ? `<div class="box" style="left:${b[0]}%;top:${b[1]}%;width:${b[2]}%;height:${b[3]}%"></div>` : ""}</div></div></div>`;
+    <div class="stage" title="Double-click to expand"><div class="frame"><img src="${mediaSrc(f.media.png)}" alt="">${b ? `<div class="box" style="left:${b[0]}%;top:${b[1]}%;width:${b[2]}%;height:${b[3]}%"></div>` : ""}</div></div></div>`;
 }
 
 // A file that came in through an upload link, intake or manual attachment; the viewer stays the only dark surface.
@@ -666,7 +801,7 @@ function uploadView(u) {
   const body = !u.url ? `<p class="empty">${esc(u.name)} · original kept in the source system</p>`
     : u.type?.startsWith("image/") ? `<div class="frame"><img src="${u.url}" alt=""></div>`
     : u.type === "application/pdf" ? `<iframe src="${u.url}" title="${esc(u.name)}"></iframe>` : `<p class="empty">${esc(u.name)} · no preview for this file type</p>`;
-  return `<div class="viewer"><div class="bar"><b>${esc(u.name)}</b><span>${u.size ? kb(u.size) : ""}</span>${u.url ? expandBtn : ""}</div><div class="stage">${body}</div></div>`;
+  return `<div class="viewer"><div class="bar"><b>${esc(u.name)}</b><span>${u.size ? kb(u.size) : esc(u.note || "")}</span>${u.url ? expandBtn : ""}</div><div class="stage">${body}</div></div>`;
 }
 const expandBtn = `<button class="vx" data-expand title="Expand (F)">Expand</button>`;
 // Expanded view: the same document, full window; the marking around the value can be switched off (M).
@@ -675,7 +810,7 @@ function expandViewer(v) {
   const o = document.createElement("div");
   o.id = "lightbox";
   o.innerHTML = `<div class="bar">${v.querySelector(".bar").innerHTML}
-    <label class="vx"><input type="checkbox" checked data-marking> Show marking <kbd>M</kbd></label><button class="vx" data-shrink>Close <kbd>Esc</kbd></button></div>
+    ${v.querySelector(".box") ? `<label class="vx"><input type="checkbox" checked data-marking> Show marking <kbd>M</kbd></label>` : ""}<button class="vx" data-shrink>Close <kbd>Esc</kbd></button></div>
     <div class="stage">${v.querySelector(".stage").innerHTML}</div>`;
   o.querySelector("[data-expand]").remove();
   document.body.append(o);
@@ -925,7 +1060,8 @@ function echoRows() {
     const it = ITEMS[p.pid].find((x) => x.cat === "echo"); if (!it) return;
     const v = (k) => it.facts.find((f) => f.fact === k)?.truth_value;
     rows.push({ patnr: i === 2 ? ` ${p.mrn} ` : i === 5 ? p.mrn.slice(0, -2) + p.mrn.slice(-1) + p.mrn.slice(-2, -1) : p.mrn, datum: dmy(it.time, true),
-      EF: i % 2 ? `${v("lvef")}%` : `${v("lvef")}`, IVS: comma(v("ivs_thickness").toFixed(1)), LVIDd: i % 3 === 1 ? comma((v("lv_diameter") / 10).toFixed(1)) : String(v("lv_diameter")),
+      EF: v("lvef") == null ? "" : i % 2 ? `${v("lvef")}%` : `${v("lvef")}`, IVS: v("ivs_thickness") == null ? "" : comma(v("ivs_thickness").toFixed(1)),
+      LVIDd: v("lv_diameter") == null ? "" : i % 3 === 1 ? comma((v("lv_diameter") / 10).toFixed(1)) : String(v("lv_diameter")),
       opm: ["", "poor acoustic window", "", "see report", "", "", ""][i] || "" });
   });
   if (rows[0]) rows.splice(1, 0, { ...rows[0] }); // entered twice
@@ -1019,7 +1155,65 @@ function intakeDetail(i) {
       <div class="inline">${ok ? "" : `<button data-q-act="i-dir" data-key="${i.key}">Register sender as institution</button>`}
         <button class="primary" data-q-act="i-file" data-key="${i.key}" ${ok ? "" : "disabled"}>File to patient</button>
         <button data-q-act="i-reject" data-key="${i.key}">Reject</button></div>` : `<div>${esc(i.status)}</div>`}</div>
+    ${scanFile(i) ? uploadView(scanFile(i)) : ""}
     <div class="block"><h4>Source message</h4><pre class="raw">${esc(i.text)}</pre></div>`;
+}
+const scanFile = (i) => i.channel !== "chat" && { name: { fax: "Fax", mail: "referral_letter.pdf" }[i.channel] || i.text.split("\n")[0].split("\\").pop(), type: "image/svg+xml",
+  url: scanPage(i), note: i.channel === "folder" ? "Page 1 of 2" : "Page 1" };
+// A captured document as the scanned page that came in, drawn from the item's own text and the patient's data only.
+function scanPage(i) {
+  const p = i.pid && patient(i.pid);
+  const scrawl = (x, y, len, k) => { // illegible handwriting: arches of uneven height, a gap between words
+    let d = `M${x} ${y}`;
+    for (let j = 0, w = 0; w < len; j++) { const h = 3 + ((j * 7 + k * 3) % 6), a = 3 + ((j * 5 + k) % 4); w += j % 6 === 5 ? 7 : a; d += j % 6 === 5 ? " m7 0" : ` c1 ${-h} ${a} ${-h} ${a} ${(j % 3) - 1}`; }
+    return `<path d="${d}" fill="none" stroke="#2a3a6a" stroke-width="1.1"/>`; };
+  let body, font = "Arial, Helvetica, sans-serif";
+  if (i.channel === "fax") {
+    font = "'Courier New', monospace";
+    body = T(36, 28, `${i.time}   FROM: ${i.from}   P.1/1`, 'font-size="10"') + rule(36, 36, 523)
+      + i.text.split("\n").map((l, k) => T(50, 110 + k * 24, l, `font-size="12" ${k ? "" : B}`)).join("");
+  } else if (i.channel === "mail") {
+    body = T(60, 80, i.from, `font-size="18" ${B}`) + T(60, 98, i.email || "", 'font-size="10"') + rule(60, 110, 475)
+      + T(60, 150, `To: Cardiology, ${HOSPITAL}`, 'font-size="11"') + T(60, 166, `Date: ${fmtDate(i.time.slice(0, 10))}`, 'font-size="11"')
+      + T(60, 210, "Re: referral", `font-size="12" ${B}`)
+      + (p ? [`Patient: ${p.family}, ${p.given}`, `Date of birth: ${fmtDate(p.dob)}`, `BSN: ${p.bsn}`].map((l, k) => T(60, 236 + k * 16, l, 'font-size="11"')).join("") : "")
+      + ["Dear colleague,", "", "I would be grateful if you would assess this patient at your cardiology outpatient", "clinic for chest pain. The ECG is attached.", "",
+        "Kind regards,", "", "General practitioner", i.from].map((l, k) => T(60, 310 + k * 16, l, 'font-size="11"')).join("");
+  } else {
+    body = T(60, 70, HOSPITAL, `font-size="14" ${B}`) + T(60, 88, "Cardiology outpatient clinic · Consultation form", 'font-size="11"') + rule(60, 98, 475)
+      + ["Name", "Date of birth", "Patient no.", "BSN"].map((l, k) => T(60, 136 + k * 26, l, 'font-size="11"') + rule(170, 138 + k * 26, 250)).join("")
+      + T(60, 260, "Complaint and history", `font-size="11" ${B}`) + [440, 455, 410, 450, 180].map((n, k) => scrawl(62, 290 + k * 22, n, k)).join("")
+      + T(60, 420, "Examination", `font-size="11" ${B}`) + [430, 460, 260].map((n, k) => scrawl(62, 450 + k * 22, n, k + 5)).join("")
+      + T(297, 800, "1 / 2", 'font-size="9" text-anchor="middle"');
+  }
+  return sheet(body, font, true);
+}
+// An A4 page as an SVG data URL; a scan gets a grey cast, noise and a slight skew.
+const T = (x, y, t, o = "") => `<text x="${x}" y="${y}" ${o}>${esc(t)}</text>`, B = 'font-weight="700"';
+const rule = (x, y, w) => `<line x1="${x}" y1="${y}" x2="${x + w}" y2="${y}" stroke="#555" stroke-width=".6"/>`;
+const sheet = (body, font, scan) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 595 842" width="595" height="842">
+  ${scan ? `<defs><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="3"/><feColorMatrix values="0 0 0 0 .35 0 0 0 0 .35 0 0 0 0 .33 .28 0 0 0 0"/></filter></defs>` : ""}
+  <rect width="595" height="842" fill="${scan ? "#eeece4" : "#fff"}"/><g ${scan ? 'transform="rotate(-.4 297 421)" ' : ""}fill="#232327" font-family="${font}">${body}</g>
+  ${scan ? `<rect width="595" height="842" filter="url(#n)"/>` : ""}</svg>`);
+// A document with no image of its own, printed from the data: a laboratory report as the sender reported it, or a page
+// that says what was expected and did not arrive. Rows are [label, value] or, in the table, [test, result, unit].
+function printPage(it) {
+  const p = patient(it.pid), lost = it.facts.every((f) => f.status === "LOST"), lab = !lost && ["epic_lab", "ext_lab"].includes(it.source);
+  const kv = [["Patient", `${p.family}, ${p.given}`], ["Date of birth", fmtDate(p.dob)], ["Patient no.", p.mrn], ["Date and time", fmtTime(it.time)]];
+  // the test name and value as the message carries them (OBX for HL7, INV and RSL for EDIFACT), else ours
+  const row = (f) => {
+    const x = f.excerpt || "", obx = /OBX\|\d+\|\w+\|[^^]*\^([^^]+)\^LN\|\|([^|]*)\|([^|]*)\|/.exec(x), inv = /INV\+(\w+):([^:']+)/.exec(x), rsl = /RSL\+NV\+([^+]+)\+([^']+)'/.exec(x);
+    return obx ? [obx[1], obx[2], unit(obx[3])] : inv && rsl ? [`${inv[2]} (${inv[1]})`, rsl[1], unit(rsl[2])] : [label(f), f.got ?? "", unit(C.fact_defs[f.fact]?.unit)];
+  };
+  const head = lab ? [T(60, 70, it.origin, `font-size="15" ${B}`), T(60, 88, `${it.title} ${it.ref}`, 'font-size="11"')]
+    : [T(60, 70, it.file ? "No preview available" : "Document not received", `font-size="15" ${B}`), T(60, 88, full(it), 'font-size="11"')];
+  if (!lab) kv.push(["Sender", it.origin], ["Format", it.format]);
+  const table = lab ? [["Test", "Result", "Unit"], ...it.facts.map(row)] : [["Test", "Status"], ...it.facts.map((f) => [label(f), WORD[verdict(f)]])];
+  let y = 124;
+  const body = [...head, rule(60, 98, 475), ...kv.map(([l, v]) => T(60, (y += 16), l, 'font-size="10"') + T(170, y, v, 'font-size="10"')),
+    ...table.map((r, k) => r.map((c, j) => T([60, 320, 420][j], (y += j ? 0 : k ? 16 : 34), c, `font-size="10" ${k ? "" : B}`)).join("") + (k ? "" : rule(60, y + 5, 475))),
+    ...(lost ? (remark(it.facts[0]).match(/.{1,90}(\s|$)/g) || []).map((l, k) => T(60, (y += k ? 14 : 30), l.trim(), 'font-size="10"')) : [])];
+  return sheet(body.join(""), "Arial, Helvetica, sans-serif");
 }
 
 const rowStatus = (o) => o.status === "Adds structured value" ? td(st("DATA", o.status), "", `${o.m.p.name}: ${o.upd.map((h) => LABEL[h.fact]).join(", ")}`)
@@ -1506,7 +1700,7 @@ const ADMIN = {
 function renderAdmin(tab, key) {
   if (!ADMIN[tab]) tab = "overview";
   const t = ADMIN[tab];
-  const tabs = `<nav class="tabs">${Object.entries(ADMIN).map(([k, a]) => `<a href="#/admin/${k}" class="${k === tab ? "on" : ""}">${a.label}</a>`).join("")}</nav>`;
+  const tabs = `<nav class="tabs">${Object.entries(ADMIN).map(([k, a]) => `<a href="#/admin/${k}" class="${k === tab ? "on" : ""}" data-tab="${k}">${a.label}</a>`).join("")}</nav>`;
   CTX = { admin: tab };
   if (tab === "overview") {
     CTX.exp = { all: overviewExport() };
@@ -1747,7 +1941,7 @@ function reconAct(a, key) {
   if (a.startsWith("cert-") && !CERTS[key]) return;
   if (a === "i-file") {
     const pid = $("#i-pid").value; if (!pid) return $("#i-pid").focus();
-    fileResult(pid, { fact: i.fact, value: $("#i-val")?.value, via: chanName(i.channel), by: "Demo User, Documents to File", origin: i.from, title: i.title });
+    fileResult(pid, { fact: i.fact, value: $("#i-val")?.value, via: chanName(i.channel), by: "Demo User, Documents to File", origin: i.from, title: i.title, upload: scanFile(i) || undefined });
     Object.assign(i, { pid, status: "Filed" });
     logAccess({ pid, action: "Filed document", object: i.subject, basis: "Treatment relationship", system: chanName(i.channel) });
     return flash(`Filed to ${patient(pid).name}; routed to the ${DEPTS[deptOf(patient(pid))].label} worklist`);
@@ -1798,13 +1992,14 @@ document.addEventListener("keydown", (e) => {
   const lb = $("#lightbox");
   if (lb) {
     if (e.key === "Escape" || e.key.toLowerCase() === "f") lb.remove();
-    if (e.key.toLowerCase() === "m") { const c = $("[data-marking]", lb); c.checked = !c.checked; lb.classList.toggle("nomark", !c.checked); }
+    if (e.key.toLowerCase() === "m" && $("[data-marking]", lb)) { const c = $("[data-marking]", lb); c.checked = !c.checked; lb.classList.toggle("nomark", !c.checked); }
     return;
   }
   if (!$("#dialog").hidden) { if (e.key === "Escape") closeDialog(); return; }
   if (e.target.matches?.("input, textarea, select")) return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key.toLowerCase();
+  if (k === "d" && !CTX?.portal) { e.preventDefault(); return demoPanel(); }
   if (k === "f" && $("#app .viewer [data-expand]")) { e.preventDefault(); return expandViewer($("#app .viewer")); }
   if (k === "n" && CTX?.admin) { const a = { sources: "new-db", directory: "new-dir", channels: "new-chan", recog: "new-recog", mapping: "new-map" }[CTX.admin]; if (a) { e.preventDefault(); return act(a); } }
   if (k === "e" && CTX?.admin) { e.preventDefault(); return act(e.shiftKey ? "export-all" : "export-sel"); }
@@ -1824,8 +2019,37 @@ document.addEventListener("keydown", (e) => {
   }
   if (k === "enter") { const r = document.querySelector(".pane.full tr.sel[data-href]"); if (r) go(r.dataset.href); }
 });
+// ------------------------------------------------------------ demo panel (key D): applied by reloading with the settings in the URL, so a scene is one URL
+
+function demoPanel() {
+  const p = CTX?.p, f = CTX?.it && (CTX.it.facts.find((x) => factKey(x) === S.sel.fact) || CTX.it.facts[0]), cur = Q.get("s") || "";
+  const same = f ? patient(f.pid).facts.filter((x) => x.fact === f.fact && x.source === f.source) : [];
+  const key = f && `${f.pid}.${f.fact}.${f.source}${same.length > 1 ? "." + (same.indexOf(f) + 1) : ""}`, num = f && typeof (f.truth_value ?? 0) === "number";
+  openDialog(`<form class="dlg demo" id="f-demo"><header><b>Demo scenario</b><span class="pt">${esc(cur || "Live data")}</span></header><div class="body">
+      <label class="field"><span>Scenario</span><select name="s">${[...Object.keys(window.SCENARIOS || {}), "custom"].map((x) => opt(x, cur || "default")).join("")}</select></label>
+      <label class="field"><span>Opening patient</span><select name="p">${C.patients.map((x) => opt(x.pid, (p || LEAD).pid, `${x.family}, ${x.given}`)).join("")}</select></label>
+      ${p ? `<label class="field"><span>Patient name</span><input name="name" value="${esc(`${p.given} ${p.family}`)}"></label>` : ""}
+      ${num ? `<div class="field"><span>${esc(label(f))}</span><div class="inline" style="margin:0"><input name="v" value="${f.truth_value ?? ""}" inputmode="decimal" size="8">
+        <span class="dim">${esc(unit(C.fact_defs[f.fact]?.unit))}</span><select name="st">${["DATA", "CONFLICT", "PICTURE", "LOST"].map((x) => opt(x, f.status, WORD[x])).join("")}</select></div></div>` : ""}
+      <label class="field"><span>Clock</span><input name="t" value="${esc(CLOCK)}" placeholder="Wall clock"></label></div>
+    <footer><span class="left">Reloads with the scene in the URL.</span><button type="button" data-act="close">Cancel</button><button class="primary">Apply</button></footer></form>`);
+  $("#f-demo").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const d = Object.fromEntries(new FormData(e.target)), u = new URLSearchParams({ s: d.s }), keep = d.s === cur; // another scenario drops the earlier edits
+    const had = (k, pre) => keep && Q.getAll(k).some((x) => x.startsWith(pre));
+    if (keep) for (const k of ["set", "name"]) for (const x of Q.getAll(k)) if (!x.startsWith((k === "set" ? key + "=" : p?.pid + ".") || "\0")) u.append(k, x);
+    if (num && (had("set", key + "=") || d.v !== String(f.truth_value ?? "") || d.st !== f.status)) u.append("set", `${key}=${d.v}:${d.st}`);
+    if (p && (had("name", p.pid + ".") || d.name.trim() !== `${p.given} ${p.family}`)) u.append("name", `${p.pid}.${d.name.trim()}`);
+    if (d.p !== (patient(SC.patient) || C.patients[0]).pid) u.set("p", d.p);
+    if (d.t.trim() && (Q.has("t") || d.t.trim() !== CLOCK)) u.set("t", d.t.trim());
+    const np = patient(d.p);
+    location.href = `${location.pathname}?${u}${np !== (p || LEAD) ? `#/clinic/${deptOf(np)}/${np.pid}` : location.hash}`;
+  });
+}
+
 // keep the selected row in view after every render
 new MutationObserver(() => { applyFilters(); document.querySelector(".pane.list tr.sel")?.scrollIntoView({ block: "nearest" }); }).observe($("#app"), { childList: true });
 
-if (!location.hash) location.hash = "#/clinic/cardiology/P001";
-route();
+const LEAD = patient(Q.get("p") || SC.patient) || C.patients[0];
+if (!location.hash && LEAD) location.hash = `#/clinic/${deptOf(LEAD)}/${LEAD.pid}`;
+paintMedia().then(route);

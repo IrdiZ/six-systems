@@ -98,7 +98,7 @@ b, strong, th, h3, h4 { font-weight: 600; }
 /* tables */
 table.grid { border-collapse: collapse; width: 100%; table-layout: fixed; }
 .grid th, .grid td { padding: 4px 12px; height: var(--row); text-align: left; overflow-wrap: break-word; line-height: 1.35; }
-.grid th { font-size: 12px; height: 24px; color: var(--ink-2); background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 1; }
+.grid th { overflow-wrap: normal; font-size: 12px; height: 24px; color: var(--ink-2); background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 1; }
 .phead ~ table.grid th { top: var(--ph, 34px); }
 .grid td { border-bottom: 1px solid var(--hair); }
 .grid .num, .grid th.num { text-align: right; }
@@ -222,3 +222,5 @@ body.portal #app { display: block; overflow-y: auto; }
 .kpis.mini { flex-wrap: wrap; }
 .kpis.mini .kpi { flex: 1 1 30%; border-bottom: 1px solid var(--hair); }
 .filter { user-select: text; }
+.dlg.demo { width: min(520px, 100%); }
+.stack { display: flex; flex-direction: column; gap: 2px; }
