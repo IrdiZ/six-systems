@@ -61,7 +61,7 @@ const WORD = { DATA: "Structured", CONFLICT: "Converted", PICTURE: "Unverified",
 
 // ------------------------------------------------------------ session state
 
-const S = { access: [], viewed: null, log: [], confirmed: {}, resolved: {}, added: {}, sel: {}, pick: {}, intake: [], off: {}, draft: null };
+const S = { q: {}, access: [], viewed: null, log: [], confirmed: {}, resolved: {}, added: {}, sel: {}, pick: {}, intake: [], off: {}, draft: null };
 const factKey = (f) => `${f.pid}|${f.fact}|${f.time}|${f.source}`;
 const verdict = (f) => (f.status === "PICTURE" && S.confirmed[factKey(f)] ? "CONFIRMED" : f.status);
 
@@ -146,9 +146,11 @@ function value(f) {
 function asReceived(f) {
   const s = (f.steps || []).find((x) => x.includes("→") && x.includes("×"));
   if (s) return unit(s.split("→")[0].trim());
-  const m = EXT_LAB_CODES[f.fact];
-  return m ? `${f.got} ${m[1]}` : "";
+  return "";
 }
+// The conversion as six-sys applied it, e.g. "× 1000", and any repairs to the message (data management only).
+const conversionOf = (f) => ((f.steps || []).find((x) => x.includes("→") && x.includes("×"))?.match(/×\s*[\d.,/]+/) || [""])[0].replace("×", "× ");
+const repairsOf = (f) => (f.steps || []).filter((x) => /^decimal comma/.test(x));
 const ocrConfidence = (f) => (/confidence (\d+)%/.exec([f.reason, ...(f.steps || [])].join(" ")) || [])[1];
 // One professional sentence per result, by status and source.
 function remark(f) {
@@ -178,6 +180,18 @@ function table(cols, rows) {
 }
 const td = (html, cls = "", title = "") => `<td class="${cls}"${title ? ` title="${esc(title)}"` : ""}>${html}</td>`;
 const tdt = (text, cls = "") => td(esc(text), cls, text);
+// One search box per list: hides rows whose text (or data-q, which also holds columns not shown) lacks every word typed.
+const filterBox = (scope) => `<input type="search" class="filter" data-filter="${scope}" placeholder="Search" value="${esc(S.q[scope] || "")}" aria-label="Search">`;
+function applyFilters() {
+  for (const box of document.querySelectorAll("[data-filter]")) {
+    const words = box.value.toLowerCase().split(/\s+/).filter(Boolean), scope = box.closest(".pane, .side");
+    for (const el of scope.querySelectorAll("table.grid tr:not(:has(th)), a[data-q]")) el.hidden = !words.every((w) => (el.dataset.q || el.textContent).toLowerCase().includes(w));
+  }
+  // sticky table headers sit under the panel header, whatever its height
+  for (const h of document.querySelectorAll(".pane > .phead")) h.parentNode.style.setProperty("--ph", h.offsetHeight + "px");
+}
+document.addEventListener("input", (e) => { const b = e.target.dataset?.filter; if (b) { S.q[b] = e.target.value; applyFilters(); } });
+addEventListener("resize", applyFilters);
 const phead = (title, sub = "", extra = "") => `<div class="phead"><b>${esc(title)}</b>${sub ? `<span>${esc(sub)}</span>` : ""}${extra}</div>`;
 
 // Twiin carries the BgZ plus the referral letter as FHIR STU3, sender notifies and the recipient fetches (Notified Pull).
@@ -489,8 +503,8 @@ function renderClinic(dept, pid, tab, itemId) {
   const side = `<aside class="side"><h3 class="inbox">Inbox</h3>
     <a href="#/clinic/${dept}/intake" class="${pid === "intake" ? "on" : ""}"><span>Documents to File</span><span class="marks">${toFile || ""}</span></a>
     <a href="#/clinic/${dept}/recon" class="${pid === "recon" ? "on" : ""}"><span>Results to Resolve</span><span class="marks">${mark("PICTURE", unv, "unverified")}${mark("LOST", red, "not received or unmatched")}</span></a>
-    <h3>${DEPTS[dept].label} worklist</h3>${pts.map((x) =>
-    `<a href="#/clinic/${dept}/${x.pid}" class="${x === p ? "on" : ""}"><span>${esc(x.family)}, ${esc(x.given)}</span>
+    <h3>${DEPTS[dept].label} worklist</h3><div class="sfilter">${filterBox("side")}</div>${pts.map((x) =>
+    `<a href="#/clinic/${dept}/${x.pid}" class="${x === p ? "on" : ""}" data-q="${esc([x.name, x.mrn, x.bsn, fmtDate(x.dob)].join(" "))}"><span>${esc(x.family)}, ${esc(x.given)}</span>
       <span class="marks">${mark("PICTURE", unverifiedOf(x).length, "unverified")}${mark("LOST", lostOf(x).length, "not received")}</span></a>`).join("")}</aside>`;
 
   if (pid === "intake" || pid === "recon") return renderQueue(dept, pid, tab, side, pts);
@@ -545,10 +559,10 @@ function renderQueue(dept, kind, key, side, pts) {
   const cur = rows.find((r) => r.key === k) || rows[0];
   const tr = (r, cells) => `<tr class="row ${r === cur ? "sel" : ""}" data-href="#/clinic/${dept}/${kind}/${encodeURIComponent(r.key)}">${cells}</tr>`;
   const list = kind === "intake"
-    ? phead("Documents to File") +
-      table([["Received", "150px", "", 2], ["Sender", "25%", "", 3], ["Subject"], ["Patient", "200px"], ["Status", "100px"]],
+    ? phead("Documents to File", "", filterBox("intake")) +
+      table([["Date and time", "150px", "", 2], ["Sender", "25%", "", 3], ["Subject"], ["Patient", "200px"], ["Status", "100px"]],
         rows.map((i) => tr(i, `${td(i.time)}${td(known(i) ? esc(i.from) : st("PICTURE", i.from), "", i.from)}${tdt(i.subject)}${tdt(i.pid ? patient(i.pid).name : "–")}${td(i.status === "Open" ? st("PICTURE", "Open") : esc(i.status), "", i.status)}`)))
-    : phead("Results to Resolve") +
+    : phead("Results to Resolve", "", filterBox("recon")) +
       table([["Date and time", "150px", "", 2], ["Patient", "200px"], ["Result"], ["Issue", "190px"], ["Status", "140px", "", 3]],
         rows.map((r) => tr(r, `${td(r.time)}${tdt(r.p ? r.p.name : r.who)}${tdt(r.f ? label(r.f) : r.what)}${td(st(r.v, r.issue), "", r.issue)}${tdt(resolveStatus(r))}`)));
   const detail = cur ? (kind === "intake" ? intakeDetail(cur) : resolveDetail(cur, dept)) : `<p class="empty">Nothing to ${kind === "intake" ? "file" : "resolve"} for ${DEPTS[dept].label}.</p>`;
@@ -561,11 +575,11 @@ function renderQueue(dept, kind, key, side, pts) {
 function worklist(dept, pts) {
   const rows = pts.map((p, i) => {
     const items = itemsOf(p.pid), last = items[items.length - 1];
-    return `<tr class="row ${i === 0 ? "sel" : ""}" data-href="#/clinic/${dept}/${p.pid}">
+    return `<tr class="row ${i === 0 ? "sel" : ""}" data-href="#/clinic/${dept}/${p.pid}" data-q="${esc([p.name, p.mrn, p.bsn, fmtDate(p.dob)].join(" "))}">
       ${tdt(`${p.family}, ${p.given}`)}${td(p.sex)}${td(age(p.dob), "num")}${td(fmtDate(p.dob))}${td(p.mrn)}${td(fmtTime(last.time))}
       ${td(items.length, "num")}${td(unverifiedOf(p).length || "", "num")}${td(lostOf(p).length || "", "num")}</tr>`;
   });
-  return `<div class="split"><div class="pane full">${phead(DEPTS[dept].label + " worklist", plural(pts.length, "patient"))}
+  return `<div class="split"><div class="pane full">${phead(DEPTS[dept].label + " worklist", plural(pts.length, "patient"), filterBox("worklist"))}
     ${table([["Patient"], ["Sex", "60px"], ["Age", "70px", "num"], ["Date of birth", "120px"], ["Patient no.", "120px"], ["Last result", "150px"],
       ["Documents", "100px", "num"], ["Unverified", "100px", "num"], ["Not received", "120px", "num"]], rows)}</div></div>`;
 }
@@ -587,10 +601,10 @@ function banner(p, dept) {
 function docGrid(items, sel, dept, p, tab) {
   const rows = items.map((i) => `<tr class="row ${i === sel ? "sel" : ""}" data-href="#/clinic/${dept}/${p.pid}/${tab}/${i.id}">
     ${td(i.receivedAt || fmtTime(i.time))}${tdt(i.title)}${tdt(i.origin)}${td(st(worst(i)))}</tr>`);
-  return table([["Received", "152px", "", 2], ["Document"], ["Sender", "26%", "", 3], ["Status", "120px"]], rows);
+  return table([["Date and time", "152px", "", 2], ["Document"], ["Sender", "26%", "", 3], ["Status", "120px"]], rows);
 }
 
-function docDetail(it) {
+function docDetail(it, admin = false) {
   const fsel = it.facts.find((f) => factKey(f) === S.sel.fact) || it.facts[0];
   const rows = it.facts.map((f) => `<tr class="row ${f === fsel ? "sel" : ""}" data-fact="${esc(factKey(f))}">
     ${tdt(label(f))}${td(value(f), typeof f.got === "number" ? "num" : "", TR[f.got] || "")}${td(st(verdict(f)))}</tr>`);
@@ -598,21 +612,28 @@ function docDetail(it) {
   const cap = it.facts.find((f) => f.captured)?.captured;
   return `
     ${it.facts.length ? table([["Test", "46%"], ["Result", "", "num"], ["Status", "124px"]], rows) : `<p class="empty">Attached document. No structured results.</p>`}
-    ${resultBlock(fsel)}
+    ${resultBlock(fsel, admin)}
     ${it.upload ? uploadView(it.upload) : viewer(fsel)}
-    <div class="block"><h4>Provenance</h4><dl class="kv">
-      <dt>Sender</dt><dd>${esc(it.origin)}</dd>
+    ${admin ? `<div class="block"><h4>Provenance</h4><dl class="kv">
+      <dt>Performing organisation</dt><dd>${esc(it.origin)}</dd>
       ${it.via ? `<dt>Received via</dt><dd>${esc(it.via)}, ${esc(it.receivedAt)}</dd>` : ""}
       ${cap?.by ? `<dt>Entered by</dt><dd>${esc(cap.by)}</dd>` : ""}
-      ${it.upload?.sha ? `<dt>SHA-256</dt><dd>${esc(it.upload.sha)}</dd>` : ""}
       <dt>Source system</dt><dd>${esc(src.system)}</dd>
       <dt>Message format</dt><dd>${esc(it.format)}</dd>
       <dt>Acknowledgement</dt><dd>${esc(ackIn(it, it.origin))}</dd>
       ${it.ref ? `<dt>Document ID</dt><dd>${esc(it.ref)}</dd>` : ""}
-      ${identifiedBy(it) ? `<dt>Patient identification</dt><dd>${esc(identifiedBy(it))}</dd>` : ""}</dl></div>`;
+      ${identifiedBy(it) ? `<dt>Patient identification</dt><dd>${esc(identifiedBy(it))}</dd>` : ""}
+      ${it.facts.flatMap(repairsOf).length ? `<dt>Repairs applied</dt><dd>${esc([...new Set(it.facts.flatMap(repairsOf))].join("; "))}</dd>` : ""}
+      ${it.upload?.sha ? `<dt>Integrity (SHA-256)</dt><dd class="wrap">${esc(it.upload.sha)}</dd>` : ""}</dl></div>`
+    : `<div class="block"><h4>Origin</h4><dl class="kv">
+      <dt>Performing organisation</dt><dd>${esc(it.origin)}</dd>
+      ${it.receivedAt ? `<dt>Received</dt><dd>${esc(it.receivedAt)}${it.via ? `, ${esc(it.via)}` : ""}</dd>` : ""}
+      ${cap?.by ? `<dt>Entered by</dt><dd>${esc(cap.by)}</dd>` : ""}
+      ${S.confirmed[factKey(fsel)] ? `<dt>Verified by</dt><dd>${esc(S.confirmed[factKey(fsel)])}</dd>` : ""}
+      ${identifiedBy(it) && identifiedBy(it) !== "BSN" && !/cross-referenced to BSN/.test(identifiedBy(it)) ? `<dt>Patient identification</dt><dd>${esc(identifiedBy(it))}</dd>` : ""}</dl></div>`}`;
 }
 
-function resultBlock(f) {
+function resultBlock(f, admin = false) {
   if (!f) return "";
   const v = verdict(f), loinc = C.fact_defs[f.fact]?.loinc, link = openLink(f);
   const action = v === "LOST" && link ? `<div class="inline"><span class="dim">Upload link sent ${esc(link.time)} to ${esc(link.to)} · ${esc(lastStatus(link))}</span>
@@ -621,9 +642,9 @@ function resultBlock(f) {
     : v === "PICTURE" ? `<div class="inline"><button data-act="confirm">Verify result <kbd>V</kbd></button></div>` : "";
   const m = f.status === "CONFLICT" && EXT_LAB_CODES[f.fact];
   return `<div class="block"><h4>${esc(label(f))}</h4><dl class="kv">
-    ${m ? `<dt>Code mapping</dt><dd>${m[0]} → LOINC ${loinc} · ${esc(mapNote(f))}</dd>
-      <dt>As received</dt><dd>${esc(asReceived(f))}</dd>
-      <dt>Unit conversion</dt><dd>× ${m[2]} → ${f.got} ${esc(unit(C.fact_defs[f.fact].unit))}</dd>` : loinc ? `<dt>LOINC</dt><dd>${loinc}</dd>` : ""}
+    ${m ? `${asReceived(f) ? `<dt>Reported value</dt><dd>${esc(asReceived(f))}</dd>` : ""}
+      ${conversionOf(f) ? `<dt>Conversion</dt><dd>${esc(conversionOf(f))} → ${f.got} ${esc(unit(C.fact_defs[f.fact].unit))}</dd>` : ""}
+      ${admin ? `<dt>Code mapping</dt><dd>${m[0]} → LOINC ${loinc} · ${esc(mapNote(f))}</dd>` : `<dt>LOINC</dt><dd>${loinc}</dd>`}` : loinc ? `<dt>LOINC</dt><dd>${loinc}</dd>` : ""}
     <dt>Remark</dt><dd>${esc(remark(f))}</dd></dl>${action}</div>`;
 }
 function viewer(f) {
@@ -647,9 +668,10 @@ function expandViewer(v) {
   if (!v) return;
   const o = document.createElement("div");
   o.id = "lightbox";
-  o.innerHTML = `<div class="bar">${v.querySelector(".bar").innerHTML.replace(expandBtn, "")}
+  o.innerHTML = `<div class="bar">${v.querySelector(".bar").innerHTML}
     <label class="vx"><input type="checkbox" checked data-marking> Show marking <kbd>M</kbd></label><button class="vx" data-shrink>Close <kbd>Esc</kbd></button></div>
     <div class="stage">${v.querySelector(".stage").innerHTML}</div>`;
+  o.querySelector("[data-expand]").remove();
   document.body.append(o);
   o.addEventListener("change", (e) => { if (e.target.dataset.marking !== undefined) o.classList.toggle("nomark", !e.target.checked); });
   o.addEventListener("click", (e) => { if (e.target.closest("[data-shrink]") || e.target === o.querySelector(".stage")) o.remove(); });
@@ -670,8 +692,8 @@ function auditOf(p) {
   return [...received(p), ...out].sort((a, b) => b.time.localeCompare(a.time));
 }
 function auditGrid(p) {
-  const rows = auditOf(p).map((r) => `<tr>${td(r.time)}${td(r.event)}${tdt(r.from)}${tdt(r.to)}${tdt(r.what)}${tdt(r.format)}${td(statusCell(r.status), "", r.status)}</tr>`);
-  return table([["Date and time", "152px"], ["Event", "130px"], ["Sender", "18%"], ["Recipient", "18%"], ["Content"], ["Format and channel", "170px"], ["Status", "18%"]], rows);
+  const rows = auditOf(p).map((r) => `<tr>${td(r.time)}${td(r.event)}${tdt(r.from)}${tdt(r.to)}${td(r.what.split("; ").map(esc).join("<br>"))}${tdt(r.format)}${td(statusCell(r.status), "", r.status)}</tr>`);
+  return phead("Audit trail", "", filterBox("audit")) + table([["Date and time", "128px"], ["Event", "120px"], ["Sender", "16%"], ["Recipient", "16%"], ["Content"], ["Format and channel", "15%"], ["Status", "14%"]], rows);
 }
 
 function actionBar(hasPatient) {
@@ -721,7 +743,7 @@ function sendDialog(preTo) {
       <label class="field"><span>Channel</span><select name="channel"></select></label>
       <label class="field"><span>Message format</span><select name="format"></select></label>
       <label class="field"><span>Clinical question <span class="req">*</span></span><textarea name="q" required>${esc(draft?.q || "")}</textarea></label>
-      <div class="field"><span>Enclosures</span>${table([["", "36px"], ["Document"], ["Received", "152px"], ["Results", "70px", "num"], ["Status", "124px"]],
+      <div class="field"><span>Enclosures</span>${table([["", "44px"], ["Document"], ["Date and time", "152px"], ["Results", "70px", "num"], ["Status", "124px"]],
         items.map((i) => `<tr>${td(`<input type="checkbox" name="it" value="${i.id}" ${(draft ? draft.ids.includes(i.id) : i === it || !items.includes(it)) ? "checked" : ""}>`)}${tdt(i.title)}${td(i.receivedAt || fmtTime(i.time))}${td(i.facts.length || "", "num")}${td(st(worst(i)))}</tr>`))}</div>
       <div class="field"><span>Recipient receives</span><div id="send-preview"></div></div>
     </div>
@@ -799,7 +821,7 @@ function requestDialog() {
   const { p, dept } = CTX;
   const lost = requestable(p), links = lost.some((f) => reqChannel(SOURCE[f.source].sender) === "Upload link");
   openDialog(`<form class="dlg" id="f-req">${dlgHead("Result request", p)}
-    <div class="body">${table([["", "36px"], ["Test", "26%"], ["Date and time", "152px"], ["Addressee"], ["Channel", "130px"]],
+    <div class="body">${table([["", "44px"], ["Test", "26%"], ["Date and time", "152px"], ["Recipient"], ["Channel", "130px"]],
       lost.map((f, i) => `<tr>${td(`<input type="checkbox" name="f" value="${i}" checked>`)}${tdt(label(f))}${td(fmtTime(f.time))}${tdt(SOURCE[f.source].sender)}${tdt(reqChannel(SOURCE[f.source].sender))}</tr>`))}
       ${links ? `<div class="field"><span>Upload link</span><div>The addressee has no electronic link with ${esc(HOSPITAL)} and receives a one-time upload link: this patient and this request only,
         valid 7 days, single use. Access code by SMS to the registered number; the sender confirms the patient's date of birth before uploading.</div></div>` : ""}
@@ -1007,7 +1029,7 @@ function sourceDetail(d, x) {
       <div class="inline"><button data-q-act="db-test" data-key="${d.id}">Test connection</button><button data-q-act="db-sync" data-key="${d.id}">Sync now</button>
         ${x?.upd ? `<button class="primary" data-q-act="db-apply" data-key="${d.id}">Update ${plural(x.upd, "result")}</button>` : ""}</div></div>
     <div class="block"><h4>Column mapping</h4>${table([["Source column", "26%"], ["Field", "30%"], ["Transformation"]], d.cols.map((c) => `<tr>${td(`<code>${esc(c[0])}</code>`, "", c[0])}${tdt(c[1])}${tdt(c[2])}</tr>`))}</div>
-    ${x ? `<div class="block"><h4>Data quality, last sync</h4><div class="kpis mini">${kpi("Rows", x.rows)}${kpi("Matched", x.matched)}${kpi("No patient match", x.nomatch)}${kpi("Duplicates", x.dup)}${kpi("Not parsed", x.bad)}${kpi("Adds structured", x.upd)}</div>
+    ${x ? `<div class="block"><h4>Data quality, last sync</h4><div class="kpis mini">${kpi("Rows", x.rows)}${kpi("Matched", x.matched)}${kpi("No patient match", x.nomatch)}${kpi("Duplicates", x.dup)}${kpi("Not parsed", x.bad)}${kpi("New structured values", x.upd)}</div>
       ${x.upd ? `<p class="dim" style="margin:8px 0 0">${plural(x.upd, "value")} on screen as unverified or not received ${x.upd === 1 ? "is" : "are"} held here as data. Updating replaces them; the received value stays in the audit trail.</p>` : ""}</div>
       <div class="block"><h4>Rows as stored in the source</h4>${table([...heads.map((h) => [esc(h)]), ["Result of mapping", "30%"]], x.out.map((o) => `<tr>${heads.map((h) => tdt(o.r[h])).join("")}${rowStatus(o)}</tr>`))}</div>`
       : `<div class="block"><p class="empty" style="padding:0">First sync pending.</p></div>`}`;
@@ -1083,7 +1105,7 @@ function linkBlock(l) {
 function channelDialog() {
   const types = ["HL7 v2 listener (MLLP)", "Twiin (Notified Pull, FHIR STU3)", "ZorgMail mailbox (EDIFACT, HL7 v2)", "Secure mail mailbox (ZorgMail, ZIVVER)", "Fax-to-mail inbox", "Shared folder watch", "Secure chat (message board)", "DICOM receiver (C-STORE)"];
   const routes = ["Documents to File", "By care pathway", ...Object.values(DEPTS).map((d) => d.label + " worklist")];
-  openDialog(`<form class="dlg" id="f-ch"><header><b>New connection</b><span class="pt">Interface engine</span></header><div class="body">
+  openDialog(`<form class="dlg" id="f-ch"><header><b>New connection</b><span class="pt">Connections</span></header><div class="body">
       <label class="field"><span>Name <span class="req">*</span></span><input name="name" required></label>
       <label class="field"><span>Type</span><select name="type">${types.map((x) => opt(x)).join("")}</select></label>
       <label class="field"><span>Source</span><input name="source" placeholder="Port, mailbox address, folder or endpoint"></label>
@@ -1435,8 +1457,8 @@ function recogDetail(t) {
       <dt>Not legible</dt><dd>To Results to Resolve for manual entry</dd>
       <dt>Every read</dt><dd>Stays unverified until a person verifies it against the image</dd>
       <dt>Active</dt><dd><label><input type="checkbox" data-recog-on="${t.id}" ${t.on ? "checked" : ""}> ${t.on ? "Reading new documents" : "Off: new documents are filed as images, nothing is read"}</label></dd></dl></div>
-    <div class="block"><h4>Reads</h4>${table([["Date and time", "140px"], ["Patient", "180px"], ["Line read"], ["Confidence", "96px"], ["Value", "110px"], ["Status", "120px"]],
-      rs.map((r) => `<tr class="row" data-href="${r.href}">${td(r.time)}${tdt(r.who)}${td(r.line ? `<code>${esc(r.line)}</code>` : `<span class="dim">–</span>`, "", r.line)}${td(conf(r))}${tdt(r.value)}${tdt(r.status)}</tr>`))}</div>`;
+    <div class="block"><h4>Reads</h4>${table([["Patient", "32%"], ["Line read → value"], ["Confidence", "84px", "num"], ["Status", "96px"]],
+      rs.map((r) => `<tr class="row" data-href="${r.href}">${td(`${esc(r.who)}<br><span class="dim">${esc(r.time)}</span>`)}${td(`${r.line ? `<code>${esc(r.line)}</code>` : `<span class="dim">–</span>`}${r.value ? ` → ${esc(r.value)}` : ""}`)}${td(conf(r), "num")}${tdt(r.status)}</tr>`))}</div>`;
 }
 function recogDialog() {
   const hooks = [...CHANNELS.map((c) => ["channel", c.id, `Connection: ${c.name}`]), ...DIR.map((d) => ["institution", d.name, `Institution: ${d.name}`])];
@@ -1464,15 +1486,15 @@ const recogLine = (kind, id) => { const ts = recogFor(kind, id);
 
 const ADMIN = {
   overview: { label: "Overview" },
-  inbound: { label: "Received", sub: "Documents Received from Laboratories, Departments and Institutions" },
-  outbound: { label: "Sent", sub: "Referrals and Result Requests Sent to Departments and Institutions" },
-  mapping: { label: "Code and Unit Conversion", sub: "Local Test Codes per Sender, Mapped to LOINC and UCUM; Each Mapping Reviewed and Versioned" },
-  recog: { label: "Text Recognition", sub: "Profiles That Read Values From Images and PDFs, Each Attached to a Connection or an Institution" },
-  sources: { label: "Department Databases", sub: "Existing Department Databases, Read Through a Read-Only Connection" },
-  channels: { label: "Connections", sub: "Interfaces, Mailboxes and Listeners That Receive and Send Messages" },
-  routing: { label: "Delivery Rules", sub: "Rules That Decide Where Each Message Is Delivered; the First Match Applies" },
-  directory: { label: "Institutions", sub: "External Institutions, Their Identifiers and Preferred Channels" },
-  access: { label: "Access Log", sub: "Who Viewed, Sent or Changed Patient Data, and on What Basis (NEN 7513)" },
+  inbound: { label: "Received", sub: "Inbound Documents and Messages per Sender; Unidentified Messages Are Matched to a Patient Here" },
+  outbound: { label: "Sent", sub: "Outbound Referrals and Result Requests, with Consent, Acknowledgement and Delivery Status" },
+  mapping: { label: "Code and Unit Conversion", sub: "Local Test Codes and Units per Sender, Mapped to LOINC and UCUM; Reviewed and Versioned Before Use" },
+  recog: { label: "Text Recognition", sub: "Extraction Profiles for Images (OCR) and PDF Text per Connection or Institution, with Confidence Thresholds" },
+  sources: { label: "Department Databases", sub: "Departmental Databases Read Through a Read-Only Connection; Column Mapping and Data Quality per Synchronisation" },
+  channels: { label: "Connections", sub: "Interfaces, Mailboxes and Endpoints for Message Exchange; Queues, Errors and Certificate Validity" },
+  routing: { label: "Delivery Rules", sub: "Routing Rules for Inbound and Outbound Messages, Evaluated in Order; the First Matching Rule Applies" },
+  directory: { label: "Institutions", sub: "Register of External Institutions: AGB and URA Identifiers, Preferred Channel and Verification Status" },
+  access: { label: "Access Log", sub: "Access to Patient Data per NEN 7513: User, Action, Object and Legal Basis; Exportable per Patient" },
 };
 
 function renderAdmin(tab, key) {
@@ -1488,13 +1510,13 @@ function renderAdmin(tab, key) {
   const href = (k) => `#/admin/${tab}/${encodeURIComponent(k)}`;
   const sel = (rows) => rows.find((r) => (r.key || r.id) === key) || rows[0];
   const pick = (S.pick[tab] ||= new Set());
-  const row = (r, cur, k, cells) => `<tr class="row ${r === cur || pick.has(k) ? "sel" : ""}" data-href="${href(k)}" data-pick="${esc(k)}">${cells}</tr>`;
+  const row = (r, cur, k, cells) => `<tr class="row ${r === cur || pick.has(k) ? "sel" : ""}" data-href="${href(k)}" data-pick="${esc(k)}" data-q="${esc(line(r).join(" "))}">${cells}</tr>`;
   let list, detail, rows, cur, cols, line;
 
   if (tab === "sources") {
     rows = DBS; cur = sel(rows);
     const pr = new Map(rows.map((d) => [d, d.rows ? profile(d) : null]));
-    cols = ["Name", "Type", "Owner", "Connection", "Schedule", "Rows", "Matched", "No patient match", "Duplicates", "Not parsed", "Differs from received", "Adds structured", "Last sync"];
+    cols = ["Name", "Type", "Owner", "Connection", "Schedule", "Rows", "Matched", "No patient match", "Duplicates", "Not parsed", "Differs from received value", "New structured values", "Last sync"];
     line = (d) => { const x = pr.get(d) || {}; return [d.name, d.kind, d.owner, d.conn, d.schedule, x.rows ?? "", x.matched ?? "", x.nomatch ?? "", x.dup ?? "", x.bad ?? "", x.diff ?? "", x.upd ?? "", d.synced]; };
     list = table([["Status", "112px"], ["Name"], ["Type", "24%", "", 3], ["Rows", "64px", "num", 2], ["Matched", "76px", "num", 3], ["Issues", "64px", "num"], ["Last sync", "160px", "", 2]],
       rows.map((d) => { const x = pr.get(d), iss = x ? x.nomatch + x.dup + x.bad + x.diff : 0;
@@ -1504,10 +1526,10 @@ function renderAdmin(tab, key) {
     rows = CHANNELS; cur = sel(rows);
     const stat = (c) => { const ms = c.msgs ? c.msgs() : [], er = c.errors ? c.errors() : [];
       return { n: c.msgs ? ms.length + er.length : "–", q: c.intake ? ms.filter((x) => x.status === "Open").length : 0, e: er.length, last: [...ms, ...er].map((x) => x.time).sort().pop() || "" }; };
-    cols = ["Status", "Name", "Type", "Direction", "Scope", "Source", "Default route", "Environment", "Certificate valid until", "Certificate issue", "Received", "Queued", "Errored", "Last message"];
+    cols = ["Status", "Name", "Type", "Direction", "Scope", "Source", "Default route", "Environment", "Certificate valid until", "Certificate issue", "Received", "Queued", "Errors", "Last message"];
     line = (c) => { const x = stat(c), k = CERTS[c.cert]; return [chanState(c), c.name, c.type, c.dir, c.scope, c.source, c.route, c.env || "", k?.until || "", certIssue(k), x.n, x.q, x.e, x.last]; };
     const certCell = (c) => { const k = CERTS[c.cert], i = certIssue(k); return !k ? td("") : i ? td(st("PICTURE", k.until), "", i) : td(k.until); };
-    list = table([["Status", "116px"], ["Name"], ["Scope", "84px", "", 3], ["Certificate", "124px", "", 2], ["Received", "76px", "num", 2], ["Queued", "68px", "num", 3], ["Errored", "68px", "num"], ["Last message", "140px", "", 3]],
+    list = table([["Status", "116px"], ["Name"], ["Scope", "84px", "", 3], ["Certificate", "124px", "", 2], ["Received", "76px", "num", 2], ["Queued", "68px", "num", 3], ["Errors", "68px", "num"], ["Last message", "140px", "", 3]],
       rows.map((c) => { const x = stat(c), s0 = chanState(c);
         return row(c, cur, c.id, `${td(s0 === "Started" ? st("DATA", s0) : st("PICTURE", s0))}${tdt(c.name)}${td(c.scope || "")}${certCell(c)}${td(x.n, "num")}${td(x.q || "", "num")}${td(x.e ? st("LOST", x.e) : "", "num")}${td(x.last)}`); }));
     detail = cur && channelDetail(cur);
@@ -1537,9 +1559,9 @@ function renderAdmin(tab, key) {
     const ack = (r) => ackIn(r.item || { format: r.format }, r.from), con = (r) => consentIn(r.from);
     cols = ["Date and time", "Sender", "Patient", "Document", "Message format", "Consent", "Acknowledgement", "Status"];
     line = (r) => [r.time, r.from, r.who, r.what, r.format, con(r), ack(r), r.status];
-    list = table([["Date and time", "140px"], ["Sender", "224px", "", 4], ["Patient", "200px"], ["Document"], ["Consent", "100px", "", 3], ["Acknowledgement", "130px", "", 3], ["Status", "116px", "", 2]],
+    list = table([["Date and time", "140px"], ["Sender", "200px", "", 4], ["Patient", "180px"], ["Document"], ["Consent", "100px", "", 3], ["Acknowledgement", "130px", "", 3], ["Status", "116px", "", 2]],
       rows.map((r) => row(r, cur, r.key, `${td(r.time)}${tdt(r.from)}${r.status === "Unmatched" ? td(st("LOST", r.who), "", "Unmatched: " + r.who) : tdt(r.who)}${tdt(r.what)}${flagCell(con(r))}${flagCell(ack(r))}${td(r.status === "Unmatched" ? st("LOST", "Unmatched") : esc(r.status), "", r.status)}`)));
-    detail = cur && (cur.u ? reconDetail(reconRows().find((x) => x.key === cur.key)) : docDetail(cur.item));
+    detail = cur && (cur.u ? reconDetail(reconRows().find((x) => x.key === cur.key)) : docDetail(cur.item, true));
   } else if (tab === "recog") {
     rows = RECOG; cur = sel(rows);
     cols = ["Profile", "Name", "Attached to", "Method", "Document type", "Values read", "Minimum confidence", "Active", "Reads", "Below threshold"];
@@ -1553,7 +1575,7 @@ function renderAdmin(tab, key) {
     const pname = (x) => (x.pid ? patient(x.pid).name : x.who || "–");
     cols = ["Date and time", "User", "Role", "Patient", "BSN", "Action", "Object", "Basis", "System", "Request ID"];
     line = (x) => [x.time, x.user, x.role, pname(x), x.pid ? patient(x.pid).bsn : "", x.action, x.object, x.basis, x.system, x.req];
-    list = table([["Date and time", "140px"], ["User", "120px", "", 2], ["Role", "140px", "", 3], ["Patient", "200px"], ["Action", "256px"], ["Object", "", "", 2], ["Basis", "140px", "", 3]],
+    list = table([["Date and time", "140px"], ["User", "120px", "", 2], ["Role", "140px", "", 3], ["Patient", "180px"], ["Action", "200px"], ["Object", "", "", 2], ["Basis", "140px", "", 3]],
       rows.map((x) => row(x, cur, x.id, `${td(x.time)}${tdt(x.user)}${tdt(x.role)}${tdt(pname(x))}${flagCell(x.action)}${tdt(x.object)}${flagCell(x.basis)}`)));
     detail = cur && accessDetail(cur, rows);
   } else {
@@ -1567,7 +1589,7 @@ function renderAdmin(tab, key) {
   const keyOf = (r) => r.key || r.id;
   const chosen = pick.size ? rows.filter((r) => pick.has(keyOf(r))) : cur ? [cur] : [];
   CTX.exp = { all: [cols, ...rows.map(line)], sel: chosen.length ? [cols, ...chosen.map(line)] : null, n: chosen.length };
-  $("#app").innerHTML = `<section class="work admin">${tabs}<div class="split"><div class="pane list">${phead(t.label, t.sub)}${list}</div>
+  $("#app").innerHTML = `<section class="work admin">${tabs}<div class="split"><div class="pane list">${phead(t.label, t.sub, filterBox("admin-" + tab))}${list}</div>
     <div class="pane detail">${detail || `<p class="empty">None</p>`}</div></div>${adminBar()}</section>`;
 }
 
@@ -1615,13 +1637,13 @@ function overview() {
     return `<tr class="row" data-href="#/clinic/${k}">${tdt(d.label)}${td(pts.length, "num")}${td(rows.length, "num")}${td(bar(c, rows.length))}${cells(c)}${td(refs.filter(mine).length, "num")}${td(reqs.filter(mine).length, "num")}</tr>`;
   });
   const legend = `<div class="legend">${["DATA", "CONFLICT", "PICTURE", "LOST"].map((k) => st(k)).join("")}</div>`;
-  const statusCols = [["Structured", "8%", "num"], ["Converted", "8%", "num"], ["Unverified", "8%", "num"], ["Not received", "9%", "num"]];
+  const statusCols = [["Structured", "8%", "num"], ["Converted", "8%", "num"], ["Unverified", "8%", "num"], ["Not received", "8%", "num"]];
   return `
     <div class="split"><div class="pane full">
       ${phead("Results by source", "", legend)}
-      ${table([["Source", "15%"], ["Sender"], ["Message format", "15%"], ["Results", "7%", "num"], ["Composition", "18%"], ...statusCols], srcRows)}
+      ${table([["Source", "15%"], ["Sender"], ["Message format", "15%"], ["Results", "7%", "num"], ["Composition", "14%"], ...statusCols], srcRows)}
       ${phead("Results by department")}
-      ${table([["Department", "15%"], ["Patients", "", "num"], ["Results", "7%", "num"], ["Composition", "18%"], ...statusCols, ["Referrals", "8%", "num"], ["Requests", "8%", "num"]], deptRows)}
+      ${table([["Department"], ["Patients", "7%", "num"], ["Results", "7%", "num"], ["Composition", "14%"], ...statusCols, ["Referrals", "8%", "num"], ["Requests", "8%", "num"]], deptRows)}
     </div></div>`;
 }
 
@@ -1797,7 +1819,7 @@ document.addEventListener("keydown", (e) => {
   if (k === "enter") { const r = document.querySelector(".pane.full tr.sel[data-href]"); if (r) go(r.dataset.href); }
 });
 // keep the selected row in view after every render
-new MutationObserver(() => document.querySelector(".pane.list tr.sel")?.scrollIntoView({ block: "nearest" })).observe($("#app"), { childList: true });
+new MutationObserver(() => { applyFilters(); document.querySelector(".pane.list tr.sel")?.scrollIntoView({ block: "nearest" }); }).observe($("#app"), { childList: true });
 
 if (!location.hash) location.hash = "#/clinic/cardiology/P001";
 route();
