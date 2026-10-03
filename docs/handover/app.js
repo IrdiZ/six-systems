@@ -783,12 +783,9 @@ function resultBlock(f, admin = false) {
     <dt>Remark</dt><dd>${esc(remark(f))}</dd></dl>${action}</div>`;
 }
 function viewer(f, it) {
-  if (!f?.media && it && !it.added && !it.via) {
-    // only a laboratory message is printed as a page; anything else says plainly that there is nothing to show
-    if (["epic_lab", "ext_lab"].includes(it.source) && !it.facts.every((x) => x.status === "LOST")) return uploadView({ name: it.ref || it.title, type: "image/svg+xml", url: printPage(it), note: "Page 1" });
-    const why = it.file ? `No preview available for this format (${it.format})` : `Document not received · expected from ${it.origin}${it.format ? ` by ${it.format.toLowerCase()}` : ""}`;
-    return `<div class="viewer"><div class="bar"><b>${esc(it.ref || it.title)}</b></div><div class="stage"><p class="empty">${esc(why)}</p></div></div>`;
-  }
+  // a laboratory message without an image is printed as a page; with nothing to show there is no viewer (the remark says why)
+  if (!f?.media && it && !it.added && !it.via && ["epic_lab", "ext_lab"].includes(it.source) && !it.facts.every((x) => x.status === "LOST"))
+    return uploadView({ name: it.ref || it.title, type: "image/svg+xml", url: printPage(it), note: "Page 1" });
   if (!f?.media) return "";
   const b = f.media.box;
   return `<div class="viewer"><div class="bar"><b>${esc(f.media.png.replace(/^raw_\w+?_/, "").replace(/\.(pdf\.png|jpg|png)$/, ""))}</b><span>${esc(label(f))}</span>${expandBtn}</div>
