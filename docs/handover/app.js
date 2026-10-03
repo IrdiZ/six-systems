@@ -607,7 +607,7 @@ function docGrid(items, sel, dept, p, tab) {
 function docDetail(it, admin = false) {
   const fsel = it.facts.find((f) => factKey(f) === S.sel.fact) || it.facts[0];
   const rows = it.facts.map((f) => `<tr class="row ${f === fsel ? "sel" : ""}" data-fact="${esc(factKey(f))}">
-    ${tdt(label(f))}${td(value(f), typeof f.got === "number" ? "num" : "", TR[f.got] || "")}${td(st(verdict(f)))}</tr>`);
+    ${tdt(label(f))}${td(value(f), typeof f.got === "number" || f.got == null || f.status === "LOST" ? "num" : "", TR[f.got] || "")}${td(st(verdict(f)))}</tr>`);
   const src = SOURCE[it.source] || { system: it.via || "Manual upload" };
   const cap = it.facts.find((f) => f.captured)?.captured;
   return `
