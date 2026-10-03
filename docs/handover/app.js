@@ -600,10 +600,16 @@ function banner(p, dept) {
 
 function docGrid(items, sel, dept, p, tab) {
   const rows = items.map((i) => `<tr class="row ${i === sel ? "sel" : ""}" data-href="#/clinic/${dept}/${p.pid}/${tab}/${i.id}">
-    ${td(i.receivedAt || fmtTime(i.time))}${tdt(i.title)}${tdt(i.origin)}${td(st(worst(i)))}</tr>`);
+    ${td(i.receivedAt || fmtTime(i.time))}${tdt(i.title)}${tdt(i.origin)}${td(docStatus(i))}</tr>`);
   return table([["Date and time", "152px", "", 2], ["Document"], ["Sender", "26%", "", 3], ["Status", "120px"]], rows);
 }
 
+// A document can hold several results: say how many still need attention, so the counts add up to the worklist's.
+function docStatus(i) {
+  const n = (v) => i.facts.filter((f) => verdict(f) === v).length, unv = n("PICTURE"), lost = n("LOST");
+  if (i.added || unv + lost < 2) return st(worst(i));
+  return st(worst(i), [unv && `${unv} unverified`, lost && `${lost} not received`].filter(Boolean).join(", "));
+}
 function docDetail(it, admin = false) {
   const fsel = it.facts.find((f) => factKey(f) === S.sel.fact) || it.facts[0];
   const rows = it.facts.map((f) => `<tr class="row ${f === fsel ? "sel" : ""}" data-fact="${esc(factKey(f))}">
