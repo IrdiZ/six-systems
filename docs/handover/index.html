@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>six-sys</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header id="top">
+  <span class="brand">six-sys</span>
+  <nav id="mode">
+    <a href="#/clinic" data-mode="clinic">Clinician</a>
+    <a href="#/admin" data-mode="admin">Management</a>
+  </nav>
+  <label class="dept">Department
+    <select id="dept"></select>
+  </label>
+  <span class="spacer"></span>
+  <span class="who">Academisch Ziekenhuis Zuid · Demo User</span>
+</header>
+<main id="app"></main>
+<div id="dialog" hidden></div>
+<script src="../data/cases.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
