@@ -799,7 +799,7 @@ function resultBlock(f, admin = false) {
   const req = [...S.log].reverse().find((l) => l.kind === "request" && l.pid === f.pid && l.facts?.includes(f.fact));
   const action = v === "LOST" && link ? `<p class="note dim">Upload link sent ${esc(link.time)} to ${esc(link.to)}.${/upload link sent/i.test(lastStatus(link)) ? "" : ` ${esc(lastStatus(link).replace(": ", ", "))}.`}</p>
       <div class="inline"><button data-act="portal" data-arg="${link.portal.token}">Open as sender (demo)</button></div>`
-    : v === "LOST" && f.source !== "ext_lab" && f.source !== "echo" ? `<div class="inline">${dirOf(SOURCE[f.source]?.sender)?.region ? `<button data-act="search" data-arg="${esc(factKey(f))}">Search regional platform</button>` : ""}<button data-act="request">Request result <kbd>R</kbd></button>${req && VIEWABLE.includes(req.channel) ? `<button data-act="recv" data-arg="${req.id}">View as recipient (demo)</button>` : ""}</div>`
+    : v === "LOST" && f.source !== "ext_lab" && f.source !== "echo" ? `<div class="inline">${dirOf(SOURCE[f.source]?.sender)?.region ? `<button data-act="search" data-arg="${esc(factKey(f))}">Search regional platform</button>` : ""}<button data-act="request">Request result <kbd>R</kbd></button>${req?.live && VIEWABLE.includes(req.channel) ? `<button data-act="recv" data-arg="${req.id}">View as recipient (demo)</button>` : ""}</div>`
     : v === "PICTURE" ? `<div class="inline"><button data-act="confirm">Verify result <kbd>V</kbd></button></div>` : "";
   const m = f.status === "CONFLICT" && EXT_LAB_CODES[f.fact];
   return `<div class="block"><h4>${esc(label(f))}</h4><dl class="kv">
@@ -878,7 +878,7 @@ function openDialog(html) { const d = $("#dialog"); d.innerHTML = html; d.hidden
 function closeDialog() { $("#dialog").hidden = true; $("#dialog").innerHTML = ""; }
 const dlgHead = (title, p) => `<header><b>${title}</b><span class="pt">${esc(p.family)}, ${esc(p.given)} · ${fmtDate(p.dob)} · ${p.mrn}</span></header>`;
 function logOut(o) {
-  const l = { id: "L" + (S.log.length + 1), time: now(), history: [[now(), "Sent"]], ...o };
+  const l = { id: "L" + (S.log.length + 1), time: now(), history: [[now(), "Sent"]], live: true, ...o }; // live: sent in this session
   S.log.push(l);
   logAccess({ pid: l.pid, action: ACTION(l), object: `${l.to}: ${l.what.join("; ")}`, basis: basisOf(l), system: l.channel || "Handover application" });
   return l;
