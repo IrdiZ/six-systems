@@ -214,7 +214,7 @@
     },
     {
      "caption": "Request sent through ZorgMail and recorded on the result.",
-     "ring": ".pane.detail .note",
+     "ring": ".pane.detail .inline",
      "hold": 4.5
     },
     {
