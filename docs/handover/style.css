@@ -234,3 +234,4 @@ body.portal #app { display: block; overflow-y: auto; }
 .note { margin: 8px 0 0; }
 .inline { flex-wrap: wrap; }
 .inline button, .actions button { white-space: nowrap; flex: none; }
+button.primary kbd { border-color: rgba(255,255,255,.35); color: #dfe3e7; background: transparent; }
