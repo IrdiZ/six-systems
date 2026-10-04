@@ -419,11 +419,12 @@ const KIND = { send: "Referral", request: "Result request", share: "Made availab
 
 // ------------------------------------------------------------ directory, channels, routing (synthetic: AGB and URA numbers and addresses are invented for the demo)
 
+const FAX_NO = "+31 43 555 0140"; // synthetic
 const DIR = [
   { name: "Heuvelland Ziekenhuis", type: "Hospital", dept: "Cardiology", agb: "06011234", ura: "90001234", channel: "Twiin", status: "Verified", verified: "URA matched in ZORG-AB", region: true,
     points: [["Twiin", "ZORG-AB: Heuvelland Ziekenhuis, cardiology (notification address)"], ["ZorgMail", "ZorgMail address book: Heuvelland Ziekenhuis, cardiology"]] },
   { name: SOURCE.offline.sender, type: "Hospital", dept: "Emergency department", agb: "06011235", ura: "90001234", channel: "ZorgMail", status: "Verified", verified: "URA matched in ZORG-AB", region: true,
-    remark: "Point-of-care results are not in their laboratory system, so they arrive by fax. Requests go through ZorgMail; the upload link is the fallback.",
+    fax: FAX_NO, remark: "Point-of-care results are not in their laboratory system; this sender still falls back to fax. Requests go through ZorgMail; the upload link is the fallback.",
     points: [["ZorgMail", "ZorgMail address book: Heuvelland Ziekenhuis, emergency department"], ["Twiin", "ZORG-AB: Heuvelland Ziekenhuis, emergency department"], ["Upload link", "Fallback: one-time link, sign-in with UZI pass"], ["Fax number", "For recognising incoming faxes; fax is not used to send"]] },
   { name: "Regiolab Zuid", type: "Laboratory", dept: "", agb: "25010987", ura: "90004567", channel: "ZorgMail", status: "Verified", verified: "AGB checked against the Vektis register",
     points: [["ZorgMail", "EDIFACT MEDLAB, ZorgMail address book: Regiolab Zuid"]] },
@@ -435,6 +436,7 @@ const DIR = [
     remark: "Temporary contact for one exchange. Removed when it expires.", points: [["Secure e-mail with access code", "triage@hapzuid.example"]] },
 ];
 const dirOf = (name) => DIR.find((d) => d.name === name);
+const faxOf = (no) => DIR.find((d) => d.fax === no);
 const INTERNAL = TARGETS[1].items;
 const FORMATS = { Twiin: [TWIIN_FORMAT], ZorgMail: ["HL7 v2 ORU^R01", "PDF summary"], "Secure e-mail with access code": ["PDF summary"], Fax: ["PDF summary"], "Worklist (internal)": ["FHIR R4 bundle", "PDF summary"] };
 function channelsFor(name) {
@@ -528,6 +530,7 @@ function seedIntake() {
   const add = (o) => S.intake.push({ key: "I" + (S.intake.length + 1), status: "Open", ...o });
   const p4 = patient(ROLE.fax), poc = p4?.facts.find((f) => f.fact === "troponin_poc");
   if (poc) add({ time: later(fmtTime(poc.time), 6 * 60 + 2 * 24 * 60 + 40), channel: "fax", from: SOURCE.offline.sender, subject: "Fax, 1 page: point-of-care troponin",
+    calling: FAX_NO, tsi: "HEUVELLAND SEH", // synthetic number; the header text is whatever the sender typed into the machine
     pid: p4.pid, match: "Name and date of birth read from the fax (OCR), one match in the patient master index", fact: "troponin_poc", value: poc.truth_value,
     text: `FAX  ${SOURCE.offline.sender}\nTo: Cardiology, ${HOSPITAL}\nPatient: ${p4.family}, ${p4.given[0]}.   Date of birth: ${fmtDate(p4.dob)}\nTroponin (POCT)  ${String(poc.truth_value).replace(".", ",")} ng/L   ${fmtTime(poc.time)}` });
   const p5 = patient(ROLE.chat), ivs = p5?.facts.find((f) => f.source === "echo" && f.status === "LOST");
@@ -818,7 +821,7 @@ function viewer(f, it) {
 const kb = (n) => (n > 1e6 ? (n / 1e6).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1e3)) + " kB");
 function uploadView(u) {
   const body = !u.url ? `<p class="empty">${esc(u.name)} · original kept in the source system</p>`
-    : u.type?.startsWith("image/") ? `<div class="frame"><img src="${u.url}" alt=""></div>`
+    : u.type?.startsWith("image/") ? `<div class="frame"><img src="${u.url}" alt="">${u.box ? `<div class="box" style="left:${u.box[0]}%;top:${u.box[1]}%;width:${u.box[2]}%;height:${u.box[3]}%"></div>` : ""}</div>`
     : u.type === "application/pdf" ? `<iframe src="${u.url}" title="${esc(u.name)}"></iframe>` : `<p class="empty">${esc(u.name)} · no preview for this file type</p>`;
   return `<div class="viewer"><div class="bar"><b>${esc(u.name)}</b><span>${u.size ? kb(u.size) : esc(u.note || "")}</span>${u.url ? expandBtn : ""}</div><div class="stage">${body}</div></div>`;
 }
@@ -1228,24 +1231,30 @@ const chanName = (id) => CHANNELS.find((c) => c.id === id)?.name || id;
 const known = (i) => i.internal || !!dirOf(i.from);
 function intakeDetail(i) {
   const c = CHANNELS.find((x) => x.id === i.channel), ok = known(i), open = i.status === "Open";
+  const ans = i.pid && i.fact && [...S.log].reverse().find((l) => l.kind === "request" && l.pid === i.pid && l.facts?.includes(i.fact)); // the request this answers
   const pts = C.patients.map((p) => `<option value="${p.pid}" ${p.pid === i.pid ? "selected" : ""}>${esc(p.family)}, ${esc(p.given)} · ${fmtDate(p.dob)} · ${p.mrn}</option>`).join("");
   return `
     <div class="block"><dl class="kv"><dt>Channel</dt><dd>${esc(c.name)} · ${esc(c.type)}</dd><dt>Received</dt><dd>${i.time}</dd>
-      <dt>Sender</dt><dd>${esc(i.from)}${ok ? "" : ` · ${st("PICTURE", "Not a registered institution")}`}</dd><dt>Subject</dt><dd>${esc(i.subject)}</dd>
-      <dt>Routing</dt><dd>${ok ? "Rule R7: held in Documents to File for review" : "Rule R8: held until the sender is a registered institution"}</dd></dl></div>
+      ${i.channel === "fax" ? `<dt>Calling number</dt><dd>${esc(i.calling || "Not transmitted")}</dd>
+      <dt>Sender</dt><dd>${faxOf(i.calling) ? `${esc(faxOf(i.calling).name)} · matched by fax number in Institutions` : `${st("PICTURE", "Unknown fax number")}<br><span class="dim">Call back on a number from Institutions, not the one on the fax.</span>`}</dd>
+      <dt>Header on the fax</dt><dd>${esc(i.tsi || "None")} <span class="dim">· as stated by the sender, not verified</span></dd>`
+      : `<dt>Sender</dt><dd>${esc(i.from)}${ok ? "" : ` · ${st("PICTURE", "Not a registered institution")}`}</dd>`}<dt>Subject</dt><dd>${esc(i.subject)}</dd>
+      ${ans ? `<dt>Answers</dt><dd>Result request of ${esc(ans.time)}, sent by ${esc(ans.channel)}; the sender replied by fax</dd>` : ""}
+      <dt>Routing</dt><dd>${!ok ? "Rule R8: held until the sender is a registered institution" : ans ? `Rule R7: held for review; once filed, rule R1 returns it to ${esc(ans.from)} and notifies the requester` : "Rule R7: held in Documents to File for review"}</dd></dl></div>
     <div class="block"><h4>Filing</h4>${open ? `
       <label class="field"><span>Patient</span><select id="i-pid"><option value="">Select patient</option>${pts}</select></label>
       <div class="field"><span></span><div class="dim">${esc(i.match)}</div></div>
       ${i.fact ? `<div class="field"><span>${esc(LABEL[i.fact])}</span><div class="inline" style="margin:0"><input id="i-val" value="${esc(comma(i.value))}">
-        <span class="dim">${esc(unit(C.fact_defs[i.fact].unit))} · read from the message, filed as unverified</span></div></div>` : ""}
+        <span class="dim">${esc(unit(C.fact_defs[i.fact].unit))} · ${i.channel === "fax" ? "read from the fax by text recognition (profile T5)" : "read from the message"}, filed as unverified</span></div></div>` : ""}
       <div class="inline">${ok ? "" : `<button data-q-act="i-dir" data-key="${i.key}">Register sender as institution</button>`}
         <button class="primary" data-q-act="i-file" data-key="${i.key}" ${ok ? "" : "disabled"}>File to patient</button>
         <button data-q-act="i-reject" data-key="${i.key}">Reject</button></div>` : `<div>${esc(i.status)}</div>`}</div>
     ${scanFile(i) ? uploadView(scanFile(i)) : ""}
-    <div class="block"><h4>Source message</h4><pre class="raw">${esc(i.text)}</pre></div>`;
+    <div class="block"><h4>${i.channel === "fax" ? "Text read from the fax (OCR)" : "Source message"}</h4><pre class="raw">${esc(i.text)}</pre></div>`;
 }
 const scanFile = (i) => i.channel !== "chat" && { name: { fax: "Fax", mail: "referral_letter.pdf" }[i.channel] || i.text.split("\n")[0].split("\\").pop(), type: "image/svg+xml",
-  url: scanPage(i), note: i.channel === "folder" ? "Page 1 of 2" : "Page 1" };
+  url: scanPage(i), note: i.channel === "folder" ? "Page 1 of 2" : "Page 1",
+  box: i.channel === "fax" && i.fact ? [7.6, 19.8, 58, 2.6] : null }; // the result line on the fax page (4th line of the text)
 // A captured document as the scanned page that came in, drawn from the item's own text and the patient's data only.
 function scanPage(i) {
   const p = i.pid && patient(i.pid);
@@ -1256,7 +1265,7 @@ function scanPage(i) {
   let body, font = "Arial, Helvetica, sans-serif";
   if (i.channel === "fax") {
     font = "'Courier New', monospace";
-    body = T(36, 28, `${i.time}   FROM: ${i.from}   P.1/1`, 'font-size="10"') + rule(36, 36, 523)
+    body = T(36, 28, `${i.time}   FROM: ${i.tsi || i.from}   P.1/1`, 'font-size="10"') + rule(36, 36, 523)
       + i.text.split("\n").map((l, k) => T(50, 110 + k * 24, l, `font-size="12" ${k ? "" : B}`)).join("");
   } else if (i.channel === "mail") {
     body = T(60, 80, i.from, `font-size="18" ${B}`) + T(60, 98, i.email || "", 'font-size="10"') + rule(60, 110, 475)
