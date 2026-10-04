@@ -34,6 +34,9 @@ const SOURCE = {
   echo: { label: "Echocardiography", sender: "AZ Zuid, echocardiography", system: "Ultrasound modality, PACS", format: "DICOM Secondary Capture" },
   pathology: { label: "Pathology", sender: "Pathologie Limburg Samenwerking", system: "External pathology information system", format: "PDF report, whole-slide image" },
   offline: { label: "Point-of-care testing", sender: "Heuvelland Ziekenhuis, emergency department", system: "Point-of-care analyser", format: "Fax" },
+  nb_lab: { label: "Referring hospital laboratory", sender: "Heuvelland Ziekenhuis, clinical chemistry", system: "Laboratory information system", format: "HL7 v2 ORU^R01" },
+  gp: { label: "General practice", sender: "Huisartsenpraktijk Molenveld", system: "GP information system", format: "HIS export, NHG Tabel 45" },
+  pft: { label: "Pulmonary function", sender: "AZ Zuid, pulmonary function laboratory", system: "Spirometry workstation", format: "PDF report" },
 };
 const LABEL = {
   troponin: "Troponin T, high-sensitivity", troponin_poc: "Troponin, point-of-care", creatinine: "Creatinine", egfr: "eGFR (CKD-EPI)",
@@ -41,19 +44,30 @@ const LABEL = {
   lv_diameter: "LV internal diameter, diastole (LVIDd)", kidney_length: "Renal length, left", ct_exam: "CT examination",
   calcium_score: "Coronary artery calcium score", nodule_size: "Pulmonary nodule diameter", path_diagnosis: "Histopathological diagnosis",
   tumour_size: "Tumour size", wsi_slide: "Whole-slide image",
+  troponin_i: "Troponin I, high-sensitivity", nt_probnp: "NT-proBNP", bnp: "BNP", ck: "Creatine kinase (CK)", digoxin: "Digoxin",
+  sodium: "Sodium", potassium: "Potassium", calcium: "Calcium", phosphate: "Phosphate", uacr: "Albumin/creatinine ratio, urine",
+  hba1c: "HbA1c (IFCC)", lithium: "Lithium", cholesterol: "Cholesterol, total", ldl: "LDL cholesterol", hdl: "HDL cholesterol",
+  triglycerides: "Triglycerides", crp: "C-reactive protein (CRP)", crp_poc: "CRP, point-of-care (general practice)", wbc: "Leukocytes",
+  platelets: "Platelets", inr: "INR", pco2: "pCO2, arterial", po2: "pO2, arterial", sbp: "Blood pressure, systolic",
+  dbp: "Blood pressure, diastolic", heart_rate: "Heart rate", weight: "Body weight", tapse: "TAPSE", lavi: "Left atrial volume index (LAVI)",
+  fev1: "FEV1", fvc: "FVC", fev1_fvc: "FEV1/FVC", dlco: "DLCO (diffusing capacity)",
 };
 // six-sys stores report text in Dutch; shown translated.
 const TR = {
   "CT coronair angiografie": "CT coronary angiography", "CT thorax met contrast": "CT thorax with contrast", "CT thorax follow-up": "CT thorax, follow-up",
   "Plaveiselcelcarcinoom van de long": "Squamous cell carcinoma of the lung", "Carcinoïd tumor, typisch": "Typical carcinoid tumour",
 };
-const unit = (u) => String(u || "").replace(/\bu(mol|g)\b/g, "µ$1").replace("1.73m2", "1.73 m²");
+const unit = (u) => String(u || "").replace(/\bu(mol|g)\b/g, "µ$1").replace("1.73m2", "1.73 m²").replace("mm[Hg]", "mmHg").replace("10*9/L", "× 10⁹/L")
+  .replace("{INR}", "").replace("mL/m2", "mL/m²");
 const label = (f) => LABEL[f.fact] || f.fact;
-// External laboratory dialect, copied from six-systems/sim/model.py (EXT_LAB_CODES).
-const EXT_LAB_CODES = { troponin: ["TNTHS", "ug/L", 1000], creatinine: ["KREA", "mg/dL", 88.42], egfr: ["EGFR", "ml/min", 1], glucose: ["GLUC", "mg/dL", "1/18.016"], hb: ["HB", "g/dL", 0.6206] };
+// External laboratory dialect as the assembler applied it (six-systems/sim/model.py, EXT_LAB_CODES, shipped in cases.js).
+const CM_ = C.code_maps;
+const EXT_LAB_CODES = Object.fromEntries(Object.entries(CM_.ext_lab).map(([k, c]) => [k, [c.code, c.unit,
+  c.formula ? `IFCC = ${c.formula[0]} × NGSP − ${(-c.formula[1]).toFixed(2)}` : c.factor]]));
+const NOT_CONVERTIBLE = CM_.not_convertible;
 const TABS = [
-  ["all", "All results"], ["lab", "Laboratory"], ["imaging", "Radiology"], ["echo", "Echocardiography"],
-  ["pathology", "Pathology"], ["missing", "Not received"], ["transfers", "Audit trail"],
+  ["all", "All results"], ["gp", "General practice"], ["lab", "Laboratory"], ["imaging", "Radiology"], ["echo", "Echocardiography"],
+  ["function", "Pulmonary function"], ["pathology", "Pathology"], ["missing", "Not received"], ["transfers", "Audit trail"],
 ];
 const RANK = { LOST: 4, PICTURE: 3, CONFIRMED: 2, CONFLICT: 1, DATA: 0 };
 // The six-sys codes stay in the data; these are the words on screen.
@@ -210,24 +224,30 @@ const verdict = (f) => (f.status === "PICTURE" && S.confirmed[factKey(f)] ? "CON
 
 function category(f) {
   if (f.source === "radiology") return "imaging";
-  if (f.source === "echo" || f.source === "pathology") return f.source;
+  if (f.source === "echo" || f.source === "pathology" || f.source === "gp") return f.source;
+  if (f.source === "pft") return "function";
   return "lab";
 }
 function docTitle(file, f) {
   if (!file) return "Troponin, point-of-care";
   if (f.source === "epic_lab") return "Laboratory report";
   if (f.source === "ext_lab") return "External laboratory report";
-  if (f.source === "echo") return "Transthoracic echocardiogram";
+  if (f.source === "nb_lab") return "Referring hospital laboratory report";
+  if (f.source === "gp") return "GP referral, measurements";
+  if (f.source === "pft") return "Pulmonary function test";
+  if (f.source === "echo") return file.endsWith("_sr.dcm") ? "Echocardiogram, structured report" : "Transthoracic echocardiogram";
   if (f.source === "pathology") return file.endsWith(".pdf") ? "Pathology report" : "Whole-slide image";
   if (file.endsWith(".pdf")) return "Radiology report";
   return f.fact === "ct_exam" ? TR[f.truth_value] || f.truth_value : "Renal ultrasound";
 }
-const docRef = (file) => (file ? file.split("/").pop().replace(/(_report)?\.\w+$/, "") : "");
+const docRef = (file) => (file ? file.split("/").pop().replace(/(_report|_sr)?\.\w+$/, "") : "");
 const full = (i) => (i.ref ? `${i.title} ${i.ref}` : i.title);
 function docFormat(file, f) {
   if (!file) return "Fax";
   if (file.endsWith(".hl7")) return "HL7 v2 ORU^R01";
   if (file.endsWith(".edi")) return "EDIFACT MEDLAB";
+  if (file.endsWith(".csv")) return "HIS export, NHG Tabel 45";
+  if (file.endsWith("_sr.dcm")) return "DICOM Structured Report";
   if (file.endsWith(".pdf")) return "PDF report";
   if (file.endsWith(".isyntax")) return "Proprietary whole-slide format";
   if (f.source === "echo" || file.endsWith(".dcm")) return "DICOM Secondary Capture";
@@ -237,7 +257,9 @@ function identifiedBy(it) {
   const f = it.facts[0];
   if (!it.file || !f) return "";
   if (f.status === "LOST" && f.source === "ext_lab") return "Unmatched: no BSN, no match on name and date of birth";
-  if (f.source === "epic_lab") return "BSN";
+  if (f.source === "epic_lab" || f.source === "gp") return "BSN";
+  if (f.source === "nb_lab") return "BSN (the sender's own patient number is not used)";
+  if (f.source === "pft") return "Patient number, cross-referenced to BSN";
   if (f.source === "ext_lab") return (f.steps || []).some((s) => s.startsWith("no BSN")) ? "Name and date of birth (BSN absent)" : "BSN";
   if (f.source === "radiology" || f.source === "echo") return "Patient number, cross-referenced to BSN";
   return "Name and date of birth on the report";
@@ -291,13 +313,14 @@ function value(f) {
   return `${esc(TR[f.got] || f.got)}${u ? ` <span class="dim">${esc(u)}</span>` : ""}`;
 }
 // The value as the sender reported it, for converted results.
+const convStep = (f) => (f.steps || []).find((x) => x.includes("→") && /[×÷]|formula/.test(x));
 function asReceived(f) {
-  const s = (f.steps || []).find((x) => x.includes("→") && x.includes("×"));
+  const s = convStep(f);
   if (s) return unit(s.split("→")[0].trim());
   return "";
 }
 // The conversion as six-sys applied it, e.g. "× 1000", and any repairs to the message (data management only).
-const conversionOf = (f) => ((f.steps || []).find((x) => x.includes("→") && x.includes("×"))?.match(/×\s*[\d.,/]+/) || [""])[0].replace("×", "× ");
+const conversionOf = (f) => { const s = convStep(f) || ""; return (/IFCC = [^;)]+/.exec(s) || /[×÷]\s*[\d.,/]+/.exec(s) || [""])[0].replace(/^([×÷])\s*/, "$1 "); };
 const repairsOf = (f) => (f.steps || []).filter((x) => /^decimal comma/.test(x));
 const ocrConfidence = (f) => (/confidence (\d+)%/.exec([f.reason, ...(f.steps || [])].join(" ")) || [])[1];
 // One professional sentence per result, by status and source.
@@ -305,7 +328,13 @@ function remark(f) {
   const v = verdict(f);
   if (f.captured && v === "PICTURE") return `Received via ${f.captured.via.replace(/^Upload link$/, "upload link")}${f.captured.by ? `, entered by ${f.captured.by}` : ""}. ${f.got == null ? "Value not entered." : "Verification required."}`;
   if (v === "DATA" && f.db) return `Structured value from ${f.db} (data source bridge), ${f.dbAt}.`;
-  if (v === "DATA") return f.source === "radiology" ? "DICOM header attribute." : "LOINC-coded result in SI units.";
+  if (v === "DATA" && NOT_CONVERTIBLE[f.fact]) return NOT_CONVERTIBLE[f.fact];
+  if (v === "DATA" && (f.file || "").endsWith("_sr.dcm")) return "Structured report (DICOM SR): LOINC-coded measurement with a UCUM unit. No image reading needed.";
+  if (v === "DATA") return f.source === "radiology" ? "DICOM header attribute." : f.source === "nb_lab" ? "LOINC-coded result from the referring hospital's laboratory." : "LOINC-coded result in SI units.";
+  if (v === "CONFLICT" && f.source === "gp") return f.fact === "crp_poc" ? "Point-of-care test coded in NHG Tabel 45; there is no LOINC code for it. Value as recorded by the GP."
+    : "NHG Tabel 45 code mapped to LOINC on receipt. Value and unit as recorded by the GP; date only, no time.";
+  if (v === "CONFLICT" && f.source === "nb_lab") return "Unit converted on receipt with a published factor. Original value retained.";
+  if (v === "CONFLICT" && f.fact === "hba1c") return "Local code mapped to LOINC. Converted from % (NGSP) with the IFCC master equation, not a factor. Original value retained.";
   if (v === "CONFLICT") return "Local code mapped to LOINC and unit converted on receipt. Original value retained.";
   if (v === "CONFIRMED") return `Verified against the source image by ${S.confirmed[factKey(f)]}.`;
   if (v === "PICTURE") return (f.file || "").endsWith(".pdf")
@@ -797,16 +826,16 @@ function resultBlock(f, admin = false) {
       <div class="inline"><button data-act="portal" data-arg="${link.portal.token}">Open as sender (demo)</button></div>`
     : v === "LOST" && f.source !== "ext_lab" && f.source !== "echo" ? `<div class="inline">${dirOf(SOURCE[f.source]?.sender)?.region ? `<button data-act="search" data-arg="${esc(factKey(f))}">Search regional platform</button>` : ""}<button data-act="request">Request result <kbd>R</kbd></button>${req?.live && VIEWABLE.includes(req.channel) ? `<button data-act="recv" data-arg="${req.id}">View as recipient (demo)</button>` : ""}</div>`
     : v === "PICTURE" ? `<div class="inline"><button data-act="confirm">Verify result <kbd>V</kbd></button></div>` : "";
-  const m = f.status === "CONFLICT" && EXT_LAB_CODES[f.fact];
+  const m = f.status === "CONFLICT" && (f.source === "ext_lab" ? EXT_LAB_CODES[f.fact] : [(f.steps || [])[0]?.split(" → ")[0].replace(/ \(.*$/, "") || ""]);
   return `<div class="block"><h4>${esc(label(f))}</h4><dl class="kv">
     ${m ? `${asReceived(f) ? `<dt>Reported value</dt><dd>${esc(asReceived(f))}</dd>` : ""}
       ${conversionOf(f) ? `<dt>Conversion</dt><dd>${esc(conversionOf(f))} → ${f.got} ${esc(unit(C.fact_defs[f.fact].unit))}</dd>` : ""}
-      ${admin ? `<dt>Code mapping</dt><dd>${m[0]} → LOINC ${loinc} · ${esc(mapNote(f))}</dd>` : `<dt>LOINC</dt><dd>${loinc}</dd>`}` : loinc ? `<dt>LOINC</dt><dd>${loinc}</dd>` : ""}
+      ${admin ? `<dt>Code mapping</dt><dd>${esc(m[0])} → ${loinc ? `LOINC ${loinc}` : "no LOINC"} · ${esc(mapNote(f))}</dd>` : loinc ? `<dt>LOINC</dt><dd>${loinc}</dd>` : ""}` : loinc ? `<dt>LOINC</dt><dd>${loinc}</dd>` : ""}
     <dt>Remark</dt><dd>${esc(remark(f))}</dd></dl>${action}</div>`;
 }
 function viewer(f, it) {
   // a laboratory message without an image is printed as a page; with nothing to show there is no viewer (the remark says why)
-  if (!f?.media && it && !it.added && !it.via && ["epic_lab", "ext_lab"].includes(it.source) && !it.facts.every((x) => x.status === "LOST"))
+  if (!f?.media && it && !it.added && !it.via && ["epic_lab", "ext_lab", "nb_lab", "gp"].includes(it.source) && !it.facts.every((x) => x.status === "LOST"))
     return uploadView({ name: it.ref || it.title, type: "image/svg+xml", url: printPage(it), note: "Page 1" });
   if (!f?.media) return "";
   const b = f.media.box;
@@ -1161,7 +1190,8 @@ function renalRows() {
   });
   return rows;
 }
-const LOCAL_LAB = { TROP: "troponin", KREA: "creatinine", EGFR: "egfr", GLUC: "glucose", HB: "hb" };
+const LOCAL_LAB = { TROP: "troponin", KREA: "creatinine", EGFR: "egfr", GLUC: "glucose", HB: "hb", K: "potassium", NA: "sodium", NTPRO: "nt_probnp",
+  CRP: "crp", LEUK: "wbc", TROM: "platelets", INR: "inr", PCO2: "pco2", PO2: "po2" };
 function labRows() {
   return C.patients.flatMap((p) => p.facts.filter((f) => f.source === "epic_lab").map((f) => ({
     PATID: p.mrn, BEPALING: Object.keys(LOCAL_LAB).find((k) => LOCAL_LAB[k] === f.fact), UITSLAG: comma(f.truth_value),
@@ -1280,7 +1310,7 @@ const sheet = (body, font, scan) => "data:image/svg+xml;charset=utf-8," + encode
 // A document with no image of its own, printed from the data: a laboratory report as the sender reported it, or a page
 // that says what was expected and did not arrive. Rows are [label, value] or, in the table, [test, result, unit].
 function printPage(it) {
-  const p = patient(it.pid), lost = it.facts.every((f) => f.status === "LOST"), lab = !lost && ["epic_lab", "ext_lab"].includes(it.source);
+  const p = patient(it.pid), lost = it.facts.every((f) => f.status === "LOST"), lab = !lost && ["epic_lab", "ext_lab", "nb_lab", "gp"].includes(it.source);
   const kv = [["Patient", `${p.family}, ${p.given}`], ["Date of birth", fmtDate(p.dob)], ["Patient no.", p.mrn], ["Date and time", fmtTime(it.time)]];
   // the test name and value as the message carries them (OBX for HL7, INV and RSL for EDIFACT), else ours
   const row = (f) => {
@@ -1610,20 +1640,30 @@ const outboundRows = () => [...S.log].sort((a, b) => b.time.localeCompare(a.time
 
 // Code mappings per sender: local code and unit to LOINC and one UCUM unit, reviewed and versioned like a terminology table.
 // Regiolab Zuid's codes and factors come from six-sys (EXT_LAB_CODES); reviewers, dates and specimens are synthetic.
-const SPECIMEN = { troponin: "Serum or plasma", creatinine: "Serum", egfr: "Serum (calculated)", glucose: "Plasma", hb: "Whole blood" };
+const SPECIMEN = { troponin: "Serum or plasma", creatinine: "Serum", egfr: "Serum (calculated)", glucose: "Plasma", hb: "Whole blood",
+  potassium: "Serum or plasma", sodium: "Serum or plasma", nt_probnp: "Serum or plasma", crp: "Serum or plasma", wbc: "Whole blood", platelets: "Whole blood",
+  inr: "Platelet-poor plasma", pco2: "Arterial blood", po2: "Arterial blood", uacr: "Urine", hba1c: "Whole blood", calcium: "Serum or plasma",
+  phosphate: "Serum or plasma", lithium: "Serum or plasma", digoxin: "Serum or plasma", troponin_i: "Serum or plasma", ck: "Serum or plasma" };
 const EGFR_NOTE = "The sender does not state the eGFR equation. CKD-EPI 2009 and 2021 can differ by more than 10%, so values from two laboratories may not belong on one trend line.";
+const NB_LOINC = { nt_probnp: "33763-4" }; // the molar sibling code Heuvelland sends
 const MAPS = [
-  ...Object.entries(EXT_LAB_CODES).map(([fact, [code, u, factor]], i) => ({ id: "M" + (i + 1), sender: "Regiolab Zuid", format: "EDIFACT MEDLAB", code, localUnit: u, fact, factor: String(factor),
+  ...Object.entries(EXT_LAB_CODES).map(([fact, [code, u, factor]]) => ({ src: "ext_lab", sender: "Regiolab Zuid", format: "EDIFACT MEDLAB", code, localUnit: u, fact, factor: String(factor),
     equation: fact === "egfr" ? "Not stated by sender" : "", range: "Sender's reference range, shown as received", status: fact === "egfr" ? "Flagged" : "Approved",
     by: fact === "egfr" ? "" : "Clinical chemist, AZ Zuid", on: fact === "egfr" ? "" : "2026-03-02", version: fact === "egfr" ? 1 : 2, note: fact === "egfr" ? EGFR_NOTE : "" })),
-  ...Object.entries(LOCAL_LAB).map(([code, fact], i) => ({ id: "M" + (6 + i), sender: "AZ Zuid, clinical chemistry", format: "HL7 v2 ORU^R01", code, localUnit: C.fact_defs[fact].unit, fact, factor: "1",
+  ...CM_.units.filter((u) => u.fact !== "tapse").map((u) => ({ src: "nb_lab", sender: "Heuvelland Ziekenhuis", format: "HL7 v2 ORU^R01", code: NB_LOINC[u.fact] || C.fact_defs[u.fact].loinc,
+    localUnit: u.unit, fact: u.fact, factor: u.op === "÷" ? `1/${u.k}` : String(u.k), equation: "", range: "Sender's reference range, shown as received", status: "Approved",
+    by: "Clinical chemist, AZ Zuid", on: "2026-04-14", version: 1, note: "" })),
+  ...Object.entries(CM_.nhg).map(([code, fact]) => ({ src: "gp", sender: "General practitioner", format: "HIS export, NHG Tabel 45", code, localUnit: C.fact_defs[fact].unit, fact, factor: "1",
+    equation: "", range: "Not sent", status: "Approved", by: "Clinical chemist, AZ Zuid", on: "2026-01-12", version: 1,
+    note: C.fact_defs[fact].loinc ? "" : "Point-of-care test: NHG code kept, no LOINC equivalent." })),
+  ...Object.entries(LOCAL_LAB).map(([code, fact]) => ({ src: "epic_lab", sender: "AZ Zuid, clinical chemistry", format: "HL7 v2 ORU^R01", code, localUnit: C.fact_defs[fact].unit, fact, factor: "1",
     equation: fact === "egfr" ? "CKD-EPI 2009" : "", range: "Own laboratory's reference range", status: "Approved", by: "Clinical chemist, AZ Zuid", on: "2025-11-18", version: 1, note: "" })),
-];
-const factorText = (x) => (x === "1" ? "None: same quantity, unit written to UCUM" : x.startsWith("1/") ? `÷ ${x.slice(2)}` : `× ${x}`);
-const mapOf = (f) => MAPS.find((m) => !m.custom && m.fact === f.fact && (f.source === "ext_lab" ? m.sender === "Regiolab Zuid" : m.sender !== "Regiolab Zuid"));
+].map((m, i) => ({ ...m, id: "M" + (i + 1) }));
+const factorText = (x) => (x === "1" ? "None: same quantity, unit written to UCUM" : x.startsWith("IFCC") ? `Formula: ${x}` : x.startsWith("1/") ? `÷ ${x.slice(2)}` : `× ${x}`);
+const mapOf = (f) => MAPS.find((m) => !m.custom && m.fact === f.fact && m.src === f.source);
 const mapNote = (f) => { const m = mapOf(f); return m ? `mapping ${m.id}, version ${m.version}, ${m.status.toLowerCase()}${m.equation && f.fact === "egfr" ? `, equation: ${m.equation}` : ""}` : ""; };
-const mapApplied = (m) => m.custom ? [] : m.sender === "Regiolab Zuid" ? convertedRows().filter((r) => r.f.fact === m.fact) : [];
-const mapCount = (m) => m.custom ? 0 : m.sender === "Regiolab Zuid" ? mapApplied(m).length : all().filter((f) => f.source === "epic_lab" && f.fact === m.fact).length;
+const mapApplied = (m) => m.custom || m.src === "epic_lab" ? [] : convertedRows().filter((r) => r.f.fact === m.fact && r.f.source === m.src);
+const mapCount = (m) => m.custom ? 0 : m.src !== "epic_lab" ? mapApplied(m).length : all().filter((f) => f.source === "epic_lab" && f.fact === m.fact).length;
 const mapStatus = (m) => (m.status === "Approved" ? st("DATA", "Approved") : st("PICTURE", m.status));
 const EQUATIONS = ["CKD-EPI 2009", "CKD-EPI 2021", "Not stated: keep on a separate trend line"];
 // Tests a mapping can point at: those with a LOINC code in six-sys's own definitions (no codes invented here).
@@ -1678,7 +1718,7 @@ function mapDetail(m) {
       <dt>Equivalence</dt><dd>Equal</dd><dt>Status</dt><dd>${mapStatus(m)}</dd><dt>Reviewed by</dt><dd>${esc(m.by || "Not reviewed")}</dd>
       <dt>Effective from</dt><dd>${esc(m.on || "Not approved")}</dd><dt>Re-review</dt><dd>When the sender changes analyser, method, unit or reference range</dd>
       ${m.note && m.status === "Approved" ? `<dt>Remark</dt><dd>${esc(m.note)}</dd>` : ""}</dl></div>${approve}
-    <div class="block"><h4>Applied to</h4>${m.sender === "Regiolab Zuid"
+    <div class="block"><h4>Applied to</h4>${!m.custom && m.src !== "epic_lab"
       ? table([["Date and time", "152px"], ["Patient", "30%"], ["As received"], ["Result", "26%", "num"]],
           rows.map((r) => `<tr class="row" data-href="#/clinic/${deptOf(patient(r.f.pid))}/${r.f.pid}">${td(r.time)}${tdt(r.who)}${tdt(asReceived(r.f))}${td(`${r.f.got} ${esc(unit(d.unit))}`, "num")}</tr>`))
       : m.custom ? `<p class="dim" style="margin:0">Created by ${esc(m.created)}. ${m.status === "Approved" ? "Applies to messages received from now on." : "Not applied until approved."}</p>`

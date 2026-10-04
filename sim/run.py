@@ -9,16 +9,20 @@ import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from .model import FACTS
+from .model import FACTS, NEIGHBOUR_CODE, UNIT_CONVERSIONS, convert
 from .patients import Patient, make_patients
 from .writers import (
     write_ct_series,
     write_edi,
+    write_gp_export,
     write_hl7,
+    write_hl7_rows,
     write_pathology_pdf,
+    write_pft_pdf,
     write_radiology_pdf,
     write_secondary_capture,
     write_slide_stub,
+    write_sr,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -37,6 +41,7 @@ class World:
         self.rng = rng
         self.truth: list[dict] = []
         self.counter = 0
+        self.counter2 = 0  # files added later count separately, so the original file names stay put
 
     def next_id(self, prefix: str) -> str:
         self.counter += 1
@@ -56,13 +61,22 @@ class World:
             "loss": loss,
         })
 
+    def next_id2(self, prefix: str) -> str:
+        self.counter2 += 1
+        return f"{prefix}{self.counter2:05d}"
+
+    @staticmethod
+    def extra(p: Patient) -> random.Random:
+        """Values added later come from their own stream, so every original value stays the same."""
+        return random.Random(f"extra:{SEED}:{p.pid}")
+
     def rel(self, path: Path) -> str:
-        return str(path.relative_to(ROOT))
+        return path.relative_to(ROOT).as_posix()
 
     # ------------------------------------------------------------ building blocks
 
-    def epic_lab(self, p: Patient, when: datetime, values: dict[str, float]) -> None:
-        msg = self.next_id("MSG")
+    def epic_lab(self, p: Patient, when: datetime, values: dict[str, float], later: bool = False) -> None:
+        msg = self.next_id2("LAB") if later else self.next_id("MSG")
         path = RAW / "epic_lab" / f"{msg}.hl7"
         write_hl7(path, p, when, list(values.items()), msg)
         for fact, v in values.items():
@@ -92,6 +106,27 @@ class World:
         for fact, v in facts.items():
             self.fact(p, fact, v, when, "radiology", self.rel(path))
 
+    def gp_export(self, p: Patient, rows: list[tuple[str, datetime, float]], reason: str) -> None:
+        """rows: (fact, measured at, value). The GP sends NHG numbers, not LOINC."""
+        path = RAW / "gp" / f"{self.next_id2('HIS')}.csv"
+        write_gp_export(path, p, [(FACTS[f]["nhg"], t, v, FACTS[f]["unit"].replace("mm[Hg]", "mmHg")) for f, t, v in rows], reason)
+        for f, t, v in rows:
+            self.fact(p, f, v, t, "gp", self.rel(path))
+
+    def nb_lab(self, p: Patient, when: datetime, values: dict[str, float], units: dict[str, str]) -> None:
+        """Heuvelland's own laboratory: LOINC-coded, but its own assays, and some results in another unit."""
+        msg = self.next_id2("HZL")
+        path = RAW / "nb_lab" / f"{msg}.hl7"
+        rows = []
+        for f, v in values.items():
+            u = units.get(f, FACTS[f]["unit"])
+            loinc = "33763-4" if (f, u) == ("nt_probnp", "pmol/L") else FACTS[f]["loinc"]
+            sent = convert(UNIT_CONVERSIONS[(f, u)], v, back=True) if (f, u) in UNIT_CONVERSIONS else v
+            rows.append((loinc, FACTS[f]["label"], sent, u))
+        write_hl7_rows(path, p, when, rows, msg, "GLIMS", NEIGHBOUR_CODE, "H" + str(self.extra(p).randint(100000, 999999)))
+        for f, v in values.items():
+            self.fact(p, f, v, when, "nb_lab", self.rel(path))
+
     # ------------------------------------------------------------ care paths
 
     def chest_pain(self, p: Patient, t0: datetime) -> None:
@@ -113,7 +148,7 @@ class World:
         lvef = r.randint(30, 64)
         ivs = round(r.uniform(0.8, 1.5), 1)
         lvid = round(r.uniform(4.2, 6.1), 1)
-        acc = self.next_id("US")
+        acc = echo_acc = self.next_id("US")
         path = RAW / "echo" / f"{acc}.dcm"
         write_secondary_capture(path, p, te, acc, "TTE volledig", [
             f"LVEF    {lvef} %",
@@ -133,6 +168,37 @@ class World:
             "Zie calciumscore. Advies: cardiologische follow-up.",
             {"calcium_score": score},
         )
+        # Added: the GP's risk profile, the referring hospital's own lab, a structured echo report.
+        x = self.extra(p)
+        tg = (t0 - timedelta(days=x.randint(30, 200))).replace(hour=9, minute=x.choice([0, 10, 20, 30, 40, 50]))
+        rows = [("sbp", tg, x.randint(122, 176)), ("dbp", tg, x.randint(70, 102)), ("heart_rate", tg, x.randint(58, 96)),
+                ("weight", tg, round(x.uniform(62, 112), 1)), ("cholesterol", tg, round(x.uniform(4.0, 7.6), 1)),
+                ("ldl", tg, round(x.uniform(2.0, 5.2), 1)), ("hdl", tg, round(x.uniform(0.8, 1.9), 1)),
+                ("triglycerides", tg, round(x.uniform(0.8, 3.2), 1))]
+        if x.random() < 0.4:
+            rows.append(("hba1c", tg, x.randint(44, 70)))
+        self.gp_export(p, rows, "Pijn op de borst; cardiovasculair risicoprofiel")
+        nb = {"troponin_i": round(peak * x.uniform(0.6, 2.5)), "ck": x.randint(60, 900),
+              "sodium": x.randint(133, 144), "potassium": round(x.uniform(3.4, 5.1), 1)}
+        units = {}
+        if x.random() < 0.6:
+            nb["nt_probnp"] = round(x.uniform(90, 4500))
+            units["nt_probnp"] = "pmol/L"
+        else:
+            nb["bnp"] = round(x.uniform(30, 900))
+        if x.random() < 0.35:
+            nb["digoxin"] = round(x.uniform(0.6, 1.6), 1)
+            units["digoxin"] = "nmol/L"
+        self.nb_lab(p, t0 + timedelta(minutes=25), nb, units)
+        self.epic_lab(p, t1 + timedelta(minutes=5), later=True, values={
+            "potassium": round(x.uniform(3.5, 5.0), 1), "sodium": x.randint(134, 144), "nt_probnp": round(x.uniform(100, 5000)),
+        })
+        tapse_cm, lavi = round(x.uniform(1.4, 2.6), 1), x.randint(22, 48)
+        sr = RAW / "echo" / f"{echo_acc}_sr.dcm"
+        write_sr(sr, p, te, echo_acc, "TTE volledig", [
+            ("77903-3", "TAPSE", tapse_cm, "cm"), ("79984-1", "LA volume index (biplane)", lavi, "mL/m2")], device="Echo 5")
+        self.fact(p, "tapse", round(tapse_cm * 10), te, "echo", self.rel(sr))
+        self.fact(p, "lavi", lavi, te, "echo", self.rel(sr))
 
     def lung_nodule(self, p: Patient, t0: datetime) -> None:
         r = self.rng
@@ -169,18 +235,56 @@ class World:
         slide = RAW / "pathology" / f"{case}.isyntax"
         write_slide_stub(slide, r)
         self.fact(p, "wsi_slide", "whole-slide image", t2, "pathology", self.rel(slide))
+        # Added: the GP referral (persistent cough, CRP point-of-care) and the pre-operative work-up.
+        x = self.extra(p)
+        tg = (t0 - timedelta(days=x.randint(14, 40))).replace(hour=10, minute=x.choice([0, 15, 30, 45]))
+        self.gp_export(p, [("crp_poc", tg, x.randint(5, 60)), ("sbp", tg, x.randint(118, 162)), ("dbp", tg, x.randint(68, 96)),
+                           ("weight", tg, round(x.uniform(55, 98), 1))], "Aanhoudende hoest")
+        tp = (t1 + timedelta(days=x.randint(3, 7))).replace(hour=8, minute=x.choice([10, 25, 40]))
+        self.epic_lab(p, tp, later=True, values={
+            "crp": x.randint(1, 25), "wbc": round(x.uniform(4.5, 11.5), 1), "platelets": x.randint(160, 420),
+            "inr": round(x.uniform(0.9, 1.2), 1), "sodium": x.randint(135, 145), "potassium": round(x.uniform(3.6, 5.0), 1),
+            "pco2": round(x.uniform(4.6, 6.0), 1), "po2": round(x.uniform(9.0, 12.5), 1),
+        })
+        fev1, ratio, dlco = round(x.uniform(1.4, 3.4), 2), x.uniform(0.55, 0.80), round(x.uniform(4.5, 9.5), 1)
+        fvc, pred = round(fev1 / ratio, 2), x.randint(55, 105)
+        tf = tp + timedelta(hours=2)
+        pdf = RAW / "pft" / f"{self.next_id2('LF')}.pdf"
+        dec = lambda v, d=2: f"{v:.{d}f}".replace(".", ",")
+        obstructive = fev1 / fvc < 0.7
+        write_pft_pdf(pdf, p, tf, pdf.stem, [
+            ("FEV1", f"{dec(fev1)} L  ({pred}% van voorspeld)"), ("FVC", f"{dec(fvc)} L"),
+            ("FEV1/FVC", f"{round(100 * fev1 / fvc)} %"), ("DLCO", f"{dec(dlco, 1)} mmol/min/kPa")],
+            ("Obstructief patroon." if obstructive else "Geen obstructie.") + " Diffusiecapaciteit beoordelen in relatie tot resectie.")
+        for f, v in (("fev1", fev1), ("fvc", fvc), ("fev1_fvc", round(100 * fev1 / fvc)), ("dlco", dlco)):
+            self.fact(p, f, v, tf, "pft", self.rel(pdf))
 
     def kidney(self, p: Patient, t0: datetime, bsn_gaps: set[int], typo_visit: int | None) -> None:
         r = self.rng
+        x = self.extra(p)
+        diabetic, lithium = x.random() < 0.6, x.random() < 0.3
         crea = r.uniform(110, 190)
         when = t0
+        tg = (t0 - timedelta(days=x.randint(10, 30))).replace(hour=11, minute=x.choice([0, 20, 40]))
+        self.gp_export(p, [("sbp", tg, x.randint(130, 172)), ("dbp", tg, x.randint(75, 98)), ("heart_rate", tg, x.randint(60, 92)),
+                           ("weight", tg, round(x.uniform(60, 118), 1))], "Verminderde nierfunctie")
+        k = x.uniform(4.0, 4.8)
         for visit in range(5):
             crea *= r.uniform(1.0, 1.12)
             egfr = max(12, round(4800 / crea))
+            k += x.uniform(0, 0.25)
+            added = {"potassium": round(k, 1), "uacr": round(x.uniform(3, 80))}
+            if diabetic and visit in (0, 3):
+                added["hba1c"] = x.randint(45, 75)
+            if lithium:
+                added["lithium"] = round(x.uniform(0.5, 1.0), 2)
+            if visit == 4:
+                added.update(calcium=round(x.uniform(2.1, 2.5), 2), phosphate=round(x.uniform(1.0, 1.8), 2))
             self.ext_lab(p, when, {
                 "creatinine": round(crea, 1),
                 "egfr": egfr,
                 "glucose": round(r.uniform(5.2, 9.8), 1),
+                **added,
             }, omit_bsn=visit in bsn_gaps, dob_typo=visit == typo_visit)
             if visit == 2:
                 tu = when + timedelta(days=6, hours=2)
@@ -194,6 +298,8 @@ class World:
             "creatinine": round(crea * 1.05, 1),
             "egfr": max(12, round(4800 / (crea * 1.05))),
             "glucose": round(r.uniform(5.2, 9.8), 1),
+            "potassium": round(k, 1),
+            "hb": round(x.uniform(6.2, 8.4), 1),
         })
 
 
@@ -204,7 +310,7 @@ def main() -> None:
     rng = random.Random(SEED)
     if RAW.exists():
         shutil.rmtree(RAW)
-    for sub in ("epic_lab", "ext_lab", "radiology", "echo", "pathology"):
+    for sub in ("epic_lab", "ext_lab", "radiology", "echo", "pathology", "gp", "nb_lab", "pft"):
         (RAW / sub).mkdir(parents=True)
 
     patients = make_patients(rng, 20)
