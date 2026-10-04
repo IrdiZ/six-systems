@@ -970,8 +970,6 @@ function requestDialog() {
   openDialog(`<form class="dlg" id="f-req">${dlgHead("Result request", p)}
     <div class="body">${table([["", "44px"], ["Test", "26%"], ["Date and time", "152px"], ["Recipient"], ["Channel", "190px"]],
       lost.map((f, i) => `<tr>${td(`<input type="checkbox" name="f" value="${i}" checked>`)}${tdt(label(f))}${td(fmtTime(f.time))}${tdt(SOURCE[f.source].sender)}${td(pick(f, i))}</tr>`))}
-      <div class="field"><span>Channel</span><div class="dim">Requests go through the network the recipient already uses (ZorgMail, Twiin). An upload link is the fallback
-        for a sender without any of them: this patient and this request only, valid 7 days, single use, sign-in with UZI pass (Zorg-ID).</div></div>
       <label class="field"><span>Message</span><textarea name="q">Please provide the result as a structured message (HL7 v2 ORU or FHIR Observation), including patient BSN.</textarea></label></div>
     <footer><button type="button" data-act="close">Cancel</button><button class="primary">Send request</button></footer></form>`);
   $("#f-req").addEventListener("submit", (e) => {

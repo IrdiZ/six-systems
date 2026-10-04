@@ -204,7 +204,7 @@
     },
     {
      "caption": "An upload link is only the fallback, for a sender without any network. The sender signs in with a UZI pass.",
-     "ring": "#f-req .field:has-text('fallback')",
+     "ring": "#f-req select[name=ch0]",
      "hold": 5
     },
     {
