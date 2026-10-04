@@ -341,15 +341,21 @@ function seedLog() {
         what: [...hl7, ...items.filter((i) => i.cat === "echo" || i.format === "PDF report").map(full)],
         q: "Back-referral after chest pain work-up. Please continue follow-up. Echocardiography values are unverified.",
         history: hist(t, [[0, "Sent: notification to recipient"], [14, "Fetched by recipient"], [190, "Acknowledged"]]) });
+      // discharge letter to the GP over ZorgMail, as for every patient leaving the chest pain clinic
+      const tg = later(t, 2 * 60);
+      add({ time: tg, kind: "send", from: dept, to: "General practitioner", pid: p.pid, format: "PDF summary", channel: "ZorgMail", what: hl7.slice(-1),
+        q: "Discharge letter after chest pain work-up, with the latest laboratory results.", history: hist(tg, [[0, "Sent"], [1, "Delivered"], [24 * 60, "Acknowledged"]]) });
       if (!poc) continue;
-      const answered = ROLE.answered.includes(p.pid), opened = ROLE.opened.includes(p.pid);
+      // Requests go over the network the emergency department already uses; the upload link is the fallback (one patient here).
+      const answered = ROLE.answered.includes(p.pid), opened = ROLE.opened.includes(p.pid), link = opened;
       const steps = answered ? [[0, "Sent"], [1, "Delivered"], [2 * 24 * 60, "Answered: result provided by fax"]]
-        : [[0, "Sent"], [1, "Delivered"], ...(opened ? [[3 * 60, "Link opened by recipient"]] : [])];
+        : [[0, "Sent"], [1, "Delivered"], ...(link ? [[3 * 60, "Link opened by recipient"]] : [])];
       const l = add({ time: tr, kind: "request", from: dept, to: SOURCE.offline.sender, pid: p.pid, what: [LABEL.troponin_poc], facts: ["troponin_poc"], format: "Result request",
-        channel: "Upload link", q: "Please provide the point-of-care troponin as a structured result, including patient BSN.", history: hist(tr, steps) });
-      l.portal = newLink(tr, n);
-      if (answered) l.portal.state = "closed";
-      else if (l.portal.until < now()) { l.portal.state = "expired"; l.history.push([l.portal.until, "Expired: link not used"]); }
+        channel: link ? "Upload link" : "ZorgMail", q: "Please provide the point-of-care troponin as a structured result, including patient BSN.", history: hist(tr, steps) });
+      if (link) {
+        l.portal = newLink(tr, n);
+        if (l.portal.until < now()) { l.portal.state = "expired"; l.history.push([l.portal.until, "Expired: link not used"]); }
+      }
     } else if (p.path === "lung_nodule") {
       const tp = fmtTime(items.find((i) => i.cat === "pathology")?.time || last), t = later(tp, -9 * 24 * 60), tr = later(tp, 2 * 24 * 60);
       add({ time: t, kind: "send", from: dept, to: "Pathologie Limburg Samenwerking", pid: p.pid, format: "PDF summary", channel: "ZorgMail",
@@ -384,7 +390,7 @@ function seedLog() {
 function newLink(time, seed) {
   const r = seed ? (k) => ((seed * 7919 * k) % 1e6) : () => Math.floor(rand() * 1e6);
   const b36 = (x) => x.toString(36).toUpperCase().padStart(4, "0").slice(-4);
-  return { token: `UL-${b36(r(3))}-${b36(r(5))}`, code: String(r(11)).padStart(6, "0"), until: later(time, 7 * 24 * 60).slice(0, 10) + " 23:59", state: "active" };
+  return { token: `UL-${b36(r(3))}-${b36(r(5))}`, until: later(time, 7 * 24 * 60).slice(0, 10) + " 23:59", state: "active" };
 }
 seedLog();
 const lastStatus = (l) => l.history[l.history.length - 1][1];
@@ -396,8 +402,9 @@ const KIND = { send: "Referral", request: "Result request", share: "Made availab
 const DIR = [
   { name: "Heuvelland Ziekenhuis", type: "Hospital", dept: "Cardiology", agb: "06011234", ura: "90001234", channel: "Twiin", status: "Verified", verified: "URA matched in ZORG-AB",
     points: [["Twiin", "ZORG-AB: Heuvelland Ziekenhuis, cardiology (notification address)"], ["ZorgMail", "ZorgMail address book: Heuvelland Ziekenhuis, cardiology"]] },
-  { name: SOURCE.offline.sender, type: "Hospital", dept: "Emergency department", agb: "06011235", ura: "90001234", channel: "Upload link", status: "Verified", verified: "Confirmed by telephone call-back",
-    remark: "No electronic link for point-of-care results. Requests go out as upload links.", points: [["Upload link", "Access code by SMS to the registered number"], ["Fax", "Registered fax number"]] },
+  { name: SOURCE.offline.sender, type: "Hospital", dept: "Emergency department", agb: "06011235", ura: "90001234", channel: "ZorgMail", status: "Verified", verified: "URA matched in ZORG-AB",
+    remark: "Point-of-care results are not in their laboratory system, so they arrive by fax. Requests go through ZorgMail; the upload link is the fallback.",
+    points: [["ZorgMail", "ZorgMail address book: Heuvelland Ziekenhuis, emergency department"], ["Twiin", "ZORG-AB: Heuvelland Ziekenhuis, emergency department"], ["Upload link", "Fallback: one-time link, sign-in with UZI pass"], ["Fax", "Registered fax number"]] },
   { name: "Regiolab Zuid", type: "Laboratory", dept: "", agb: "25010987", ura: "90004567", channel: "ZorgMail", status: "Verified", verified: "AGB checked against the Vektis register",
     points: [["ZorgMail", "EDIFACT MEDLAB, ZorgMail address book: Regiolab Zuid"]] },
   { name: "Pathologie Limburg Samenwerking", type: "Pathology laboratory", dept: "", agb: "25020456", ura: "90007890", channel: "ZorgMail", status: "Verified", verified: "AGB checked against the Vektis register",
@@ -464,7 +471,7 @@ const CHANNELS = [
     remark: "The regional platform is being built for the whole region. This connection is ready for it: Nephrology is attached first, the other departments follow one at a time, each publishing and reading through its own worklist without a project of its own." },
   { id: "out-zm", name: "Referrals and requests, ZorgMail", type: "ZorgMail (HL7 v2, EDIFACT, PDF)", dir: "Outbound", scope: "National", source: "ZorgMail address book", route: "Rule R10",
     ack: "HL7 v2: AA or AE from the recipient; otherwise delivery receipt", msgs: fromLog((l) => l.channel === "ZorgMail") },
-  { id: "out-link", name: "Upload links and secure e-mail", type: "SMS and secure e-mail gateway", dir: "Outbound", scope: "Own", source: "Recipients without an electronic link", route: "Rule R11",
+  { id: "out-link", name: "Upload links and secure e-mail", type: "Secure e-mail gateway; links signed in with UZI pass", dir: "Outbound", scope: "Own", source: "Recipients without an electronic link", route: "Rule R11",
     ack: "None: the recipient's upload or reply is the answer", msgs: fromLog((l) => l.channel === "Upload link" || l.channel === "Secure e-mail with access code") },
   { id: "portal", name: "Upload links", type: "Upload portal (HTTPS)", dir: "Inbound", scope: "Own", source: "One-time links for senders without an electronic link", route: "Answer to a result request: requesting department",
     msgs: () => docs().filter((i) => i.via === "Upload link").map(docMsg) },
@@ -768,9 +775,10 @@ function docDetail(it, admin = false) {
 function resultBlock(f, admin = false) {
   if (!f) return "";
   const v = verdict(f), loinc = C.fact_defs[f.fact]?.loinc, link = openLink(f);
-  const action = v === "LOST" && link ? `<div class="inline"><span class="dim">Upload link sent ${esc(link.time)} to ${esc(link.to)} · ${esc(lastStatus(link))}</span>
-      <button data-act="portal" data-arg="${link.portal.token}">Open as sender (demo)</button></div>`
-    : v === "LOST" && f.source !== "ext_lab" && f.source !== "echo" ? `<div class="inline"><button data-act="request">Request result <kbd>R</kbd></button></div>`
+  const req = [...S.log].reverse().find((l) => l.kind === "request" && l.pid === f.pid && l.facts?.includes(f.fact));
+  const action = v === "LOST" && link ? `<p class="note dim">Upload link sent ${esc(link.time)} to ${esc(link.to)}.${/upload link sent/i.test(lastStatus(link)) ? "" : ` ${esc(lastStatus(link).replace(": ", ", "))}.`}</p>
+      <div class="inline"><button data-act="portal" data-arg="${link.portal.token}">Open as sender (demo)</button></div>`
+    : v === "LOST" && f.source !== "ext_lab" && f.source !== "echo" ? `${req ? `<p class="note dim">Requested ${esc(req.time)} through ${esc(req.channel)}. ${esc(lastStatus(req).split(";")[0].replace(": ", ", "))}.</p>` : ""}<div class="inline"><button data-act="request">${req ? "Request again" : "Request result"} <kbd>R</kbd></button></div>`
     : v === "PICTURE" ? `<div class="inline"><button data-act="confirm">Verify result <kbd>V</kbd></button></div>` : "";
   const m = f.status === "CONFLICT" && EXT_LAB_CODES[f.fact];
   return `<div class="block"><h4>${esc(label(f))}</h4><dl class="kv">
@@ -922,7 +930,7 @@ function sendDialog(preTo) {
 // Add an institution to the directory. A temporary contact covers one exchange with a sender who is not a client.
 function contactDialog(pre = {}, done, cancel) {
   const types = ["Hospital", "Laboratory", "Pathology laboratory", "GP practice", "Out-of-hours GP service", "Other"];
-  const chans = ["Upload link", "Secure e-mail with access code", "ZorgMail", "Twiin", "Fax"];
+  const chans = ["ZorgMail", "Twiin", "Secure e-mail with access code", "Fax", "Upload link"];
   const checks = ["Not verified", "AGB checked against the Vektis register", "URA matched in ZORG-AB", "Confirmed by telephone call-back"];
   openDialog(`<form class="dlg" id="f-dir"><header><b>New institution</b><span class="pt">Institutions</span></header>
     <div class="body">
@@ -931,7 +939,7 @@ function contactDialog(pre = {}, done, cancel) {
       <label class="field"><span>Department</span><input name="dept"></label>
       <label class="field"><span>AGB code</span><input name="agb" inputmode="numeric" maxlength="8" placeholder="8 digits, Vektis"></label>
       <label class="field"><span>URA number</span><input name="ura" inputmode="numeric" maxlength="8" placeholder="8 digits, UZI register"></label>
-      <label class="field"><span>Preferred channel</span><select name="channel">${chans.map((x) => opt(x, pre.email ? "Secure e-mail with access code" : "Upload link")).join("")}</select></label>
+      <label class="field"><span>Preferred channel</span><select name="channel">${chans.map((x) => opt(x, pre.email ? "Secure e-mail with access code" : "ZorgMail")).join("")}</select></label>
       <label class="field"><span>Address</span><input name="addr" value="${esc(pre.email || "")}" placeholder="Secure e-mail, endpoint or registered phone number"></label>
       <label class="field"><span>Relation</span><select name="rel"><option value="temp">Temporary: this exchange only, expires after 30 days</option><option value="perm">Permanent</option></select></label>
       <label class="field"><span>Verification</span><select name="check">${checks.map((x) => opt(x)).join("")}</select></label>
@@ -952,14 +960,18 @@ function contactDialog(pre = {}, done, cancel) {
 // Results not received that a clinician can ask the sender for (unmatched and illegible ones go to data management).
 const requestable = (p) => lostOf(p).filter((f) => f.source !== "ext_lab" && f.source !== "echo" && !openLink(f));
 const reqChannel = (to) => dirOf(to)?.channel || "ZorgMail";
+// Existing networks first; our own upload link only as the fallback for senders without any of them.
+const reqChannels = (to) => [...new Set([reqChannel(to), ...(dirOf(to)?.points || []).map((x) => x[0]).filter((c) => !["Upload link", "Fax"].includes(c)), "ZorgMail", "Upload link"])];
+const chanLabel = (c) => (c === "Upload link" ? "Upload link (fallback)" : c);
 function requestDialog() {
   const { p, dept } = CTX;
-  const lost = requestable(p), links = lost.some((f) => reqChannel(SOURCE[f.source].sender) === "Upload link");
+  const lost = requestable(p);
+  const pick = (f, i) => `<select name="ch${i}">${reqChannels(SOURCE[f.source].sender).map((c) => `<option value="${esc(c)}">${esc(chanLabel(c))}</option>`).join("")}</select>`;
   openDialog(`<form class="dlg" id="f-req">${dlgHead("Result request", p)}
-    <div class="body">${table([["", "44px"], ["Test", "26%"], ["Date and time", "152px"], ["Recipient"], ["Channel", "130px"]],
-      lost.map((f, i) => `<tr>${td(`<input type="checkbox" name="f" value="${i}" checked>`)}${tdt(label(f))}${td(fmtTime(f.time))}${tdt(SOURCE[f.source].sender)}${tdt(reqChannel(SOURCE[f.source].sender))}</tr>`))}
-      ${links ? `<div class="field"><span>Upload link</span><div>The addressee has no electronic link with ${esc(HOSPITAL)} and receives a one-time upload link: this patient and this request only,
-        valid 7 days, single use. Access code by SMS to the registered number; the sender confirms the patient's date of birth before uploading.</div></div>` : ""}
+    <div class="body">${table([["", "44px"], ["Test", "26%"], ["Date and time", "152px"], ["Recipient"], ["Channel", "190px"]],
+      lost.map((f, i) => `<tr>${td(`<input type="checkbox" name="f" value="${i}" checked>`)}${tdt(label(f))}${td(fmtTime(f.time))}${tdt(SOURCE[f.source].sender)}${td(pick(f, i))}</tr>`))}
+      <div class="field"><span>Channel</span><div class="dim">Requests go through the network the recipient already uses (ZorgMail, Twiin). An upload link is the fallback
+        for a sender without any of them: this patient and this request only, valid 7 days, single use, sign-in with UZI pass (Zorg-ID).</div></div>
       <label class="field"><span>Message</span><textarea name="q">Please provide the result as a structured message (HL7 v2 ORU or FHIR Observation), including patient BSN.</textarea></label></div>
     <footer><button type="button" data-act="close">Cancel</button><button class="primary">Send request</button></footer></form>`);
   $("#f-req").addEventListener("submit", (e) => {
@@ -967,9 +979,9 @@ function requestDialog() {
     const d = new FormData(e.target), idx = d.getAll("f").map(Number);
     let n = 0;
     for (const i of idx) {
-      const to = SOURCE[lost[i].source].sender, channel = reqChannel(to);
+      const to = SOURCE[lost[i].source].sender, channel = d.get("ch" + i);
       const l = logOut({ kind: "request", from: DEPTS[dept].label, to, pid: p.pid, what: [label(lost[i])], facts: [lost[i].fact], format: "Result request", channel, q: d.get("q") });
-      if (channel === "Upload link") { l.portal = newLink(l.time); l.history.push([now(), "Upload link sent, access code by SMS"]); publishLink(l); n++; }
+      if (channel === "Upload link") { l.portal = newLink(l.time); l.history.push([now(), "Upload link sent; sign-in with UZI pass"]); publishLink(l); n++; }
     }
     flash(`${plural(idx.length, "result request")} sent${n ? `, ${plural(n, "upload link")} created` : ""}`);
   });
@@ -1289,8 +1301,7 @@ function linkBlock(l) {
   const k = l.portal;
   if (!k) return "";
   return `<div class="block"><h4>Upload link</h4><dl class="kv"><dt>Link</dt><dd>${k.token}</dd><dt>Scope</dt><dd>This patient and this request only; single use</dd>
-    <dt>Valid until</dt><dd>${k.until}</dd><dt>Verification</dt><dd>Access code by SMS to the registered number, then the patient's date of birth</dd>
-    <dt>Access code</dt><dd>${k.code} <span class="dim">(shown for the demo; never shown to staff)</span></dd><dt>State</dt><dd>${LINK_STATE[k.state]}</dd>
+    <dt>Valid until</dt><dd>${k.until}</dd><dt>Verification</dt><dd>Sign-in with UZI pass (Zorg-ID), then the patient's date of birth</dd><dt>State</dt><dd>${LINK_STATE[k.state]}</dd>
     ${k.opened ? `<dt>Opened</dt><dd>${k.opened}</dd>` : ""}${k.by ? `<dt>Uploaded by</dt><dd>${esc(k.by)}, ${k.uploaded}</dd><dt>Files</dt><dd>${esc(k.files.join("; ") || "None: value entered only")}</dd>` : ""}</dl>
     <div class="inline">${k.state === "active" ? `<button class="primary" data-act="portal" data-arg="${k.token}">Open as sender (demo)</button><button data-act="revoke" data-arg="${l.id}">Revoke link</button>` : ""}
       ${["expired", "revoked", "locked"].includes(k.state) ? `<button data-act="relink" data-arg="${l.id}">Send new link</button>` : ""}</div></div>`;
@@ -1376,7 +1387,7 @@ function dbDialog(step = 1) {
 const initials = (p) => `${p.given[0]}. ${p.family.split(" ").pop()[0]}.`;
 function portalView(l) {
   const p = patient(l.pid), f = p.facts.find((x) => x.fact === l.facts[0]);
-  return { token: l.portal.token, code: l.portal.code, until: l.portal.until, state: l.portal.state, ref: l.id, from: `${l.from}, ${HOSPITAL}`, to: l.to,
+  return { token: l.portal.token, until: l.portal.until, state: l.portal.state, ref: l.id, from: `${l.from}, ${HOSPITAL}`, to: l.to,
     initials: initials(p), yob: p.dob.slice(0, 4), dob: p.dob, date: f ? fmtTime(f.time) : "", q: l.q || "", tests: l.facts.map((k) => [k, LABEL[k] || k, unit(C.fact_defs[k]?.unit)]) };
 }
 // The portal finds its request from the window that opened it; links are also published in this browser
@@ -1426,7 +1437,7 @@ function portalLookup(token) {
 }
 function renderPortal(token) {
   CTX = { portal: true };
-  if (PS.token !== token) { Object.assign(PS, { token, req: undefined, step: "verify", err: "", tries: 0, files: [] }); portalLookup(token); }
+  if (PS.token !== token) { Object.assign(PS, { token, req: undefined, step: "verify", err: "", tries: 0, files: [], uzi: null }); portalLookup(token); }
   const r = PS.req;
   const card = (title, body, foot = "") => `<form class="dlg portal-card" id="pf"><header><b>${title}</b>${r ? `<span class="pt">Request ${esc(r.ref)}</span>` : ""}</header>
     <div class="body">${body}</div>${foot ? `<footer>${foot}</footer>` : ""}</form>`;
@@ -1444,17 +1455,16 @@ function renderPortal(token) {
       <p>The link is now closed. ${esc(r.from)} has been notified. You can close this window.</p>`, `<button type="button" class="primary" id="pf-close">Close window</button>`);
   else if (why && r.state !== "active") body = card("This link is no longer valid", `<p>${why}</p><p class="dim">Please contact the requesting department${r ? `: ${esc(r.from)}` : ""}.</p>`);
   else if (PS.step === "verify") body = card("Result request", `${summary(false)}
-      <label class="field"><span>Access code</span><input name="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label>
-      <div class="field"><span></span><div class="dim">Sent by SMS to the registered number of ${esc(r.to)}. Demo code: ${r.code}</div></div>
+      <div class="field"><span>Identification</span><div>${PS.uzi ? st("DATA", `Signed in with UZI pass: ${PS.uzi.name}, ${PS.uzi.role.toLowerCase()}`)
+        : `<button type="button" id="pf-uzi">Sign in with UZI pass (Zorg-ID)</button>`}
+        <div class="dim">Healthcare professionals sign in with their UZI pass through the Zorg-ID app, as on hospital referrer portals.</div></div></div>
       <label class="field"><span>Patient's date of birth</span><input type="date" name="dob"></label>
       ${PS.err ? `<div class="field"><span></span><div class="req">${esc(PS.err)}</div></div>` : ""}`, `<button class="primary">Continue</button>`);
   else body = card("Upload result", `${summary(true)}
       <label class="field"><span>Files</span><input type="file" name="files" multiple accept=".pdf,image/*,.hl7,.edi,.dcm,.txt"></label>
       <div class="field"><span></span><div id="pf-files" class="dim">PDF, image, HL7, EDIFACT or DICOM. Each file is checked for malware on arrival.</div></div>
       ${r.tests.map(([k, l, u]) => `<div class="field"><span>${esc(l)}</span><div class="inline" style="margin:0"><input name="v-${k}" inputmode="decimal"> <span class="dim">${esc(u)} · optional: the value as a structured result</span></div></div>`).join("")}
-      <label class="field"><span>Your name <span class="req">*</span></span><input name="name" required></label>
-      <label class="field"><span>Role</span><select name="role">${["Physician", "Physician assistant", "Nurse", "Laboratory technician", "Medical secretary"].map((x) => opt(x)).join("")}</select></label>
-      <label class="field"><span>BIG or AGB number</span><input name="reg"></label>
+      <div class="field"><span>Uploaded by</span><div>${esc(PS.uzi.name)}, ${esc(PS.uzi.role.toLowerCase())} <span class="dim">· identified by UZI pass</span></div></div>
       <div class="field"><span></span><label><input type="checkbox" name="ok"> I declare that these documents concern the patient identified above and that I am authorised to share them.</label></div>`,
     `<span class="left" id="pf-hint"></span><button class="primary" disabled>Upload</button>`);
   $("#app").innerHTML = `<div class="portal-page"><div class="portal-top"><b>${HOSPITAL}</b><span>Secure result upload</span></div>
@@ -1462,19 +1472,22 @@ function renderPortal(token) {
   $("#pf-close")?.addEventListener("click", () => window.close());
   const f = $("#pf");
   if (!f || !r || r.state !== "active" || PS.step === "done") return;
+  // demo: the UZI pass sign-in succeeds and returns the pass holder (synthetic)
+  $("#pf-uzi")?.addEventListener("click", () => { PS.uzi = { name: "A. Smeets", role: "Physician" }; PS.err = ""; route(); });
   if (PS.step === "verify") return f.addEventListener("submit", (e) => {
     e.preventDefault();
-    if (f.code.value.trim() === r.code && f.dob.value === r.dob) { PS.step = "upload"; PS.err = ""; return route(); }
+    if (!PS.uzi) { PS.err = "Sign in with your UZI pass first."; return route(); }
+    if (f.dob.value === r.dob) { PS.step = "upload"; PS.err = ""; return route(); }
     PS.tries++;
     if (PS.tries >= 3) { r.state = "locked"; toHospital({ t: "portal-locked", token: r.token }); }
-    PS.err = `Access code or date of birth does not match. ${3 - PS.tries} attempts left.`;
+    PS.err = `Date of birth does not match. ${3 - PS.tries} attempts left.`;
     route();
   });
   const check = () => {
     const vals = r.tests.some(([k]) => f["v-" + k].value.trim()), files = PS.files.length && PS.files.every((x) => x.scan === "Clean");
     const busy = PS.files.some((x) => x.scan !== "Clean");
-    $("#pf-hint").textContent = busy ? "Checking files…" : !files && !vals ? "Add a file or enter the value" : !f.name.value.trim() ? "Your name is required" : !f.ok.checked ? "Confirm the declaration" : "";
-    f.querySelector("button.primary").disabled = busy || (!files && !vals) || !f.name.value.trim() || !f.ok.checked;
+    $("#pf-hint").textContent = busy ? "Checking files…" : !files && !vals ? "Add a file or enter the value" : !f.ok.checked ? "Confirm the declaration" : "";
+    f.querySelector("button.primary").disabled = busy || (!files && !vals) || !f.ok.checked;
   };
   const showFiles = () => {
     $("#pf-files").innerHTML = PS.files.length ? table([["File"], ["Size", "70px", "num"], ["SHA-256", "34%"], ["Check", "104px"]], PS.files.map((x) =>
@@ -1493,7 +1506,7 @@ function renderPortal(token) {
   f.addEventListener("submit", (e) => {
     e.preventDefault();
     const values = Object.fromEntries(r.tests.map(([k]) => [k, f["v-" + k].value.trim()]).filter(([, v]) => v));
-    const who = { name: f.name.value.trim(), role: f.role.value, reg: f.reg.value.trim() };
+    const who = { ...PS.uzi, reg: "UZI pass" };
     toHospital({ t: "portal-upload", token: r.token, files: PS.files.map(({ file, sha }) => ({ file, sha })), values, who });
     try { const all = JSON.parse(localStorage.getItem("six-sys-links") || "{}"); if (all[r.token]) all[r.token].state = "used"; localStorage.setItem("six-sys-links", JSON.stringify(all)); } catch {}
     PS.receipt = { at: now(), by: `${who.name}, ${who.role.toLowerCase()}`, files: PS.files, values: r.tests.filter(([k]) => values[k]).map(([k, l, u]) => `${l}: ${values[k]} ${u}`).join("; ") };
@@ -1916,7 +1929,7 @@ function act(a, arg) {
   const l = arg && S.log.find((x) => x.id === arg);
   if (a === "portal") return openPortal(arg);
   if (a === "revoke") { l.portal.state = "revoked"; l.history.push([now(), "Revoked: upload link withdrawn"]); return flash("Upload link revoked"); }
-  if (a === "relink") { l.portal = newLink(now()); l.history.push([now(), "New upload link sent, access code by SMS"]); publishLink(l); return flash(`New upload link sent to ${l.to}`); }
+  if (a === "relink") { l.portal = newLink(now()); l.history.push([now(), "New upload link sent; sign-in with UZI pass"]); publishLink(l); return flash(`New upload link sent to ${l.to}`); }
   if (a === "new-db") { W = null; return dbDialog(); }
   if (a === "new-dir") return contactDialog();
   if (a === "new-chan") return channelDialog();

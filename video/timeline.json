@@ -193,14 +193,18 @@
      "hold": 4.5
     },
     {
-     "caption": "Result request (R). The emergency department has no electronic link for point-of-care results.",
+     "caption": "Result request (R). It goes to the emergency department through ZorgMail, the network both hospitals already use.",
      "ring": null,
      "key": "r",
+     "hold": 1.2
+    },
+    {
+     "ring": "#f-req select[name=ch0]",
      "hold": 3.5
     },
     {
-     "caption": "The sender receives a one-time upload link: this patient and this request only, valid 7 days, single use.",
-     "ring": "#f-req .field:has-text('Upload link')",
+     "caption": "An upload link is only the fallback, for a sender without any network. The sender signs in with a UZI pass.",
+     "ring": "#f-req .field:has-text('fallback')",
      "hold": 5
     },
     {
@@ -209,8 +213,8 @@
      "hold": 0.6
     },
     {
-     "caption": "Request sent. The open upload link is recorded on the result.",
-     "ring": ".pane.detail .inline:has-text('Upload link sent')",
+     "caption": "Request sent through ZorgMail and recorded on the result.",
+     "ring": ".pane.detail .note",
      "hold": 4.5
     },
     {
