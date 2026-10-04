@@ -364,12 +364,12 @@ function seedLog() {
       add({ time: t, kind: "send", from: dept, to: "General practitioner", pid: p.pid, what: hl7, format: "HL7 v2 ORU^R01", channel: "ZorgMail",
         q: "Progressive rise in creatinine over five visits. Please review medication and repeat renal function in four weeks.",
         history: hist(t, ROLE.rejected.includes(p.pid) ? [[0, "Sent"], [0, "Rejected by recipient: unknown code"]] : [[0, "Sent"], [1, "Delivered"]]) });
-      // Results made available on the regional platform need the patient's explicit consent (Wabvpz art. 15a), checked in Mitz.
-      // One patient has no consent registered, so nothing is made available for them (synthetic).
+      // Making data available needs explicit consent (Wabvpz art. 15a). The regional platform checks it in Mitz and reports
+      // the outcome; this application does not decide it. One patient has no consent registered (synthetic).
       const ts = later(last, 4 * 60), yes = !ROLE.noConsent.includes(p.pid);
       add({ time: ts, kind: "share", from: dept, to: REGION, pid: p.pid, what: hl7.slice(-1), format: "FHIR Observations (laboratory results)", channel: "Regional platform",
-        consent: yes ? "Mitz: explicit consent, category hospitals" : "Mitz: no consent registered", q: "Latest renal function results, for the regional care pathway.",
-        history: hist(ts, yes ? [[0, "Consent check: consent registered"], [0, "Made available"], [1, "Accepted by platform"]] : [[0, "Consent check: no consent registered"], [0, "Not sent: no consent"]]) });
+        q: "Latest renal function results, for the regional care pathway.",
+        history: hist(ts, [[0, "Made available"], [1, yes ? "Accepted by platform: consent registered in Mitz" : "Accepted by platform: no consent registered in Mitz, not shown to other providers"]]) });
     }
   }
   const u = C.unlinked[0];
@@ -458,7 +458,7 @@ const CHANNELS = [
     errors: () => C.unlinked.filter((u) => !S.resolved["U|" + u.file]).map((u) => ({ time: fmtTime(u.time), who: u.who, what: "External laboratory report " + docRef(u.file), status: "No patient match" })) },
   { id: "path", name: "Pathologie Limburg Samenwerking", type: "ZorgMail mailbox (PDF)", dir: "Inbound", scope: "Regional", source: "ZorgMail, pathology mailbox AZ Zuid", route: "Pulmonology; copy to MDT meeting list", ack: "ZorgMail delivery receipt", msgs: fromSrc("pathology") },
   { id: "region", name: "Regional data platform", type: "openEHR and FHIR, joined through Twiin; the regional cooperation organisation is the Twiin service provider", dir: "Outbound and inbound", scope: "Regional",
-    source: REGION, route: "Rule R12, after a Mitz consent check", cert: "xchg", env: "Production, Nephrology only",
+    source: REGION, route: "Rule R12; the platform checks consent in Mitz", cert: "xchg", env: "Production, Nephrology only",
     onboard: steps(["2026-02-02", "2026-02-20", "2026-03-11", "2026-04-08", "2025-03-01", "2026-06-15", "2026-08-24"], true),
     ack: "FHIR response; HTTP 201 counts as accepted", msgs: fromLog((l) => l.channel === "Regional platform"),
     remark: "The regional platform is being built for the whole region. This connection is ready for it: Nephrology is attached first, the other departments follow one at a time, each publishing and reading through its own worklist without a project of its own." },
@@ -490,7 +490,7 @@ const ROUTES = [
   { id: "R10", when: "Outbound: recipient in the ZorgMail address book", to: "ZorgMail: HL7 v2, EDIFACT or PDF", action: "Send", n: () => S.log.filter((l) => l.channel === "ZorgMail").length },
   { id: "R11", when: "Outbound: recipient without an electronic link", to: "Result request by upload link; referral by secure e-mail with access code", action: "Send",
     n: () => S.log.filter((l) => l.channel === "Upload link" || l.channel === "Secure e-mail with access code").length },
-  { id: "R12", when: "Outbound: results made available to the regional data platform", to: "Regional platform, after a Mitz consent check", action: "Make available; not sent without consent",
+  { id: "R12", when: "Outbound: results made available to the regional data platform", to: "Regional platform; consent checked in Mitz by the platform", action: "Make available",
     n: () => S.log.filter((l) => l.channel === "Regional platform").length },
 ];
 const ruleFor = (channel) => ({ Twiin: "R9", "Regional platform": "R12", ZorgMail: "R10", "Secure e-mail with access code": "R11", "Upload link": "R11" }[channel] || "");
@@ -517,16 +517,16 @@ function seedIntake() {
 }
 seedIntake();
 
-// ------------------------------------------------------------ consent and acknowledgement
+// ------------------------------------------------------------ legal basis and acknowledgement
+// The legal basis of each exchange, shown read-only: consent is not decided here.
 // Referral or request to a provider who takes part in the treatment: consent is presumed (WGBO art. 7:457).
-// Making data available through an exchange system needs explicit consent (Wabvpz art. 15a), checked in Mitz.
-const CONSENT_WHY = {
-  "Not required: same institution": "Within the hospital.",
-  "Presumed: treatment relationship": "The recipient takes part in the treatment, so consent is presumed (WGBO art. 7:457).",
-  "Mitz: explicit consent, category hospitals": "Making data available through an exchange system needs the patient's explicit consent (Wabvpz art. 15a). Mitz answered yes for the category hospitals.",
-  "Mitz: no consent registered": "Making data available through an exchange system needs the patient's explicit consent (Wabvpz art. 15a). Mitz has no consent registered, so nothing was sent.",
+// Making data available through an exchange system needs explicit consent (Wabvpz art. 15a); the platform checks it in Mitz.
+const BASIS_WHY = {
+  "Same institution": "Within the hospital, for the patient's treatment.",
+  "Presumed consent (treatment relationship)": "The recipient takes part in the treatment, so consent is presumed (WGBO art. 7:457). The patient may object.",
+  "Explicit consent, checked in Mitz by the platform": "Making data available through an exchange system needs the patient's explicit consent (Wabvpz art. 15a). The regional platform checks it in Mitz before other providers can see the data.",
 };
-const consentOf = (l) => l.consent || (INTERNAL.includes(l.to) ? "Not required: same institution" : "Presumed: treatment relationship");
+const basisOf = (l) => (l.kind === "share" ? "Explicit consent, checked in Mitz by the platform" : INTERNAL.includes(l.to) ? "Same institution" : "Presumed consent (treatment relationship)");
 function ackOf(l) {
   const h = l.history.map((x) => x[1]), has = (re) => h.some((x) => re.test(x));
   if (has(/^Not sent/)) return "Not sent";
@@ -547,18 +547,16 @@ function ackIn(it, from) {
   if (f === "Fax") return "Not applicable";
   return /AZ Zuid/.test(from) ? "Accepted (AA)" : "Delivery receipt";
 }
-const consentIn = (from) => (/AZ Zuid/.test(from || "") ? "Not required: same institution" : "Presumed: treatment relationship");
 // Short words in the grids, the full wording in the tooltip and the detail pane.
-const SHORT = { "Not required: same institution": "Same institution", "Presumed: treatment relationship": "Presumed", "Mitz: explicit consent, category hospitals": "Mitz: yes",
-  "Mitz: no consent registered": "Mitz: no", "Accepted (AA)": "AA", "Error (AE)": "AE", "Delivery receipt": "Receipt", "Stored (C-STORE success)": "Stored",
+const SHORT = { "Accepted (AA)": "AA", "Error (AE)": "AE", "Delivery receipt": "Receipt", "Stored (C-STORE success)": "Stored",
   "Fetched by recipient": "Fetched", "Notified, not fetched": "Not fetched", "Accepted (HTTP 201)": "Accepted", "Not applicable": "–" };
-const flagCell = (x) => { const w = SHORT[x] || x; return td(/^(Not sent|Error|Rejected|Mitz: no|Make available: blocked)/.test(x) ? st("FAIL", w) : /^(Notified|Pending)/.test(x) ? st("PICTURE", w) : esc(w), "", x); };
+const flagCell = (x) => { const w = SHORT[x] || x; return td(/^(Not sent|Error|Rejected)/.test(x) ? st("FAIL", w) : /^(Notified|Pending)/.test(x) ? st("PICTURE", w) : esc(w), "", x); };
 
 // ------------------------------------------------------------ access log (NEN 7513): who did what, to which patient, on what basis
 // Seeded entries come from the seeded referrals and requests; users are synthetic.
 const USERS = { Cardiology: ["L. Hermans", "Cardiologist"], Pulmonology: ["S. Bakker", "Pulmonologist"], Nephrology: ["R. Jansen", "Nephrologist"], "Data management": ["M. Claessens", "Data manager"] };
 const reqId = () => "REQ-" + rand().toString(16).slice(2, 10).toUpperCase();
-const ACTION = (l) => l.kind === "send" ? "Sent referral" : l.kind === "request" ? "Requested result" : /^Not sent/.test(lastStatus(l)) ? "Make available: blocked, no consent" : "Made available";
+const ACTION = (l) => l.kind === "send" ? "Sent referral" : l.kind === "request" ? "Requested result" : "Made available";
 function logAccess(o) {
   S.access.push({ id: "A" + (S.access.length + 1), time: now(), user: "Demo User", role: CTX?.admin ? "Data manager" : CTX?.dept ? `Clinician, ${DEPTS[CTX.dept].label}` : "Clinician",
     pid: null, basis: CTX?.admin ? "Data management" : "Treatment relationship", system: "Handover application", req: reqId(), ...o });
@@ -568,7 +566,7 @@ function seedAccess() {
     const [user, role] = USERS[l.from] || USERS["Data management"], dm = l.from === "Data management";
     S.access.push({ id: "A" + (S.access.length + 1), time: later(l.time, -12), user, role, pid: l.pid, who: l.who, action: dm ? "Viewed report" : "Viewed record", object: dm ? l.what.join("; ") : "Patient record",
       basis: dm ? "Data management" : "Treatment relationship", system: "Handover application", req: reqId() });
-    S.access.push({ id: "A" + (S.access.length + 1), time: l.time, user, role, pid: l.pid, who: l.who, action: ACTION(l), object: `${l.to}: ${l.what.join("; ")}`, basis: consentOf(l), system: l.channel || "Handover application", req: reqId() });
+    S.access.push({ id: "A" + (S.access.length + 1), time: l.time, user, role, pid: l.pid, who: l.who, action: ACTION(l), object: `${l.to}: ${l.what.join("; ")}`, basis: basisOf(l), system: l.channel || "Handover application", req: reqId() });
   }
 }
 seedAccess();
@@ -853,7 +851,7 @@ const dlgHead = (title, p) => `<header><b>${title}</b><span class="pt">${esc(p.f
 function logOut(o) {
   const l = { id: "L" + (S.log.length + 1), time: now(), history: [[now(), "Sent"]], ...o };
   S.log.push(l);
-  logAccess({ pid: l.pid, action: ACTION(l), object: `${l.to}: ${l.what.join("; ")}`, basis: consentOf(l), system: l.channel || "Handover application" });
+  logAccess({ pid: l.pid, action: ACTION(l), object: `${l.to}: ${l.what.join("; ")}`, basis: basisOf(l), system: l.channel || "Handover application" });
   return l;
 }
 const opt = (v, sel, text = v) => `<option value="${esc(v)}" ${v === sel ? "selected" : ""}>${esc(text)}</option>`;
@@ -1683,7 +1681,7 @@ const recogLine = (kind, id) => { const ts = recogFor(kind, id);
 const ADMIN = {
   overview: { label: "Overview" },
   inbound: { label: "Received", sub: "Inbound Documents and Messages per Sender; Unidentified Messages Are Matched to a Patient Here" },
-  outbound: { label: "Sent", sub: "Outbound Referrals and Result Requests, with Consent, Acknowledgement and Delivery Status" },
+  outbound: { label: "Sent", sub: "Outbound Referrals, Result Requests and Shared Results, with Acknowledgement and Delivery Status" },
   mapping: { label: "Code and Unit Conversion", sub: "Local Test Codes and Units per Sender, Mapped to LOINC and UCUM; Reviewed and Versioned Before Use" },
   recog: { label: "Text Recognition", sub: "Extraction Profiles for Images (OCR) and PDF Text per Connection or Institution, with Confidence Thresholds" },
   sources: { label: "Department Databases", sub: "Departmental Databases Read Through a Read-Only Connection; Column Mapping and Data Quality per Synchronisation" },
@@ -1745,18 +1743,18 @@ function renderAdmin(tab, key) {
     detail = cur && dirDetail(cur.d);
   } else if (tab === "outbound") {
     rows = outboundRows(); cur = sel(rows);
-    cols = ["Date and time", "Type", "Sender", "Recipient", "Patient", "Content", "Message format", "Channel", "Clinical question or message", "Consent", "Acknowledgement", "Status"];
-    line = (l) => [l.time, KIND[l.kind], l.from, l.to, l.pid ? patient(l.pid).name : l.who, l.what.join("; "), l.format, l.channel || "", l.q || "", consentOf(l), ackOf(l), lastStatus(l)];
-    list = table([["Date and time", "140px"], ["Type", "120px", "", 3], ["Recipient"], ["Patient", "200px"], ["Consent", "100px"], ["Acknowledgement", "130px", "", 2], ["Status", "116px", "", 4]],
-      rows.map((l) => row(l, cur, l.id, `${td(l.time)}${td(KIND[l.kind])}${tdt(l.to)}${tdt(l.pid ? patient(l.pid).name : l.who)}${flagCell(consentOf(l))}${flagCell(ackOf(l))}${td(statusCell(/^(Not sent|[^ :]+)/.exec(lastStatus(l))[1]), "", lastStatus(l))}`)));
+    cols = ["Date and time", "Type", "Sender", "Recipient", "Patient", "Content", "Message format", "Channel", "Clinical question or message", "Legal basis", "Acknowledgement", "Status"];
+    line = (l) => [l.time, KIND[l.kind], l.from, l.to, l.pid ? patient(l.pid).name : l.who, l.what.join("; "), l.format, l.channel || "", l.q || "", basisOf(l), ackOf(l), lastStatus(l)];
+    list = table([["Date and time", "140px"], ["Type", "120px", "", 3], ["Recipient"], ["Patient", "200px"], ["Acknowledgement", "130px", "", 2], ["Status", "116px", "", 4]],
+      rows.map((l) => row(l, cur, l.id, `${td(l.time)}${td(KIND[l.kind])}${tdt(l.to)}${tdt(l.pid ? patient(l.pid).name : l.who)}${flagCell(ackOf(l))}${td(statusCell(/^(Not sent|[^ :]+)/.exec(lastStatus(l))[1]), "", lastStatus(l))}`)));
     detail = cur && outboundDetail(cur);
   } else if (tab === "inbound") {
     rows = inboundRows(); cur = sel(rows);
-    const ack = (r) => ackIn(r.item || { format: r.format }, r.from), con = (r) => consentIn(r.from);
-    cols = ["Date and time", "Sender", "Patient", "Document", "Message format", "Consent", "Acknowledgement", "Status"];
-    line = (r) => [r.time, r.from, r.who, r.what, r.format, con(r), ack(r), r.status];
-    list = table([["Date and time", "140px"], ["Sender", "200px", "", 4], ["Patient", "180px"], ["Document"], ["Consent", "100px", "", 3], ["Acknowledgement", "130px", "", 3], ["Status", "116px", "", 2]],
-      rows.map((r) => row(r, cur, r.key, `${td(r.time)}${tdt(r.from)}${r.status === "Unmatched" ? td(st("LOST", r.who), "", "Unmatched: " + r.who) : tdt(r.who)}${tdt(r.what)}${flagCell(con(r))}${flagCell(ack(r))}${td(r.status === "Unmatched" ? st("LOST", "Unmatched") : esc(r.status), "", r.status)}`)));
+    const ack = (r) => ackIn(r.item || { format: r.format }, r.from);
+    cols = ["Date and time", "Sender", "Patient", "Document", "Message format", "Acknowledgement", "Status"];
+    line = (r) => [r.time, r.from, r.who, r.what, r.format, ack(r), r.status];
+    list = table([["Date and time", "140px"], ["Sender", "200px", "", 4], ["Patient", "180px"], ["Document"], ["Acknowledgement", "130px", "", 3], ["Status", "116px", "", 2]],
+      rows.map((r) => row(r, cur, r.key, `${td(r.time)}${tdt(r.from)}${r.status === "Unmatched" ? td(st("LOST", r.who), "", "Unmatched: " + r.who) : tdt(r.who)}${tdt(r.what)}${flagCell(ack(r))}${td(r.status === "Unmatched" ? st("LOST", "Unmatched") : esc(r.status), "", r.status)}`)));
     detail = cur && (cur.u ? reconDetail(reconRows().find((x) => x.key === cur.key)) : docDetail(cur.item, true));
   } else if (tab === "recog") {
     rows = RECOG; cur = sel(rows);
@@ -1861,7 +1859,7 @@ function accessDetail(x, rows) {
   const p = x.pid && patient(x.pid), same = rows.filter((y) => y !== x && (x.pid ? y.pid === x.pid : y.user === x.user)).slice(0, 30);
   return `<div class="block"><dl class="kv"><dt>Date and time</dt><dd>${x.time}</dd><dt>User</dt><dd>${esc(x.user)}</dd><dt>Role</dt><dd>${esc(x.role)}</dd>
       <dt>Patient</dt><dd>${p ? `${esc(p.name)} · BSN ${p.bsn} · ${p.mrn}` : esc(x.who || "None: no patient data")}</dd><dt>Action</dt><dd>${esc(x.action)}</dd><dt>Object</dt><dd>${esc(x.object)}</dd>
-      <dt>Basis</dt><dd>${esc(x.basis)}${CONSENT_WHY[x.basis] ? `<br><span class="dim">${esc(CONSENT_WHY[x.basis])}</span>` : ""}</dd><dt>System</dt><dd>${esc(x.system)}</dd><dt>Request ID</dt><dd><code>${x.req}</code></dd></dl></div>
+      <dt>Basis</dt><dd>${esc(x.basis)}${BASIS_WHY[x.basis] ? `<br><span class="dim">${esc(BASIS_WHY[x.basis])}</span>` : ""}</dd><dt>System</dt><dd>${esc(x.system)}</dd><dt>Request ID</dt><dd><code>${x.req}</code></dd></dl></div>
     <div class="block"><h4>${x.pid ? "Other entries for this patient" : "Other entries by this user"}</h4>${table([["Date and time", "140px"], ["User", "26%"], ["Action"]],
       same.map((y) => `<tr class="row" data-href="#/admin/access/${y.id}">${td(y.time)}${tdt(y.user)}${tdt(y.action)}</tr>`))}
       <p class="dim" style="margin:8px 0 0">A patient may ask who viewed their data: select their entries and export (E). Viewing and exporting this log is logged as well.</p></div>`;
@@ -1873,7 +1871,7 @@ function outboundDetail(l) {
     <div class="block"><dl class="kv"><dt>Patient</dt><dd>${esc(p ? `${p.name} · ${fmtDate(p.dob)} · ${p.mrn}` : l.who)}</dd><dt>Sender</dt><dd>${esc(l.from)}</dd><dt>Recipient</dt><dd>${esc(l.to)}</dd>
       <dt>Message format</dt><dd>${esc(l.format)}</dd>${l.channel ? `<dt>Channel</dt><dd>${esc(l.channel)}${ruleFor(l.channel) ? ` · rule ${ruleFor(l.channel)}` : ""}</dd>` : ""}
       <dt>${l.kind === "send" ? "Clinical question" : "Message"}</dt><dd>${esc(l.q || "")}</dd>
-      <dt>Consent</dt><dd>${esc(consentOf(l))}<br><span class="dim">${esc(CONSENT_WHY[consentOf(l)] || "")}</span></dd>
+      <dt>Legal basis</dt><dd>${esc(basisOf(l))}<br><span class="dim">${esc(BASIS_WHY[basisOf(l)])}</span></dd>
       <dt>Acknowledgement</dt><dd>${esc(ackOf(l))}</dd></dl></div>
     ${linkBlock(l)}
     <div class="block"><h4>${{ send: "Enclosures", request: "Requested", share: "Made available" }[l.kind]}</h4>${table([["Document"]], l.what.map((w) => `<tr>${tdt(w)}</tr>`))}</div>
