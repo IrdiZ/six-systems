@@ -351,7 +351,7 @@ function seedLog() {
       const steps = answered ? [[0, "Sent"], [1, "Delivered"], [2 * 24 * 60, "Answered: result provided by fax"]]
         : [[0, "Sent"], [1, "Delivered"], ...(link ? [[3 * 60, "Link opened by recipient"]] : [])];
       const l = add({ time: tr, kind: "request", from: dept, to: SOURCE.offline.sender, pid: p.pid, what: [LABEL.troponin_poc], facts: ["troponin_poc"], format: "Result request",
-        channel: link ? "Upload link" : "ZorgMail", q: "Please provide the point-of-care troponin as a structured result, including patient BSN.", history: hist(tr, steps) });
+        channel: link ? "Upload link" : "ZorgMail", q: "Please provide the point-of-care troponin as a structured result.", history: hist(tr, steps) });
       if (link) {
         l.portal = newLink(tr, n);
         if (l.portal.until < now()) { l.portal.state = "expired"; l.history.push([l.portal.until, "Expired: link not used"]); }
@@ -778,7 +778,7 @@ function resultBlock(f, admin = false) {
   const req = [...S.log].reverse().find((l) => l.kind === "request" && l.pid === f.pid && l.facts?.includes(f.fact));
   const action = v === "LOST" && link ? `<p class="note dim">Upload link sent ${esc(link.time)} to ${esc(link.to)}.${/upload link sent/i.test(lastStatus(link)) ? "" : ` ${esc(lastStatus(link).replace(": ", ", "))}.`}</p>
       <div class="inline"><button data-act="portal" data-arg="${link.portal.token}">Open as sender (demo)</button></div>`
-    : v === "LOST" && f.source !== "ext_lab" && f.source !== "echo" ? `<div class="inline"><button data-act="request">Request result <kbd>R</kbd></button>${req && VIEWABLE.includes(req.channel) ? `<button data-act="recv" data-arg="${req.id}">View as recipient (demo)</button>` : ""}</div>`
+    : v === "LOST" && f.source !== "ext_lab" && f.source !== "echo" ? `<div class="inline">${dirOf(SOURCE[f.source]?.sender)?.region ? `<button data-act="search" data-arg="${esc(factKey(f))}">Search regional platform</button>` : ""}<button data-act="request">Request result <kbd>R</kbd></button>${req && VIEWABLE.includes(req.channel) ? `<button data-act="recv" data-arg="${req.id}">View as recipient (demo)</button>` : ""}</div>`
     : v === "PICTURE" ? `<div class="inline"><button data-act="confirm">Verify result <kbd>V</kbd></button></div>` : "";
   const m = f.status === "CONFLICT" && EXT_LAB_CODES[f.fact];
   return `<div class="block"><h4>${esc(label(f))}</h4><dl class="kv">
@@ -961,11 +961,8 @@ function contactDialog(pre = {}, done, cancel) {
 const requestable = (p) => lostOf(p).filter((f) => f.source !== "ext_lab" && f.source !== "echo" && !openLink(f));
 const reqChannel = (to) => dirOf(to)?.channel || "ZorgMail";
 // Existing networks first; our own upload link only as the fallback for senders without any of them.
-const reqChannels = (to) => [...new Set([reqChannel(to), ...(dirOf(to)?.region ? ["Regional platform (query)"] : []),
-  ...(dirOf(to)?.points || []).map((x) => x[0]).filter((c) => c !== "Upload link" && !c.startsWith("Fax")), "ZorgMail", "Secure e-mail with access code", "Telephone (logged)", "Upload link"])];
-// What each request channel records the moment it goes out.
-const REQ_SENT = { "Regional platform (query)": ["Query sent to the regional platform", "No matching result on the platform"],
-  "Telephone (logged)": ["Requested by telephone, logged by Demo User"] };
+const reqChannels = (to) => [...new Set([reqChannel(to),
+  ...(dirOf(to)?.points || []).map((x) => x[0]).filter((c) => c !== "Upload link" && !c.startsWith("Fax")), "ZorgMail", "Secure e-mail with access code", "Upload link"])];
 const chanLabel = (c) => (c === "Upload link" ? "Upload link (fallback)" : c);
 function requestDialog() {
   const { p, dept } = CTX;
@@ -974,7 +971,7 @@ function requestDialog() {
   openDialog(`<form class="dlg" id="f-req">${dlgHead("Result request", p)}
     <div class="body">${table([["", "44px"], ["Test", "26%"], ["Date and time", "152px"], ["Recipient"], ["Channel", "190px"]],
       lost.map((f, i) => `<tr>${td(`<input type="checkbox" name="f" value="${i}" checked>`)}${tdt(label(f))}${td(fmtTime(f.time))}${tdt(SOURCE[f.source].sender)}${td(pick(f, i))}</tr>`))}
-      <label class="field"><span>Message</span><textarea name="q">Please provide the result as a structured message (HL7 v2 ORU or FHIR Observation), including patient BSN.</textarea></label></div>
+      <label class="field"><span>Message</span><textarea name="q">Please provide the result as a structured message (HL7 v2 ORU or FHIR Observation).</textarea></label></div>
     <footer><button type="button" data-act="close">Cancel</button><button class="primary">Send request</button></footer></form>`);
   $("#f-req").addEventListener("submit", (e) => {
     e.preventDefault();
@@ -983,7 +980,6 @@ function requestDialog() {
     for (const i of idx) {
       const to = SOURCE[lost[i].source].sender, channel = d.get("ch" + i);
       const l = logOut({ kind: "request", from: DEPTS[dept].label, to, pid: p.pid, what: [label(lost[i])], facts: [lost[i].fact], format: "Result request", channel, q: d.get("q") });
-      if (REQ_SENT[channel]) l.history = REQ_SENT[channel].map((x) => [l.time, x]);
       if (channel === "Upload link") { l.portal = newLink(l.time); l.history.push([now(), "Upload link sent; sign-in with UZI pass"]); publishLink(l); n++; }
     }
     flash(`${plural(idx.length, "result request")} sent${n ? `, ${plural(n, "upload link")} created` : ""}`);
@@ -995,7 +991,7 @@ function requestDialog() {
 const VIEWABLE = ["ZorgMail", "Twiin", "Secure e-mail with access code"];
 function recipientView(l) {
   const p = patient(l.pid), f = p.facts.find((x) => l.facts.includes(x.fact)), sender = `${l.from}, ${HOSPITAL}`;
-  const letter = `<dl class="kv"><dt>Patient</dt><dd>${esc(p.name)} · born ${fmtDate(p.dob)} · BSN ${p.bsn}</dd><dt>Requested</dt><dd>${esc(l.what.join(", "))}${f ? `, ${fmtTime(f.time)}` : ""}</dd>
+  const letter = `<dl class="kv"><dt>Patient</dt><dd>${esc(p.name)} · born ${fmtDate(p.dob)}</dd><dt>Requested</dt><dd>${esc(l.what.join(", "))}${f ? `, ${fmtTime(f.time)}` : ""}</dd>
     <dt>Message</dt><dd>${esc(l.q || "")}</dd><dt>Reference</dt><dd>${esc(l.id)}</dd></dl>`;
   const task = JSON.stringify({ resourceType: "Task", status: "requested", intent: "order", code: { text: "Result request" }, authoredOn: l.time.replace(" ", "T"),
     for: { identifier: { system: "http://fhir.nl/fhir/NamingSystem/bsn", value: p.bsn } },
@@ -1022,6 +1018,22 @@ function recipientView(l) {
     logAccess({ pid: l.pid, user: l.to, role: "External sender", action: "Returned result", object: LABEL[f.fact], basis: "Answer to a result request", system: l.channel });
     closeDialog(); flash(`${LABEL[f.fact]} received over ${l.channel} for ${p.name}: structured`); route();
   });
+}
+
+// A search on the regional platform: a FHIR query that answers at once, not a message to a person. Logged as access (NEN 7513).
+function searchRegion(key) {
+  const p = CTX.p, f = p.facts.find((x) => factKey(x) === key), loinc = C.fact_defs[f.fact]?.loinc;
+  const query = `GET [regional platform]/Observation?patient.identifier=http://fhir.nl/fhir/NamingSystem/bsn|${p.bsn}${loinc ? `&code=http://loinc.org|${loinc}` : ""}&date=ge${f.time.slice(0, 10)}`;
+  // point-of-care results stay on the analyser and are not published to the platform: the search finds nothing (synthetic outcome)
+  const bundle = JSON.stringify({ resourceType: "Bundle", type: "searchset", total: 0 }, null, 2);
+  logAccess({ pid: p.pid, action: "Searched regional platform", object: label(f), basis: "Explicit consent, checked in Mitz by the platform", system: "Regional platform" });
+  openDialog(`<div class="dlg"><header><b>Regional platform search</b><span class="pt">${esc(p.name)} · ${esc(label(f))}</span></header>
+    <div class="body" style="gap:0;padding:0">
+      <div class="block"><dl class="kv"><dt>Searched</dt><dd>${now()}</dd><dt>Looked for</dt><dd>${esc(label(f))}${loinc ? ` (LOINC ${loinc})` : ""} from ${f.time.slice(0, 10)}</dd>
+        <dt>Outcome</dt><dd>${st("LOST", "No matching result on the platform")}<br><span class="dim">Point-of-care results are not published to the platform. Request the result from the sender instead.</span></dd></dl></div>
+      <div class="block"><h4>Query</h4><pre class="raw">${esc(query)}</pre></div>
+      <div class="block"><h4>Response</h4><pre class="raw">${esc(bundle)}</pre></div></div>
+    <footer><button type="button" data-act="close">Close</button><button type="button" class="primary" data-act="request">Request from the sender <kbd>R</kbd></button></footer></div>`);
 }
 
 function addDialog() {
@@ -1966,6 +1978,7 @@ function act(a, arg) {
   const l = arg && S.log.find((x) => x.id === arg);
   if (a === "portal") return openPortal(arg);
   if (a === "recv") return recipientView(l);
+  if (a === "search") return searchRegion(arg);
   if (a === "revoke") { l.portal.state = "revoked"; l.history.push([now(), "Revoked: upload link withdrawn"]); return flash("Upload link revoked"); }
   if (a === "relink") { l.portal = newLink(now()); l.history.push([now(), "New upload link sent; sign-in with UZI pass"]); publishLink(l); return flash(`New upload link sent to ${l.to}`); }
   if (a === "new-db") { W = null; return dbDialog(); }
