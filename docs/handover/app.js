@@ -744,12 +744,8 @@ function banner(p, dept) {
   return `<div class="banner">
     <div class="name"><b>${esc(p.family.toUpperCase())}, ${esc(p.given)}</b><span>${p.sex === "M" ? "Male" : "Female"}, ${age(p.dob)} y</span></div>
     <div class="fields">${field("Date of birth", fmtDate(p.dob))}${field("Patient no.", p.mrn)}${field("BSN", p.bsn)}</div>
-    <div class="alerts">
-      ${lost ? st("LOST", `${plural(lost, "result")} not received`) : ""}
-      ${ill ? st("LOST", `${plural(ill, "result")} not legible`) : ""}
-      ${pic ? st("PICTURE", `${plural(pic, "result")} unverified`) : ""}
-      ${!lost && !pic && !ill ? `<span class="dim">All results received</span>` : ""}
-    </div></div>`;
+    <div class="alerts">${[["Not received", lost, "LOST"], ["Not legible", ill, "LOST"], ["Unverified", pic, "PICTURE"]].filter(([, n]) => n).map(([l, n, v]) => field(l, st(v, n))).join("")
+      || field("Results", `<span class="dim">All received</span>`)}</div></div>`;
 }
 
 function docGrid(items, sel, dept, p, tab) {

@@ -31,7 +31,7 @@
      "hold": 4
     },
     {
-     "caption": "The banner states what is incomplete: 1 result not received, 4 results unverified.",
+     "caption": "The banner states what is incomplete: 1 not received, 4 unverified.",
      "ring": ".banner .alerts",
      "hold": 4.5
     },
