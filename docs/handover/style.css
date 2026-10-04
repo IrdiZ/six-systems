@@ -19,7 +19,7 @@
   --st-converted: #2a9d8f;
   --st-unverified: #c98a12;
   --st-not-received: #c2372e;
-  --font: "Atkinson Hyperlegible Next", "Segoe UI", system-ui, sans-serif;
+  --font: "Inter", "Atkinson Hyperlegible Next", "Segoe UI", system-ui, sans-serif;
   --row: 28px;
   font: 13px/1.45 var(--font);
 }

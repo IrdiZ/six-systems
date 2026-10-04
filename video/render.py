@@ -19,20 +19,21 @@ def encode_args(fps):  # identical for every segment, each starts on a keyframe:
 
 
 def fonts(index):
-    """Cache the Google Fonts CSS and font files once; pages get them by route interception (offline, deterministic)."""
-    m = re.search(r'href="(https://fonts\.googleapis\.com/css2[^"]+)"', index.read_text(encoding="utf-8"))
-    if not m:
+    """Cache every Google Fonts stylesheet and its font files once; pages get them by route interception (offline, deterministic)."""
+    urls = [html.unescape(u) for u in re.findall(r'href="(https://fonts\.googleapis\.com/css2[^"]+)"', index.read_text(encoding="utf-8"))]
+    if not urls:
         return None
-    url = html.unescape(m.group(1))
-    d = CACHE / "fonts" / hashlib.sha256(url.encode()).hexdigest()[:12]
-    if not (d / "font.css").exists():
+    d = CACHE / "fonts" / hashlib.sha256(" ".join(urls).encode()).hexdigest()[:12]
+    if not (d / "map.json").exists():
         get = lambda u: urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": UA}), timeout=30).read()
         try:
-            css = get(url).decode()
             d.mkdir(parents=True, exist_ok=True)
-            for u in re.findall(r"url\((https://fonts\.gstatic\.com/[^)]+)\)", css):
-                (d / u.rsplit("/", 1)[1]).write_bytes(get(u))
-            (d / "font.css").write_text(css, encoding="utf-8")
+            for i, url in enumerate(urls):
+                css = get(url).decode()
+                for u in re.findall(r"url\((https://fonts\.gstatic\.com/[^)]+)\)", css):
+                    (d / u.rsplit("/", 1)[1]).write_bytes(get(u))
+                (d / f"font{i}.css").write_text(css, encoding="utf-8")
+            (d / "map.json").write_text(json.dumps({u: f"font{i}.css" for i, u in enumerate(urls)}), encoding="utf-8")
         except OSError as e:
             print(f"font download failed ({e}); rendering with the fallback font")
             return None
@@ -154,8 +155,9 @@ def render_scene(scene, g, port, preview, fdir, out):
         if u.startswith(origin):
             return route.continue_()
         name = u.split("?")[0].rsplit("/", 1)[1]
-        if fdir and u.startswith("https://fonts.googleapis.com/"):
-            return route.fulfill(path=fdir / "font.css", content_type="text/css; charset=utf-8")
+        css = fdir and json.loads((fdir / "map.json").read_text(encoding="utf-8")).get(u)
+        if css:
+            return route.fulfill(path=fdir / css, content_type="text/css; charset=utf-8")
         if fdir and u.startswith("https://fonts.gstatic.com/") and (fdir / name).exists():
             return route.fulfill(path=fdir / name, headers={"Content-Type": "font/woff2", "Access-Control-Allow-Origin": "*"})
         route.abort()
