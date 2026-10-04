@@ -225,9 +225,11 @@ body.portal #app { display: block; overflow-y: auto; }
 .dlg.demo { width: min(520px, 100%); }
 .stack { display: flex; flex-direction: column; gap: 2px; }
 /* tables inside a detail pane or dialog size to their content: words never break mid-word */
-.block .grid, .field .grid { table-layout: auto; }
-.block .grid td, .field .grid td { overflow-wrap: normal; }
-.block .grid td:first-child, .field .grid td:first-child { white-space: nowrap; }
+.block .grid { table-layout: auto; }
+.block .grid td { overflow-wrap: normal; }
+.block .grid td:first-child { white-space: nowrap; }
+/* dialog tables keep fixed columns so the dialog never scrolls sideways */
+.dlg .grid select { width: 100%; }
 .block { overflow-x: auto; }
 .note { margin: 8px 0 0; }
 .inline { flex-wrap: wrap; }
