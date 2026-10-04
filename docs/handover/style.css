@@ -40,7 +40,7 @@ b, strong, th, h3, h4 { font-weight: 600; }
 
 /* top bar */
 #top { display: flex; align-items: center; gap: 24px; height: 40px; padding: 0 16px; background: var(--chrome); color: var(--chrome-ink); flex: none; }
-#top .brand { font-weight: 600; color: #fff; letter-spacing: .01em; }
+#top .brand { font-weight: 600; color: #fff; letter-spacing: .02em; font-size: 16px; margin-right: -14px; }
 #mode { display: flex; height: 100%; }
 #mode a { padding: 0 12px; display: flex; align-items: center; border-bottom: 2px solid transparent; border-top: 2px solid transparent; color: #aab2ba; }
 #mode a.on { border-bottom-color: #fff; color: #fff; }
