@@ -400,11 +400,11 @@ const KIND = { send: "Referral", request: "Result request", share: "Made availab
 // ------------------------------------------------------------ directory, channels, routing (synthetic: AGB and URA numbers and addresses are invented for the demo)
 
 const DIR = [
-  { name: "Heuvelland Ziekenhuis", type: "Hospital", dept: "Cardiology", agb: "06011234", ura: "90001234", channel: "Twiin", status: "Verified", verified: "URA matched in ZORG-AB",
+  { name: "Heuvelland Ziekenhuis", type: "Hospital", dept: "Cardiology", agb: "06011234", ura: "90001234", channel: "Twiin", status: "Verified", verified: "URA matched in ZORG-AB", region: true,
     points: [["Twiin", "ZORG-AB: Heuvelland Ziekenhuis, cardiology (notification address)"], ["ZorgMail", "ZorgMail address book: Heuvelland Ziekenhuis, cardiology"]] },
-  { name: SOURCE.offline.sender, type: "Hospital", dept: "Emergency department", agb: "06011235", ura: "90001234", channel: "ZorgMail", status: "Verified", verified: "URA matched in ZORG-AB",
+  { name: SOURCE.offline.sender, type: "Hospital", dept: "Emergency department", agb: "06011235", ura: "90001234", channel: "ZorgMail", status: "Verified", verified: "URA matched in ZORG-AB", region: true,
     remark: "Point-of-care results are not in their laboratory system, so they arrive by fax. Requests go through ZorgMail; the upload link is the fallback.",
-    points: [["ZorgMail", "ZorgMail address book: Heuvelland Ziekenhuis, emergency department"], ["Twiin", "ZORG-AB: Heuvelland Ziekenhuis, emergency department"], ["Upload link", "Fallback: one-time link, sign-in with UZI pass"], ["Fax", "Registered fax number"]] },
+    points: [["ZorgMail", "ZorgMail address book: Heuvelland Ziekenhuis, emergency department"], ["Twiin", "ZORG-AB: Heuvelland Ziekenhuis, emergency department"], ["Upload link", "Fallback: one-time link, sign-in with UZI pass"], ["Fax number", "For recognising incoming faxes; fax is not used to send"]] },
   { name: "Regiolab Zuid", type: "Laboratory", dept: "", agb: "25010987", ura: "90004567", channel: "ZorgMail", status: "Verified", verified: "AGB checked against the Vektis register",
     points: [["ZorgMail", "EDIFACT MEDLAB, ZorgMail address book: Regiolab Zuid"]] },
   { name: "Pathologie Limburg Samenwerking", type: "Pathology laboratory", dept: "", agb: "25020456", ura: "90007890", channel: "ZorgMail", status: "Verified", verified: "AGB checked against the Vektis register",
@@ -419,7 +419,7 @@ const INTERNAL = TARGETS[1].items;
 const FORMATS = { Twiin: [TWIIN_FORMAT], ZorgMail: ["HL7 v2 ORU^R01", "PDF summary"], "Secure e-mail with access code": ["PDF summary"], Fax: ["PDF summary"], "Worklist (internal)": ["FHIR R4 bundle", "PDF summary"] };
 function channelsFor(name) {
   if (INTERNAL.includes(name)) return ["Worklist (internal)"];
-  const d = dirOf(name), own = (d?.points || []).map((x) => x[0]).filter((c) => c !== "Upload link");
+  const d = dirOf(name), own = (d?.points || []).map((x) => x[0]).filter((c) => c !== "Upload link" && !c.startsWith("Fax"));
   return [...new Set([d?.channel !== "Upload link" && d?.channel, ...own, "Secure e-mail with access code"].filter(Boolean))];
 }
 
@@ -778,7 +778,7 @@ function resultBlock(f, admin = false) {
   const req = [...S.log].reverse().find((l) => l.kind === "request" && l.pid === f.pid && l.facts?.includes(f.fact));
   const action = v === "LOST" && link ? `<p class="note dim">Upload link sent ${esc(link.time)} to ${esc(link.to)}.${/upload link sent/i.test(lastStatus(link)) ? "" : ` ${esc(lastStatus(link).replace(": ", ", "))}.`}</p>
       <div class="inline"><button data-act="portal" data-arg="${link.portal.token}">Open as sender (demo)</button></div>`
-    : v === "LOST" && f.source !== "ext_lab" && f.source !== "echo" ? `${req ? `<p class="note dim">Requested ${esc(req.time)} through ${esc(req.channel)}. ${esc(lastStatus(req).split(";")[0].replace(": ", ", "))}.</p>` : ""}<div class="inline"><button data-act="request">${req ? "Request again" : "Request result"} <kbd>R</kbd></button></div>`
+    : v === "LOST" && f.source !== "ext_lab" && f.source !== "echo" ? `<div class="inline"><button data-act="request">Request result <kbd>R</kbd></button>${req && VIEWABLE.includes(req.channel) ? `<button data-act="recv" data-arg="${req.id}">View as recipient (demo)</button>` : ""}</div>`
     : v === "PICTURE" ? `<div class="inline"><button data-act="confirm">Verify result <kbd>V</kbd></button></div>` : "";
   const m = f.status === "CONFLICT" && EXT_LAB_CODES[f.fact];
   return `<div class="block"><h4>${esc(label(f))}</h4><dl class="kv">
@@ -930,7 +930,7 @@ function sendDialog(preTo) {
 // Add an institution to the directory. A temporary contact covers one exchange with a sender who is not a client.
 function contactDialog(pre = {}, done, cancel) {
   const types = ["Hospital", "Laboratory", "Pathology laboratory", "GP practice", "Out-of-hours GP service", "Other"];
-  const chans = ["ZorgMail", "Twiin", "Secure e-mail with access code", "Fax", "Upload link"];
+  const chans = ["ZorgMail", "Twiin", "Secure e-mail with access code", "Upload link"];
   const checks = ["Not verified", "AGB checked against the Vektis register", "URA matched in ZORG-AB", "Confirmed by telephone call-back"];
   openDialog(`<form class="dlg" id="f-dir"><header><b>New institution</b><span class="pt">Institutions</span></header>
     <div class="body">
@@ -961,7 +961,11 @@ function contactDialog(pre = {}, done, cancel) {
 const requestable = (p) => lostOf(p).filter((f) => f.source !== "ext_lab" && f.source !== "echo" && !openLink(f));
 const reqChannel = (to) => dirOf(to)?.channel || "ZorgMail";
 // Existing networks first; our own upload link only as the fallback for senders without any of them.
-const reqChannels = (to) => [...new Set([reqChannel(to), ...(dirOf(to)?.points || []).map((x) => x[0]).filter((c) => !["Upload link", "Fax"].includes(c)), "ZorgMail", "Upload link"])];
+const reqChannels = (to) => [...new Set([reqChannel(to), ...(dirOf(to)?.region ? ["Regional platform (query)"] : []),
+  ...(dirOf(to)?.points || []).map((x) => x[0]).filter((c) => c !== "Upload link" && !c.startsWith("Fax")), "ZorgMail", "Secure e-mail with access code", "Telephone (logged)", "Upload link"])];
+// What each request channel records the moment it goes out.
+const REQ_SENT = { "Regional platform (query)": ["Query sent to the regional platform", "No matching result on the platform"],
+  "Telephone (logged)": ["Requested by telephone, logged by Demo User"] };
 const chanLabel = (c) => (c === "Upload link" ? "Upload link (fallback)" : c);
 function requestDialog() {
   const { p, dept } = CTX;
@@ -979,9 +983,44 @@ function requestDialog() {
     for (const i of idx) {
       const to = SOURCE[lost[i].source].sender, channel = d.get("ch" + i);
       const l = logOut({ kind: "request", from: DEPTS[dept].label, to, pid: p.pid, what: [label(lost[i])], facts: [lost[i].fact], format: "Result request", channel, q: d.get("q") });
+      if (REQ_SENT[channel]) l.history = REQ_SENT[channel].map((x) => [l.time, x]);
       if (channel === "Upload link") { l.portal = newLink(l.time); l.history.push([now(), "Upload link sent; sign-in with UZI pass"]); publishLink(l); n++; }
     }
     flash(`${plural(idx.length, "result request")} sent${n ? `, ${plural(n, "upload link")} created` : ""}`);
+  });
+}
+
+// The recipient's side of a request over an existing network (demo): the ZorgMail message or secure e-mail as it lands
+// in their mailbox, or the Twiin notification and the FHIR Task their EHR fetches. A reply comes back as a structured result.
+const VIEWABLE = ["ZorgMail", "Twiin", "Secure e-mail with access code"];
+function recipientView(l) {
+  const p = patient(l.pid), f = p.facts.find((x) => l.facts.includes(x.fact)), sender = `${l.from}, ${HOSPITAL}`;
+  const letter = `<dl class="kv"><dt>Patient</dt><dd>${esc(p.name)} · born ${fmtDate(p.dob)} · BSN ${p.bsn}</dd><dt>Requested</dt><dd>${esc(l.what.join(", "))}${f ? `, ${fmtTime(f.time)}` : ""}</dd>
+    <dt>Message</dt><dd>${esc(l.q || "")}</dd><dt>Reference</dt><dd>${esc(l.id)}</dd></dl>`;
+  const task = JSON.stringify({ resourceType: "Task", status: "requested", intent: "order", code: { text: "Result request" }, authoredOn: l.time.replace(" ", "T"),
+    for: { identifier: { system: "http://fhir.nl/fhir/NamingSystem/bsn", value: p.bsn } },
+    requester: { agent: { display: sender } }, owner: { display: l.to }, description: `${l.what.join(", ")}: ${l.q || ""}` }, null, 2);
+  const body = l.channel === "Twiin"
+    ? `<div class="block"><h4>Notification in the recipient's EHR</h4><dl class="kv"><dt>From</dt><dd>${esc(sender)} (Twiin, ZORG-AB)</dd><dt>Received</dt><dd>${l.time}</dd>
+        <dt>Type</dt><dd>Result request; the EHR fetches the task (Notified Pull)</dd></dl></div>
+      <div class="block"><h4>Fetched task</h4>${letter}</div><div class="block"><h4>As transported (FHIR Task, STU3)</h4><pre class="raw">${esc(task)}</pre></div>`
+    : `<div class="block"><h4>${l.channel === "ZorgMail" ? "ZorgMail inbox" : "Secure e-mail"} · ${esc(l.to)}</h4><dl class="kv"><dt>From</dt><dd>${esc(sender)}${l.channel === "ZorgMail" ? " (ZorgMail address book)" : ""}</dd>
+        <dt>Received</dt><dd>${l.time}</dd><dt>Subject</dt><dd>Result request: ${esc(l.what.join(", "))}, ${esc(p.family)}, born ${fmtDate(p.dob)}</dd></dl></div>
+      <div class="block"><h4>Message</h4>${letter}</div>`;
+  const open = f && f.status === "LOST";
+  openDialog(`<form class="dlg" id="f-recv"><header><b>As the recipient sees it</b><span class="pt">${esc(l.to)} · ${esc(l.channel)} · demo</span></header>
+    <div class="body" style="gap:0;padding:0">${body}
+      ${open ? `<div class="block"><h4>Reply with the result</h4><div class="inline" style="margin:0"><input name="v" inputmode="decimal"> <span class="dim">${esc(unit(C.fact_defs[f.fact]?.unit))} · returned over ${esc(l.channel)} as a structured result</span></div></div>` : ""}</div>
+    <footer><button type="button" data-act="close">Close</button>${open ? `<button class="primary">Send result (demo)</button>` : ""}</footer></form>`);
+  $("#f-recv").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const v = toNum(e.target.v.value);
+    if (v == null) return flash("Enter the value");
+    const it = fileResult(l.pid, { fact: f.fact, value: v, via: l.channel, by: l.to, origin: l.to });
+    Object.assign(f, { status: "DATA" }); Object.assign(it, { format: l.channel === "Twiin" ? "FHIR Observation" : "HL7 v2 ORU^R01" });
+    l.history.push([now(), `Answered: structured result over ${l.channel}`]);
+    logAccess({ pid: l.pid, user: l.to, role: "External sender", action: "Returned result", object: LABEL[f.fact], basis: "Answer to a result request", system: l.channel });
+    closeDialog(); flash(`${LABEL[f.fact]} received over ${l.channel} for ${p.name}: structured`); route();
   });
 }
 
@@ -1926,6 +1965,7 @@ function act(a, arg) {
   if (a === "close") return closeDialog();
   const l = arg && S.log.find((x) => x.id === arg);
   if (a === "portal") return openPortal(arg);
+  if (a === "recv") return recipientView(l);
   if (a === "revoke") { l.portal.state = "revoked"; l.history.push([now(), "Revoked: upload link withdrawn"]); return flash("Upload link revoked"); }
   if (a === "relink") { l.portal = newLink(now()); l.history.push([now(), "New upload link sent; sign-in with UZI pass"]); publishLink(l); return flash(`New upload link sent to ${l.to}`); }
   if (a === "new-db") { W = null; return dbDialog(); }
