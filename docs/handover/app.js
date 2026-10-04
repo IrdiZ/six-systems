@@ -795,7 +795,7 @@ function resultBlock(f, admin = false) {
   const req = [...S.log].reverse().find((l) => l.kind === "request" && l.pid === f.pid && l.facts?.includes(f.fact));
   const action = v === "LOST" && link ? `<p class="note dim">Upload link sent ${esc(link.time)} to ${esc(link.to)}.${/upload link sent/i.test(lastStatus(link)) ? "" : ` ${esc(lastStatus(link).replace(": ", ", "))}.`}</p>
       <div class="inline"><button data-act="portal" data-arg="${link.portal.token}">Open as sender (demo)</button></div>`
-    : v === "LOST" && f.source !== "ext_lab" && f.source !== "echo" ? `<div class="inline">${dirOf(SOURCE[f.source]?.sender)?.region ? `<button data-act="search" data-arg="${esc(factKey(f))}">Search regional platform</button>` : ""}<button data-act="request">Request result <kbd>R</kbd></button>${req?.live && VIEWABLE.includes(req.channel) ? `<button data-act="recv" data-arg="${req.id}">View as recipient (demo)</button>` : ""}</div>`
+    : v === "LOST" && f.source !== "ext_lab" && f.source !== "echo" ? `<div class="inline"><button data-act="request">Request result <kbd>R</kbd></button>${req?.live && VIEWABLE.includes(req.channel) ? `<button data-act="recv" data-arg="${req.id}">View as recipient (demo)</button>` : ""}</div>`
     : v === "PICTURE" ? `<div class="inline"><button data-act="confirm">Verify result <kbd>V</kbd></button></div>` : "";
   const m = f.status === "CONFLICT" && EXT_LAB_CODES[f.fact];
   return `<div class="block"><h4>${esc(label(f))}</h4><dl class="kv">
@@ -978,7 +978,8 @@ function contactDialog(pre = {}, done, cancel) {
 const requestable = (p) => lostOf(p).filter((f) => f.source !== "ext_lab" && f.source !== "echo" && !openLink(f));
 const reqChannel = (to) => dirOf(to)?.channel || "ZorgMail";
 // Existing networks first; our own upload link only as the fallback for senders without any of them.
-const reqChannels = (to) => [...new Set([reqChannel(to),
+const SEARCH = "Regional platform (search)";
+const reqChannels = (to) => [...new Set([reqChannel(to), ...(dirOf(to)?.region ? [SEARCH] : []),
   ...(dirOf(to)?.points || []).map((x) => x[0]).filter((c) => c !== "Upload link" && !c.startsWith("Fax")), "ZorgMail", "Secure e-mail with access code", "Upload link"])];
 const chanLabel = (c) => (c === "Upload link" ? "Upload link (fallback)" : c);
 function requestDialog() {
@@ -990,12 +991,15 @@ function requestDialog() {
       lost.map((f, i) => `<tr>${td(`<input type="checkbox" name="f" value="${i}" checked>`)}${tdt(label(f))}${td(fmtTime(f.time))}${tdt(SOURCE[f.source].sender)}${td(pick(f, i))}</tr>`))}
       <label class="field"><span>Message</span><textarea name="q">Please provide the result as a structured message (HL7 v2 ORU or FHIR Observation).</textarea></label></div>
     <footer><button type="button" data-act="close">Cancel</button><button class="primary">Send request</button></footer></form>`);
+  // the regional platform is searched, not asked: choosing it opens the query at once
+  $("#f-req").addEventListener("change", (e) => { const i = e.target.name?.match(/^ch(\d+)$/)?.[1]; if (i != null && e.target.value === SEARCH) searchRegion(factKey(lost[i])); });
   $("#f-req").addEventListener("submit", (e) => {
     e.preventDefault();
     const d = new FormData(e.target), idx = d.getAll("f").map(Number);
     let n = 0;
     for (const i of idx) {
       const to = SOURCE[lost[i].source].sender, channel = d.get("ch" + i);
+      if (channel === SEARCH) continue;
       const l = logOut({ kind: "request", from: DEPTS[dept].label, to, pid: p.pid, what: [label(lost[i])], facts: [lost[i].fact], format: "Result request", channel, q: d.get("q") });
       if (channel === "Upload link") { l.portal = newLink(l.time); l.history.push([now(), "Upload link sent; sign-in with UZI pass"]); publishLink(l); n++; }
     }
@@ -2005,7 +2009,6 @@ function act(a, arg) {
   const l = arg && S.log.find((x) => x.id === arg);
   if (a === "portal") return openPortal(arg);
   if (a === "recv") return recipientView(l);
-  if (a === "search") return searchRegion(arg);
   if (a === "revoke") { l.portal.state = "revoked"; l.history.push([now(), "Revoked: upload link withdrawn"]); return flash("Upload link revoked"); }
   if (a === "relink") { l.portal = newLink(now()); l.history.push([now(), "New upload link sent; sign-in with UZI pass"]); publishLink(l); return flash(`New upload link sent to ${l.to}`); }
   if (a === "new-db") { W = null; return dbDialog(); }

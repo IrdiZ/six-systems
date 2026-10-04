@@ -31,13 +31,17 @@ def fonts(index):
             for i, url in enumerate(urls):
                 css = get(url).decode()
                 for u in re.findall(r"url\((https://fonts\.gstatic\.com/[^)]+)\)", css):
-                    (d / u.rsplit("/", 1)[1]).write_bytes(get(u))
+                    (d / fname(u)).write_bytes(get(u))
                 (d / f"font{i}.css").write_text(css, encoding="utf-8")
             (d / "map.json").write_text(json.dumps({u: f"font{i}.css" for i, u in enumerate(urls)}), encoding="utf-8")
         except OSError as e:
             print(f"font download failed ({e}); rendering with the fallback font")
             return None
     return d
+
+
+def fname(u):  # gstatic URLs can carry a query (font?kit=...), not a valid file name on Windows
+    return hashlib.sha256(u.encode()).hexdigest()[:16] + ".woff2"
 
 
 def digest(paths):
@@ -154,37 +158,41 @@ def render_scene(scene, g, port, preview, fdir, out):
         u = route.request.url
         if u.startswith(origin):
             return route.continue_()
-        name = u.split("?")[0].rsplit("/", 1)[1]
         css = fdir and json.loads((fdir / "map.json").read_text(encoding="utf-8")).get(u)
         if css:
             return route.fulfill(path=fdir / css, content_type="text/css; charset=utf-8")
-        if fdir and u.startswith("https://fonts.gstatic.com/") and (fdir / name).exists():
-            return route.fulfill(path=fdir / name, headers={"Content-Type": "font/woff2", "Access-Control-Allow-Origin": "*"})
+        if fdir and u.startswith("https://fonts.gstatic.com/") and (fdir / fname(u)).exists():
+            return route.fulfill(path=fdir / fname(u), headers={"Content-Type": "font/woff2", "Access-Control-Allow-Origin": "*"})
         route.abort()
 
     t0 = time.time()
     tmp = out + ".tmp.mp4"
     enc = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-f", "image2pipe", "-c:v", "mjpeg", "-framerate", str(fps), "-i", "-", *encode_args(fps), tmp],
                            stdin=subprocess.PIPE)
-    with sync_playwright() as pw:
-        b = pw.chromium.launch()
-        dsf = W / vw * (0.5 if preview else 1)  # render the page at output resolution: text is rasterised at full size
-        page = b.new_page(viewport={"width": vw, "height": vh}, device_scale_factor=dsf)
-        page.route("**/*", net)
-        page.clock.install(time=g["clock"])
-        page.clock.pause_at(g["clock"])
-        cursor = "data:image/svg+xml;base64," + base64.b64encode((HERE / "cursor.svg").read_bytes()).decode()
-        page.add_init_script(SEED + f"window.__CURSOR={json.dumps(cursor)};" + (HERE / "overlay.js").read_text(encoding="utf-8"))
-        page.goto(f"{origin}{g['app']}?{q}{first}")
-        page.evaluate("document.fonts.ready.then(() => 1)")
-        r = Rec(page, fps, enc, {"x": 0, "y": 0, "width": vw, "height": vh, "scale": dsf})  # CDP captures CSS pixels unless scaled
-        for st in setup:
-            r.step(st, live=False)
-        r.settle()
-        page.evaluate("([x, y]) => __ov.cursor(x, y)", scene.get("cursor", g["cursor"]))
-        for st in scene["steps"]:
-            r.step(st)
-        b.close()
+    try:
+        with sync_playwright() as pw:
+            b = pw.chromium.launch()
+            dsf = W / vw * (0.5 if preview else 1)  # render the page at output resolution: text is rasterised at full size
+            page = b.new_page(viewport={"width": vw, "height": vh}, device_scale_factor=dsf)
+            page.route("**/*", net)
+            page.clock.install(time=g["clock"])
+            page.clock.pause_at(g["clock"])
+            cursor = "data:image/svg+xml;base64," + base64.b64encode((HERE / "cursor.svg").read_bytes()).decode()
+            page.add_init_script(SEED + f"window.__CURSOR={json.dumps(cursor)};" + (HERE / "overlay.js").read_text(encoding="utf-8"))
+            page.goto(f"{origin}{g['app']}?{q}{first}")
+            page.evaluate("document.fonts.ready.then(() => 1)")
+            r = Rec(page, fps, enc, {"x": 0, "y": 0, "width": vw, "height": vh, "scale": dsf})  # CDP captures CSS pixels unless scaled
+            for st in setup:
+                r.step(st, live=False)
+            r.settle()
+            page.evaluate("([x, y]) => __ov.cursor(x, y)", scene.get("cursor", g["cursor"]))
+            for st in scene["steps"]:
+                r.step(st)
+            b.close()
+    except BaseException:  # never leave ffmpeg holding a half-written segment
+        enc.kill(), enc.wait()
+        Path(tmp).unlink(missing_ok=True)
+        raise
     enc.stdin.close()
     if enc.wait():
         raise RuntimeError(f"ffmpeg failed for {scene['id']}")
@@ -240,7 +248,7 @@ def main():
 
     keep = set(segs.values())
     for f in CACHE.glob(prefix + "*.mp4"):
-        if f not in keep:
+        if f not in keep and not f.name.endswith(".tmp.mp4"):
             f.unlink()
     missing = [i for i, p in segs.items() if not p.exists()]
     if missing:
