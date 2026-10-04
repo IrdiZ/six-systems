@@ -256,17 +256,19 @@ for (const p of C.patients) {
     return { ...it, id: String(i + 1), cat: category(f), title: docTitle(it.file, f), ref: docRef(it.file), format: docFormat(it.file, f), origin: SOURCE[f.source].sender };
   });
 }
-const itemsOf = (pid) => ITEMS[pid].concat(S.added[pid] || []);
+// A report with no patient match is not in anyone's record until it is matched in To file (the data knows whose it is; the hospital does not).
+const unmatched = (x) => x.source === "ext_lab" && !!x.file && C.unlinked.some((u) => u.file === x.file) && !S.resolved["U|" + x.file]?.startsWith("Matched");
+const itemsOf = (pid) => ITEMS[pid].filter((i) => !unmatched(i)).concat(S.added[pid] || []);
 const worst = (it) => (it.added ? "PICTURE" : it.facts.map(verdict).reduce((w, v) => (RANK[v] > RANK[w] ? v : w), "DATA"));
 const patient = (pid) => C.patients.find((p) => p.pid === pid);
 const deptOf = (p) => Object.keys(DEPTS).find((d) => DEPTS[d].path === p.path);
-const lostOf = (p) => p.facts.filter((f) => f.status === "LOST");
+const lostOf = (p) => p.facts.filter((f) => f.status === "LOST" && !unmatched(f));
 const unverifiedOf = (p) => p.facts.filter((f) => verdict(f) === "PICTURE");
 // Which patient each seeded story uses. Defaults by position in the care-path cohort, which in the published data gives
 // P001 and P004 answered by fax, P003 link opened, P004 fax, P005 chat, P007 GP letter, P014 no consent, P016 rejected.
 const cohort = (path) => C.patients.filter((p) => p.path === path).map((p) => p.pid);
 const CP = cohort("chest_pain"), KID = cohort("kidney");
-const ROLE = { answered: [CP[0], CP[3]], opened: [CP[2]], published: [CP[5]].filter(Boolean), gp: CP[CP.length - 1], noConsent: [KID[0]], rejected: [KID[2]], ...SC.roles };
+const ROLE = { answered: [CP[0], CP[3]], opened: [CP[2]], gp: CP[CP.length - 1], noConsent: [KID[0]], rejected: [KID[2]], ...SC.roles };
 ROLE.fax ??= [...ROLE.answered].reverse().find((pid) => patient(pid)?.facts.some((f) => f.fact === "troponin_poc"));
 ROLE.chat ??= CP.filter((pid) => patient(pid).facts.some((f) => f.source === "echo" && f.status === "LOST")).pop();
 
@@ -482,7 +484,7 @@ const CHANNELS = [
   { id: "lsp", name: "National switch point (LSP)", type: "AORTA (HL7 v3): medication history query by BSN", dir: "Query", scope: "National", source: "Pharmacy and GP data; the data stays at the source",
     route: "Look-up from the patient record", cert: "lsp", env: "Production", ack: "Synchronous answer" },
   { id: "zd", name: "ZorgDomein: GP referrals", type: "ZorgDomein EHR link (HL7 v2)", dir: "Inbound", scope: "National", source: "Referral catalogue of AZ Zuid, products per specialty", route: "By specialty", ack: ACK_HL7, msgs: () => [] },
-  { id: "medlab", name: "Regiolab Zuid", type: "ZorgMail mailbox (EDIFACT MEDLAB)", dir: "Inbound", scope: "Regional", source: "ZorgMail, laboratory mailbox AZ Zuid", route: "By care pathway; no patient match to Results to Resolve",
+  { id: "medlab", name: "Regiolab Zuid", type: "ZorgMail mailbox (EDIFACT MEDLAB)", dir: "Inbound", scope: "Regional", source: "ZorgMail, laboratory mailbox AZ Zuid", route: "By care pathway; no patient match to To file",
     ack: "ZorgMail delivery receipt", msgs: fromSrc("ext_lab"),
     errors: () => C.unlinked.filter((u) => !S.resolved["U|" + u.file]).map((u) => ({ time: fmtTime(u.time), who: u.who, what: "External laboratory report " + docRef(u.file), status: "No patient match" })) },
   { id: "path", name: "Pathologie Limburg Samenwerking", type: "ZorgMail mailbox (PDF)", dir: "Inbound", scope: "Regional", source: "ZorgMail, pathology mailbox AZ Zuid", route: "Pulmonology; copy to MDT meeting list", ack: "ZorgMail delivery receipt", msgs: fromSrc("pathology") },
@@ -497,24 +499,24 @@ const CHANNELS = [
     ack: "None: the recipient's upload or reply is the answer", msgs: fromLog((l) => l.channel === "Upload link" || l.channel === "Secure e-mail with access code") },
   { id: "portal", name: "Upload links", type: "Upload portal (HTTPS)", dir: "Inbound", scope: "Own", source: "One-time links for senders without an electronic link", route: "Answer to a result request: requesting department",
     msgs: () => docs().filter((i) => i.via === "Upload link").map(docMsg) },
-  { id: "fax", name: "Fax inbox, cardiology", type: "Fax-to-mail inbox", dir: "Inbound", scope: "Own", source: "Fax server to mailbox, OCR on arrival", route: "Documents to File", msgs: fromIntake("fax"), intake: true },
-  { id: "mail", name: "Cardiology secure mailbox", type: "Secure mail mailbox (ZorgMail, ZIVVER)", dir: "Inbound", scope: "Own", source: "cardiologie@azzuid.example", route: "Documents to File", msgs: fromIntake("mail"), intake: true },
-  { id: "folder", name: "Scanning folder, outpatient clinic", type: "Shared folder watch", dir: "Inbound", scope: "Own", source: "\\\\fs01\\scan\\cardiology", route: "Documents to File", msgs: fromIntake("folder"), intake: true },
-  { id: "chat", name: "Cardiology department chat", type: "Secure chat (message board)", dir: "Inbound", scope: "Own", source: "Department group; messages that carry a patient number", route: "Documents to File", msgs: fromIntake("chat"), intake: true },
+  { id: "fax", name: "Fax inbox, cardiology", type: "Fax-to-mail inbox", dir: "Inbound", scope: "Own", source: "Fax server to mailbox, OCR on arrival", route: "To file", msgs: fromIntake("fax"), intake: true },
+  { id: "mail", name: "Cardiology secure mailbox", type: "Secure mail mailbox (ZorgMail, ZIVVER)", dir: "Inbound", scope: "Own", source: "cardiologie@azzuid.example", route: "To file", msgs: fromIntake("mail"), intake: true },
+  { id: "folder", name: "Scanning folder, outpatient clinic", type: "Shared folder watch", dir: "Inbound", scope: "Own", source: "\\\\fs01\\scan\\cardiology", route: "To file", msgs: fromIntake("folder"), intake: true },
+  { id: "chat", name: "Cardiology department chat", type: "Secure chat (message board)", dir: "Inbound", scope: "Own", source: "Department group; messages that carry a patient number", route: "To file", msgs: fromIntake("chat"), intake: true },
 ];
 const onboarding = (c) => !!c.onboard?.some((x) => x.state !== "Done");
 const chanState = (c) => (S.off[c.id] ? "Paused" : onboarding(c) ? "Onboarding" : "Started");
 
 const ptsOn = (path) => () => docs().filter((i) => patient(i.pid).path === path && !i.via).length;
 const ROUTES = [
-  { id: "R1", when: "Answer to an open result request (upload link, Documents to File)", to: "Worklist of the requesting department; requester notified", action: "File, unverified", n: () => docs().filter((i) => i.via).length },
+  { id: "R1", when: "Answer to an open result request (upload link, To file)", to: "Worklist of the requesting department; requester notified", action: "File, unverified", n: () => docs().filter((i) => i.via).length },
   { id: "R2", when: "Patient on the chest pain pathway", to: "Cardiology worklist", action: "File", n: ptsOn("chest_pain") },
   { id: "R3", when: "Patient on the pulmonary nodule pathway", to: "Pulmonology worklist", action: "File", n: ptsOn("lung_nodule") },
   { id: "R4", when: "Patient on the renal function pathway", to: "Nephrology worklist", action: "File", n: ptsOn("kidney") },
   { id: "R5", when: "Pathology report", to: "Pulmonology worklist; copy to MDT meeting list", action: "File", n: () => docs().filter((i) => i.source === "pathology").length },
-  { id: "R6", when: "No patient match on BSN, or on name and date of birth", to: "Results to Resolve", action: "Hold for review", n: () => C.unlinked.length },
-  { id: "R7", when: "Captured from fax, mailbox, shared folder or chat", to: "Documents to File", action: "Hold for review", n: () => S.intake.length },
-  { id: "R8", when: "Sender not a registered institution", to: "Documents to File", action: "Hold until the sender is registered", n: () => S.intake.filter((i) => !dirOf(i.from)).length },
+  { id: "R6", when: "No patient match on BSN, or on name and date of birth", to: "To file", action: "Hold for review", n: () => C.unlinked.length },
+  { id: "R7", when: "Captured from fax, mailbox, shared folder or chat", to: "To file", action: "Hold for review", n: () => S.intake.length },
+  { id: "R8", when: "Sender not a registered institution", to: "To file", action: "Hold until the sender is registered", n: () => S.intake.filter((i) => !dirOf(i.from)).length },
   { id: "R9", when: "Outbound: recipient reachable through Twiin (ZORG-AB entry)", to: "Twiin: notification; the recipient fetches BgZ and letter", action: "Send", n: () => S.log.filter((l) => l.channel === "Twiin").length },
   { id: "R10", when: "Outbound: recipient in the ZorgMail address book", to: "ZorgMail: HL7 v2, EDIFACT or PDF", action: "Send", n: () => S.log.filter((l) => l.channel === "ZorgMail").length },
   { id: "R11", when: "Outbound: recipient without an electronic link", to: "Result request by upload link; referral by secure e-mail with access code", action: "Send",
@@ -655,16 +657,15 @@ function renderClinic(dept, pid, tab, itemId) {
   const pts = C.patients.filter((p) => p.path === DEPTS[dept].path);
   const p = patient(pid);
   if (p && S.viewed !== p.pid) { S.viewed = p.pid; logAccess({ pid: p.pid, role: `Clinician, ${DEPTS[dept].label}`, basis: "Treatment relationship", action: "Viewed record", object: "Patient record" }); }
-  const q = queues(dept), toFile = q.intake.filter((i) => i.status === "Open").length;
-  const unv = q.recon.filter((r) => r.v === "PICTURE").length, red = q.recon.filter((r) => r.v === "LOST" && !(r.recon?.u && S.resolved[r.key])).length;
+  if (pid === "recon") pid = "intake"; // the old Results to Resolve address
+  const toFile = queues(dept).filter((r) => r.status === "Open").length;
   const side = `<aside class="side"><h3 class="inbox">Inbox</h3>
-    <a href="#/clinic/${dept}/intake" class="${pid === "intake" ? "on" : ""}"><span>Documents to File</span><span class="marks">${toFile || ""}</span></a>
-    <a href="#/clinic/${dept}/recon" class="${pid === "recon" ? "on" : ""}"><span>Results to Resolve</span><span class="marks">${mark("PICTURE", unv, "unverified")}${mark("LOST", red, "not received or unmatched")}</span></a>
+    <a href="#/clinic/${dept}/intake" class="${pid === "intake" ? "on" : ""}"><span>To file</span><span class="marks">${toFile || ""}</span></a>
     <h3>${DEPTS[dept].label} worklist</h3><div class="sfilter">${filterBox("side")}</div>${pts.map((x) =>
     `<a href="#/clinic/${dept}/${x.pid}" class="${x === p ? "on" : ""}" data-pid="${x.pid}" data-q="${esc([x.name, x.mrn, x.bsn, fmtDate(x.dob)].join(" "))}"><span>${esc(x.family)}, ${esc(x.given)}</span>
       <span class="marks">${mark("PICTURE", unverifiedOf(x).length, "unverified")}${mark("LOST", lostOf(x).length, "not received")}</span></a>`).join("")}</aside>`;
 
-  if (pid === "intake" || pid === "recon") return renderQueue(dept, pid, tab, side, pts);
+  if (pid === "intake") return renderQueue(dept, tab, side, pts);
   if (!p) {
     CTX = { dept, pts };
     $("#app").innerHTML = side + `<section class="work">${worklist(dept, pts)}${actionBar(false)}</section>`;
@@ -686,47 +687,27 @@ function renderClinic(dept, pid, tab, itemId) {
   $("#app").innerHTML = side + `<section class="work">${banner(p, dept)}${tabs}${body}${actionBar(true)}</section>`;
 }
 
-// The two inbox queues, per department. Documents to File: everything captured by fax, mail, folder or chat
-// (all on Cardiology's channels). Results to Resolve: every result of the department's patients that still
+// The inbox, per department: one queue of what arrived without a patient.
 // needs a person (the same results the worklist marks amber and red), plus unmatched external reports,
 // which go to Nephrology because Regiolab Zuid serves the renal path.
 function queues(dept) {
-  const recon = reconRows(), rows = [];
-  for (const p of C.patients.filter((x) => deptOf(x) === dept)) for (const f of p.facts) {
-    const v = verdict(f);
-    if (v !== "PICTURE" && v !== "LOST") continue;
-    const r = v === "LOST" && recon.find((x) => x.key === factKey(f));
-    rows.push({ key: factKey(f), time: fmtTime(f.time), p, f, v, recon: r, issue: r ? r.kind : WORD[v] });
-  }
-  if (dept === "nephrology") for (const r of recon) if (r.u) rows.push({ key: r.key, time: r.time, v: "LOST", recon: r, issue: r.kind, who: r.who, what: r.what });
-  return { intake: S.intake.filter((i) => (i.pid ? deptOf(patient(i.pid)) : "cardiology") === dept), recon: rows.sort((a, b) => b.time.localeCompare(a.time)) };
+  // Captured documents (fax, mailbox, folder, chat) and laboratory reports with no patient match: nothing here has a patient yet.
+  // Unmatched reports go to Nephrology because Regiolab Zuid serves the renal path.
+  const docs = S.intake.filter((i) => (i.pid ? deptOf(patient(i.pid)) : "cardiology") === dept);
+  const reports = dept === "nephrology" ? reconRows().filter((x) => x.u).map((x) => ({ key: x.key, time: x.time, from: SOURCE[x.src].sender, subject: x.what, who: x.who,
+    status: S.resolved[x.key] || "Open", recon: x })) : [];
+  return [...docs, ...reports].sort((a, b) => b.time.localeCompare(a.time));
 }
-const resolveStatus = (r) => S.resolved[r.key] || (r.f && r.v === "LOST" && openLink(r.f) ? "Upload link sent" : "Open");
-function resolveDetail(r, dept) {
-  if (r.recon) return reconDetail(r.recon);
-  const it = itemsOf(r.p.pid).find((i) => i.facts.includes(r.f));
-  return `<div class="block"><dl class="kv"><dt>Patient</dt><dd>${esc(r.p.name)} · ${fmtDate(r.p.dob)} · ${r.p.mrn}</dd><dt>Document</dt><dd>${esc(full(it))}</dd>
-      <dt>Sender</dt><dd>${esc(it.origin)}</dd></dl>
-      <div class="inline"><button data-href="#/clinic/${dept}/${r.p.pid}/all/${it.id}">Open patient record</button></div></div>
-    ${resultBlock(r.f)}${it.upload ? uploadView(it.upload) : viewer(r.f, it)}`;
-}
-function renderQueue(dept, kind, key, side, pts) {
-  const q = queues(dept), k = decodeURIComponent(key || "");
-  const rows = kind === "intake" ? [...q.intake].sort((a, b) => b.time.localeCompare(a.time)) : q.recon;
-  const cur = rows.find((r) => r.key === k) || rows[0];
-  const tr = (r, cells) => `<tr class="row ${r === cur ? "sel" : ""}" data-href="#/clinic/${dept}/${kind}/${encodeURIComponent(r.key)}">${cells}</tr>`;
-  const list = kind === "intake"
-    ? phead("Documents to File", "", filterBox("intake")) +
-      table([["Date and time", "150px", "", 2], ["Sender", "25%", "", 3], ["Subject"], ["Patient", "200px"], ["Status", "100px"]],
-        rows.map((i) => tr(i, `${td(i.time)}${td(known(i) ? esc(i.from) : st("PICTURE", i.from), "", i.from)}${tdt(i.subject)}${tdt(i.pid ? patient(i.pid).name : "–")}${td(i.status === "Open" ? st("PICTURE", "Open") : esc(i.status), "", i.status)}`)))
-    : phead("Results to Resolve", "", filterBox("recon")) +
-      table([["Date and time", "150px", "", 2], ["Patient", "200px"], ["Result"], ["Issue", "190px"], ["Status", "140px", "", 3]],
-        rows.map((r) => tr(r, `${td(r.time)}${tdt(r.p ? r.p.name : r.who)}${tdt(r.f ? label(r.f) : r.what)}${td(st(r.v, r.issue), "", r.issue)}${tdt(resolveStatus(r))}`)));
-  const detail = cur ? (kind === "intake" ? intakeDetail(cur) : resolveDetail(cur, dept)) : `<p class="empty">Nothing to ${kind === "intake" ? "file" : "resolve"} for ${DEPTS[dept].label}.</p>`;
-  // A selected result acts like an open patient: Verify (V) and Request (R) work from the queue.
-  CTX = { dept, pts, queue: kind };
-  if (cur?.f) { S.sel.fact = cur.key; Object.assign(CTX, { p: cur.p, it: itemsOf(cur.p.pid).find((i) => i.facts.includes(cur.f)) }); }
-  $("#app").innerHTML = side + `<section class="work queue"><div class="split"><div class="pane list">${list}</div><div class="pane detail">${detail}</div></div>${actionBar(!!CTX.p)}</section>`;
+function renderQueue(dept, key, side, pts) {
+  const rows = queues(dept), k = decodeURIComponent(key || ""), cur = rows.find((r) => r.key === k) || rows[0];
+  const tr = (r, cells) => `<tr class="row ${r === cur ? "sel" : ""}" data-href="#/clinic/${dept}/intake/${encodeURIComponent(r.key)}">${cells}</tr>`;
+  const who = (r) => (r.recon ? st("LOST", "No patient match") : r.pid ? esc(patient(r.pid).name) : "–");
+  const list = phead("To file", "", filterBox("intake")) +
+    table([["Date and time", "150px", "", 2], ["Sender", "25%", "", 3], ["Subject"], ["Patient", "200px"], ["Status", "100px"]],
+      rows.map((r) => tr(r, `${td(r.time)}${td(r.recon || known(r) ? esc(r.from) : st("PICTURE", r.from), "", r.from)}${tdt(r.subject)}${td(who(r), "", r.recon ? r.who : "")}${td(r.status === "Open" ? st("PICTURE", "Open") : esc(r.status), "", r.status)}`)));
+  const detail = cur ? (cur.recon ? reconDetail(cur.recon) : intakeDetail(cur)) : `<p class="empty">Nothing to file for ${DEPTS[dept].label}.</p>`;
+  CTX = { dept, pts, queue: "intake" };
+  $("#app").innerHTML = side + `<section class="work queue"><div class="split"><div class="pane list">${list}</div><div class="pane detail">${detail}</div></div>${actionBar(false)}</section>`;
 }
 
 function worklist(dept, pts) {
@@ -1046,23 +1027,30 @@ function recipientView(l) {
 
 // A search on the regional platform: a FHIR query that answers at once, not a message to a person. Logged as access (NEN 7513).
 function searchRegion(key) {
-  const p = CTX.p, f = p.facts.find((x) => factKey(x) === key), loinc = C.fact_defs[f.fact]?.loinc, sender = SOURCE[f.source]?.sender;
+  const p = CTX.p, f = p.facts.find((x) => factKey(x) === key), loinc = C.fact_defs[f.fact]?.loinc, sender = SOURCE[f.source]?.sender, u = unit(C.fact_defs[f.fact].unit);
   const query = `GET [regional platform]/Observation?patient.identifier=http://fhir.nl/fhir/NamingSystem/bsn|${p.bsn}${loinc ? `&code=http://loinc.org|${loinc}` : ""}&date=ge${f.time.slice(0, 10)}`;
-  // One emergency department analyser is connected to the sender's laboratory system, so that patient's result is on the platform (synthetic).
-  const hit = f.status === "LOST" && f.truth_value != null && ROLE.published.includes(p.pid);
+  // Demo: the sender publishes its results to the regional platform, so the search finds the one the hospital is missing (synthetic).
+  const hit = f.status === "LOST" && f.truth_value != null;
   const obs = hit && { resourceType: "Observation", status: "final", code: loinc ? { coding: [{ system: "http://loinc.org", code: loinc }], text: LABEL[f.fact] } : { text: LABEL[f.fact] },
     subject: { identifier: { system: "http://fhir.nl/fhir/NamingSystem/bsn", value: p.bsn } }, effectiveDateTime: f.time,
-    valueQuantity: { value: f.truth_value, unit: unit(C.fact_defs[f.fact].unit), system: "http://unitsofmeasure.org", code: C.fact_defs[f.fact].unit }, performer: [{ display: sender }] };
+    valueQuantity: { value: f.truth_value, unit: u, system: "http://unitsofmeasure.org", code: C.fact_defs[f.fact].unit }, performer: [{ display: sender }] };
   const bundle = JSON.stringify({ resourceType: "Bundle", type: "searchset", total: hit ? 1 : 0, ...(hit ? { entry: [{ resource: obs }] } : {}) }, null, 2);
-  logAccess({ pid: p.pid, action: "Searched regional platform", object: label(f), basis: "Explicit consent, checked in Mitz by the platform", system: "Regional platform" });
   openDialog(`<div class="dlg"><header><b>Regional platform search</b><span class="pt">${esc(p.name)} · ${esc(label(f))}</span></header>
     <div class="body" style="gap:0;padding:0">
-      <div class="block"><dl class="kv"><dt>Searched</dt><dd>${now()}</dd><dt>Looked for</dt><dd>${esc(label(f))}${loinc ? ` (LOINC ${loinc})` : ""} from ${f.time.slice(0, 10)}</dd>
-        ${hit ? `<dt>Found</dt><dd>${esc(String(f.truth_value).replace(".", ","))} ${esc(unit(C.fact_defs[f.fact].unit))} · ${fmtTime(f.time)} · ${esc(sender)}</dd>` : ""}</dl></div>
+      <div class="block"><dl class="kv"><dt>Looking for</dt><dd>${esc(label(f))}${loinc ? ` (LOINC ${loinc})` : ""} from ${f.time.slice(0, 10)}</dd><dt>Status</dt><dd id="rs-state">Ready to search</dd></dl></div>
       <div class="block"><h4>Query</h4><pre class="raw">${esc(query)}</pre></div>
-      <div class="block"><h4>Response</h4><pre class="raw">${esc(bundle)}</pre></div></div>
-    <footer><button type="button" ${hit ? "" : 'class="primary"'} data-act="close">Close</button>${hit ? `<button type="button" class="primary" id="rs-import">Import result</button>` : ""}</footer></div>`);
-  $("#rs-import")?.addEventListener("click", () => {
+      <div class="block" id="rs-resp" hidden><h4>Response</h4><pre class="raw">${esc(bundle)}</pre></div></div>
+    <footer><button type="button" data-act="close">Close</button><button type="button" class="primary" id="rs-go">Search</button>
+      <button type="button" class="primary" id="rs-import" hidden>Import result</button></footer></div>`);
+  $("#rs-go").addEventListener("click", (e) => {
+    e.target.disabled = true; $("#rs-state").textContent = "Searching…";
+    logAccess({ pid: p.pid, action: "Searched regional platform", object: label(f), basis: "Explicit consent, checked in Mitz by the platform", system: "Regional platform" });
+    setTimeout(() => {
+      $("#rs-state").innerHTML = hit ? `${st("DATA", "1 result found")} · ${esc(String(f.truth_value).replace(".", ","))} ${esc(u)} · ${fmtTime(f.time)} · ${esc(sender)}` : st("LOST", "No result found");
+      $("#rs-resp").hidden = false; e.target.hidden = true; if (hit) $("#rs-import").hidden = false;
+    }, 700);
+  });
+  $("#rs-import").addEventListener("click", () => {
     const it = fileResult(p.pid, { fact: f.fact, value: f.truth_value, via: "Regional platform", by: sender, origin: sender });
     Object.assign(f, { status: "DATA" }); Object.assign(it, { format: "FHIR Observation" });
     logAccess({ pid: p.pid, action: "Imported result from regional platform", object: label(f), basis: "Explicit consent, checked in Mitz by the platform", system: "Regional platform" });
@@ -1240,7 +1228,7 @@ function intakeDetail(i) {
       <dt>Header on the fax</dt><dd>${esc(i.tsi || "None")} <span class="dim">· as stated by the sender, not verified</span></dd>`
       : `<dt>Sender</dt><dd>${esc(i.from)}${ok ? "" : ` · ${st("PICTURE", "Not a registered institution")}`}</dd>`}<dt>Subject</dt><dd>${esc(i.subject)}</dd>
       ${ans ? `<dt>Answers</dt><dd>Result request of ${esc(ans.time)}, sent by ${esc(ans.channel)}; the sender replied by fax</dd>` : ""}
-      <dt>Routing</dt><dd>${!ok ? "Rule R8: held until the sender is a registered institution" : ans ? `Rule R7: held for review; once filed, rule R1 returns it to ${esc(ans.from)} and notifies the requester` : "Rule R7: held in Documents to File for review"}</dd></dl></div>
+      <dt>Routing</dt><dd>${!ok ? "Rule R8: held in To file until the sender is a registered institution" : ans ? `Rule R7: held for review; once filed, rule R1 returns it to ${esc(ans.from)} and notifies the requester` : "Rule R7: held in To file for review"}</dd></dl></div>
     <div class="block"><h4>Filing</h4>${open ? `
       <label class="field"><span>Patient</span><select id="i-pid"><option value="">Select patient</option>${pts}</select></label>
       <div class="field"><span></span><div class="dim">${esc(i.match)}</div></div>
@@ -1340,7 +1328,7 @@ function channelDetail(c) {
       ${c.ack ? `<dt>Acknowledgement</dt><dd>${esc(c.ack)}</dd>` : ""}${c.remark ? `<dt>Remark</dt><dd>${esc(c.remark)}</dd>` : ""}${recogLine("channel", c.id)}</dl>
       <div class="inline"><button data-q-act="ch-toggle" data-key="${c.id}">${S.off[c.id] ? "Start" : "Pause"}</button><button data-q-act="ch-test" data-key="${c.id}">Test connection</button></div></div>
     ${certBlock(c)}${onboardBlock(c)}
-    ${er.length ? `<div class="block"><h4>Error queue</h4>${grid(er)}<div class="inline"><button data-href="#/clinic/nephrology/recon">Open in Results to Resolve</button></div></div>` : ""}
+    ${er.length ? `<div class="block"><h4>Error queue</h4>${grid(er)}<div class="inline"><button data-href="#/clinic/nephrology/intake">Open in To file</button></div></div>` : ""}
     ${c.msgs ? `<div class="block"><h4>Messages</h4>${grid(ms)}</div>` : `<div class="block"><p class="empty" style="padding:0">Look-up channel. Messages are not stored.</p></div>`}`;
 }
 
@@ -1398,13 +1386,13 @@ function linkBlock(l) {
 
 function channelDialog() {
   const types = ["HL7 v2 listener (MLLP)", "Twiin (Notified Pull, FHIR STU3)", "ZorgMail mailbox (EDIFACT, HL7 v2)", "Secure mail mailbox (ZorgMail, ZIVVER)", "Fax-to-mail inbox", "Shared folder watch", "Secure chat (message board)", "DICOM receiver (C-STORE)"];
-  const routes = ["Documents to File", "By care pathway", ...Object.values(DEPTS).map((d) => d.label + " worklist")];
+  const routes = ["To file", "By care pathway", ...Object.values(DEPTS).map((d) => d.label + " worklist")];
   openDialog(`<form class="dlg" id="f-ch"><header><b>New connection</b><span class="pt">Connections</span></header><div class="body">
       <label class="field"><span>Name <span class="req">*</span></span><input name="name" required></label>
       <label class="field"><span>Type</span><select name="type">${types.map((x) => opt(x)).join("")}</select></label>
       <label class="field"><span>Source</span><input name="source" placeholder="Port, mailbox address, folder or endpoint"></label>
       <label class="field"><span>Default route</span><select name="route">${routes.map((x) => opt(x)).join("")}</select></label></div>
-    <footer><span class="left">Unstructured channels (mail, fax, folder, chat) always go to Documents to File first.</span><button type="button" data-act="close">Cancel</button><button class="primary">Add connection</button></footer></form>`);
+    <footer><span class="left">Unstructured channels (mail, fax, folder, chat) always go to To file first.</span><button type="button" data-act="close">Cancel</button><button class="primary">Add connection</button></footer></form>`);
   $("#f-ch").addEventListener("submit", (e) => {
     e.preventDefault();
     const d = Object.fromEntries(new FormData(e.target)), id = "c" + CHANNELS.length;
@@ -1730,7 +1718,7 @@ function lineRead(f) {
 function reads(t) {
   if (t.intake) return S.intake.filter((i) => i.channel === t.intake).map((i) => ({ key: i.key, time: i.time, who: i.pid ? patient(i.pid).name : "–", doc: i.subject,
     field: t.ids ? "BSN, patient number, date of birth" : LABEL[i.fact] || "", line: (i.text.split("\n").find((x) => /Troponin|OCR found/.test(x)) || "").trim(), conf: null,
-    value: i.fact ? `${comma(i.value)} ${unit(C.fact_defs[i.fact]?.unit)}` : "", status: i.status === "Open" ? "Documents to File" : i.status, href: `#/clinic/cardiology/intake/${i.key}` }));
+    value: i.fact ? `${comma(i.value)} ${unit(C.fact_defs[i.fact]?.unit)}` : "", status: i.status === "Open" ? "To file" : i.status, href: `#/clinic/cardiology/intake/${i.key}` }));
   return C.patients.flatMap((p) => p.facts.filter(t.match).map((f) => {
     const it = ITEMS[p.pid].find((x) => x.facts.includes(f)), v = verdict(f), conf = ocrConfidence(f);
     return { key: factKey(f), time: fmtTime(f.time), who: p.name, doc: full(it), field: label(f), line: lineRead(f), conf: conf == null ? null : Number(conf),
@@ -1750,7 +1738,7 @@ function recogDetail(t) {
       <dt>Minimum confidence</dt><dd>${t.min == null ? "Not applicable: the PDF text is exact; the pattern match is what can fail"
         : `<select data-recog-min="${t.id}">${[50, 60, 70, 80, 90].map((x) => `<option ${x === t.min ? "selected" : ""}>${x}</option>`).join("")}</select> %`}</dd>
       <dt>Below the minimum</dt><dd>Filed as unverified with a low-confidence flag; never as a structured result</dd>
-      <dt>Not legible</dt><dd>To Results to Resolve for manual entry</dd>
+      <dt>Not legible</dt><dd>Shown as Not legible in the patient record</dd>
       <dt>Every read</dt><dd>Stays unverified until a person verifies it against the image</dd>
       <dt>Active</dt><dd><label><input type="checkbox" data-recog-on="${t.id}" ${t.on ? "checked" : ""}> ${t.on ? "Reading new documents" : "Off: new documents are filed as images, nothing is read"}</label></dd></dl></div>
     <div class="block"><h4>Reads</h4>${table([["Patient", "32%"], ["Line read → value"], ["Confidence", "84px", "num"], ["Status", "96px"]],
@@ -1944,9 +1932,10 @@ function overview() {
 }
 
 function reconDetail(r) {
-  const done = S.resolved[r.key];
+  const done = S.resolved[r.key], likely = r.u && C.patients.find((p) => r.who.startsWith(p.name + ","));
   const action = done ? `<div>${esc(done)}</div><div class="inline"><button data-q-act="reopen" data-key="${esc(r.key)}">Reopen</button></div>`
-    : r.u ? `<label class="field"><span>Match to patient</span><select id="q-link">${C.patients.filter((p) => p.path === "kidney").map((p) => `<option value="${p.pid}">${esc(p.family)}, ${esc(p.given)} · ${fmtDate(p.dob)}</option>`).join("")}</select></label>
+    : r.u ? `${likely ? `<div class="field"><span>Probable match</span><div>${esc(likely.name)} · ${fmtDate(likely.dob)} · ${likely.mrn}<br><span class="dim">Same name; the date of birth on the report differs (${esc(r.who.split("born ")[1] || "")}).</span></div></div>` : ""}
+        <label class="field"><span>Match to patient</span><select id="q-link">${C.patients.filter((p) => p.path === "kidney").map((p) => `<option value="${p.pid}" ${p === likely ? "selected" : ""}>${esc(p.family)}, ${esc(p.given)} · ${fmtDate(p.dob)}</option>`).join("")}</select></label>
         <div class="inline"><button class="primary" data-q-act="link" data-key="${esc(r.key)}">Match</button><button data-q-act="reject" data-key="${esc(r.key)}">Reject message</button></div>`
     : `<div class="inline" style="margin-top:0">Manual entry <input id="q-val"> ${esc(unit(C.fact_defs[r.f.fact].unit))} <button class="primary" data-q-act="enter" data-key="${esc(r.key)}">Save</button></div>`;
   return `
@@ -2038,7 +2027,7 @@ function reconAct(a, key) {
   if (a.startsWith("cert-") && !CERTS[key]) return;
   if (a === "i-file") {
     const pid = $("#i-pid").value; if (!pid) return $("#i-pid").focus();
-    fileResult(pid, { fact: i.fact, value: $("#i-val")?.value, via: chanName(i.channel), by: "User, Documents to File", origin: i.from, title: i.title, upload: scanFile(i) || undefined });
+    fileResult(pid, { fact: i.fact, value: $("#i-val")?.value, via: chanName(i.channel), by: "User, To file", origin: i.from, title: i.title, upload: scanFile(i) || undefined });
     Object.assign(i, { pid, status: "Filed" });
     logAccess({ pid, action: "Filed document", object: i.subject, basis: "Treatment relationship", system: chanName(i.channel) });
     return flash(`Filed to ${patient(pid).name}; routed to the ${DEPTS[deptOf(patient(pid))].label} worklist`);
@@ -2075,7 +2064,12 @@ function reconAct(a, key) {
   if (a === "dir-verify") { Object.assign(d, { status: d.status === "Temporary" ? "Temporary" : "Verified", verified: `Confirmed by telephone call-back, ${now()}, User` }); return flash(`${d.name} verified`); }
   if (a === "dir-perm") { Object.assign(d, { status: /Not verified/.test(d.verified) ? "Unverified" : "Verified", expires: "", remark: "" }); return flash(`${d.name} is now a permanent contact`); }
   if (a === "reopen") delete S.resolved[key];
-  else if (a === "link") { S.resolved[key] = "Matched to " + patient($("#q-link").value).name; logAccess({ pid: $("#q-link").value, action: "Matched report to patient", object: key.replace(/^U\|/, "") }); }
+  else if (a === "link") {
+    const pid = $("#q-link").value, file = key.replace(/^U\|/, "");
+    S.resolved[key] = "Matched to " + patient(pid).name;
+    for (const f of patient(pid).facts) if (f.file === file && f.status === "LOST" && f.truth_value != null) Object.assign(f, { status: "CONFLICT", got: f.truth_value });
+    logAccess({ pid, action: "Matched report to patient", object: docRef(file) });
+  }
   else if (a === "reject") S.resolved[key] = "Message rejected";
   else if (a === "enter") {
     const v = $("#q-val").value.trim(); if (!v) return $("#q-val").focus();
