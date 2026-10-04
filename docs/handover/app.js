@@ -1037,19 +1037,21 @@ function searchRegion(key) {
   const bundle = JSON.stringify({ resourceType: "Bundle", type: "searchset", total: hit ? 1 : 0, ...(hit ? { entry: [{ resource: obs }] } : {}) }, null, 2);
   openDialog(`<div class="dlg"><header><b>Regional platform search</b><span class="pt">${esc(p.name)} · ${esc(label(f))}</span></header>
     <div class="body" style="gap:0;padding:0">
-      <div class="block"><dl class="kv"><dt>Looking for</dt><dd>${esc(label(f))}${loinc ? ` (LOINC ${loinc})` : ""} from ${f.time.slice(0, 10)}</dd><dt>Status</dt><dd id="rs-state">Ready to search</dd></dl></div>
+      <div class="block"><dl class="kv"><dt>Looking for</dt><dd>${esc(label(f))}${loinc ? ` (LOINC ${loinc})` : ""} from ${f.time.slice(0, 10)}</dd><dt id="rs-l" hidden>Result</dt><dd id="rs-state" hidden></dd></dl></div>
       <div class="block"><h4>Query</h4><pre class="raw">${esc(query)}</pre></div>
       <div class="block" id="rs-resp" hidden><h4>Response</h4><pre class="raw">${esc(bundle)}</pre></div></div>
     <footer><button type="button" data-act="close">Close</button><button type="button" class="primary" id="rs-go">Search</button>
-      <button type="button" class="primary" id="rs-import" hidden>Import result</button></footer></div>`);
+      <button type="button" id="rs-other" hidden>Request another way</button><button type="button" class="primary" id="rs-import" hidden>Import result</button></footer></div>`);
   $("#rs-go").addEventListener("click", (e) => {
-    e.target.disabled = true; $("#rs-state").textContent = "Searching…";
+    e.target.disabled = true; e.target.textContent = "Searching…";
     logAccess({ pid: p.pid, action: "Searched regional platform", object: label(f), basis: "Explicit consent, checked in Mitz by the platform", system: "Regional platform" });
     setTimeout(() => {
       $("#rs-state").innerHTML = hit ? `${st("DATA", "1 result found")} · ${esc(String(f.truth_value).replace(".", ","))} ${esc(u)} · ${fmtTime(f.time)} · ${esc(sender)}` : st("LOST", "No result found");
-      $("#rs-resp").hidden = false; e.target.hidden = true; if (hit) $("#rs-import").hidden = false;
+      $("#rs-l").hidden = $("#rs-state").hidden = $("#rs-resp").hidden = false; e.target.hidden = true;
+      $("#rs-other").hidden = false; if (hit) $("#rs-import").hidden = false; // the other request channels stay one click away
     }, 700);
   });
+  $("#rs-other").addEventListener("click", () => requestDialog());
   $("#rs-import").addEventListener("click", () => {
     const it = fileResult(p.pid, { fact: f.fact, value: f.truth_value, via: "Regional platform", by: sender, origin: sender });
     Object.assign(f, { status: "DATA" }); Object.assign(it, { format: "FHIR Observation" });
