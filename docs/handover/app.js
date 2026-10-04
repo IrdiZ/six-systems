@@ -74,6 +74,8 @@ const CM = ["ivs_thickness", "lv_diameter", "kidney_length"]; // shown in cm on 
 const PDF_PREFIX = { calcium_score: "Agatston calciumscore: ", nodule_size: "diameter ", tumour_size: "Tumorgrootte: " }; // text before the value in the report
 const PATCH = {}; // image file → { name, values }: text to redraw on it (paintMedia)
 const patchOf = (png) => (PATCH[png] ||= { values: [] });
+// A measurement whose screen capture arrived but cannot be read: the image is there, the value is not.
+const illegible = (f) => f.status === "LOST" && !!f.media?.box && !f.media.png.endsWith(".pdf.png");
 // Swap one number in a string, not when it is part of a longer number.
 const swap = (s, a, b) => String(s ?? "").replace(new RegExp(`(?<![\\w.,])${String(a).replace(/\./g, "\\.")}(?![\\w]|[.,]\\d)`, "g"), b);
 // A result's value lives in got, truth_value, the conversion steps, the source excerpt and, for images, the pixels: all follow.
@@ -128,7 +130,8 @@ for (const s of [...(SC.name || []), ...Q.getAll("name")]) {
 const IMG = {}; // image file → patched data URL
 const mediaSrc = (png) => IMG[png] || window.MEDIA_DATA?.[png] || MEDIA + png;
 function paintMedia() {
-  return Promise.all(Object.entries(PATCH).map(([png, { name, values }]) => new Promise((done) => {
+  for (const p of C.patients) for (const f of p.facts) if (illegible(f)) (patchOf(f.media.png).obscure ||= []).push(f.media.box);
+  return Promise.all(Object.entries(PATCH).map(([png, { name, values, obscure }]) => new Promise((done) => {
     const img = new Image();
     img.onerror = done;
     img.onload = () => {
@@ -162,6 +165,23 @@ function paintMedia() {
           g.fillStyle = "#000"; g.fillRect(X + a, Y, bw - a, bh);
           g.putImageData(tail, Math.round(X + a + nw), Y);
           g.fillStyle = "#fff"; g.fillText(v.to, X + a + m.actualBoundingBoxLeft, Y + bot + 1);
+        }
+        for (const bx of obscure || []) { // the value only; the label stays readable
+          const [x, y, w, h] = bx.map((n, i) => (n * (i % 2 ? H : W)) / 100), X = Math.round(x), Y = Math.round(y), bw = Math.round(w), bh = Math.round(h);
+          const d = g.getImageData(X, Y, bw, bh).data, lit = (i) => [...Array(bh).keys()].some((j) => d[(j * bw + i) * 4] > 128), words = [];
+          for (let i = 0; i < bw; i++) if (lit(i)) { const l = words[words.length - 1]; if (l && i - l[1] < 7) l[1] = i; else words.push([i, i]); }
+          const a = words.length > 1 ? words[1][0] - 3 : 0, rx = X + a, rw = bw - a;
+          let seed = [...png].reduce((s, ch) => (s * 31 + ch.charCodeAt(0)) >>> 0, 7);
+          const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+          // smear the digits horizontally (as a dropped-frame capture does), with soft edges, then speckle that fades out
+          const sm = document.createElement("canvas"), sg = sm.getContext("2d"); sm.width = rw + 8; sm.height = bh;
+          sg.filter = "blur(2px)"; for (let k = -4; k <= 4; k++) sg.drawImage(c, rx - 4, Y, rw + 8, bh, k * 2.6, (k % 2) * 1.5, rw + 8, bh);
+          const fade = g.createLinearGradient(rx - 4, 0, rx + rw + 4, 0); fade.addColorStop(0, "rgba(0,0,0,0)"); fade.addColorStop(0.12, "#000"); fade.addColorStop(0.88, "#000"); fade.addColorStop(1, "rgba(0,0,0,0)");
+          sg.globalCompositeOperation = "destination-in"; sg.filter = "none"; sg.fillStyle = (() => { const q = sg.createLinearGradient(0, 0, rw + 8, 0); q.addColorStop(0, "rgba(0,0,0,0)"); q.addColorStop(0.12, "#000"); q.addColorStop(0.88, "#000"); q.addColorStop(1, "rgba(0,0,0,0)"); return q; })(); sg.fillRect(0, 0, rw + 8, bh);
+          g.fillStyle = "rgba(0,0,0,.8)"; g.fillRect(rx + 2, Y + 2, rw - 4, bh - 4); g.globalAlpha = 0.5; g.drawImage(sm, rx - 4, Y); g.globalAlpha = 1;
+          for (let k = 0; k < rw * bh * 0.34; k++) { const v = 60 + rnd() * 150 | 0, px = rnd(); g.fillStyle = `rgba(${v},${v},${v},${(0.25 + rnd() * 0.45) * Math.min(1, px * 6, (1 - px) * 6)})`; g.fillRect(rx + px * rw, Y + rnd() * bh, 1, 1); }
+          g.strokeStyle = "rgba(235,215,90,.9)"; g.lineWidth = 1.2; g.setLineDash([3, 2]); g.beginPath(); g.moveTo(rx - 2, Y + bh * 0.55); g.lineTo(rx + rw * 0.9, Y + bh * 0.4); g.stroke(); g.setLineDash([]);
+          for (const [cx, cy] of [[rx + 1, Y + bh * 0.55], [rx + rw * 0.9, Y + bh * 0.4]]) { g.beginPath(); g.moveTo(cx - 4, cy); g.lineTo(cx + 4, cy); g.moveTo(cx, cy - 4); g.lineTo(cx, cy + 4); g.stroke(); }
         }
         if (name && pdf) { // the patient row of the report header
           g.font = "10px Helvetica, Arial, sans-serif";
@@ -282,7 +302,7 @@ const repairsOf = (f) => (f.steps || []).filter((x) => /^decimal comma/.test(x))
 const ocrConfidence = (f) => (/confidence (\d+)%/.exec([f.reason, ...(f.steps || [])].join(" ")) || [])[1];
 // One professional sentence per result, by status and source.
 function remark(f) {
-  const v = verdict(f), conf = ocrConfidence(f), c = conf ? ` (OCR confidence ${conf}%)` : "";
+  const v = verdict(f);
   if (f.captured && v === "PICTURE") return `Received via ${f.captured.via.replace(/^Upload link$/, "upload link")}${f.captured.by ? `, entered by ${f.captured.by}` : ""}. ${f.got == null ? "Value not entered." : "Verification required."}`;
   if (v === "DATA" && f.db) return `Structured value from ${f.db} (data source bridge), ${f.dbAt}.`;
   if (v === "DATA") return f.source === "radiology" ? "DICOM header attribute." : "LOINC-coded result in SI units.";
@@ -290,11 +310,11 @@ function remark(f) {
   if (v === "CONFIRMED") return `Verified against the source image by ${S.confirmed[factKey(f)]}.`;
   if (v === "PICTURE") return (f.file || "").endsWith(".pdf")
     ? "Value extracted from the report text. No structured result available. Verification required."
-    : `No structured report (DICOM SR). Value extracted from the image by optical character recognition${c}. Verification required.`;
+    : `No structured report (DICOM SR). Value extracted from the image by optical character recognition. Verification required.`;
   if (f.fact === "troponin_poc") return "Point-of-care result reported by fax. No electronic result received.";
   if (f.fact === "wsi_slide") return "Proprietary whole-slide format. No DICOM WSI conversion available.";
   if (f.source === "ext_lab") return "Result received without BSN. No patient match on name and date of birth.";
-  return `Measurement not legible on the image${c}. Manual entry required.`;
+  return "Image received; the measurement is not legible on the exported screen capture.";
 }
 // A fixed-layout table: cols = [[header, width, cls]]; cells carry a title so truncated text stays readable.
 // cols = [[header, width, cls, priority]]. Priority 2 columns drop out when the pane is under 860px wide, priority 3
@@ -648,7 +668,7 @@ function renderClinic(dept, pid, tab, itemId) {
     return;
   }
   const items = itemsOf(p.pid);
-  const inTab = (t) => (t === "missing" ? items.filter((i) => i.facts.some((f) => f.status === "LOST")) : t === "all" || t === "transfers" ? items : items.filter((i) => i.cat === t));
+  const inTab = (t) => (t === "missing" ? items.filter((i) => i.facts.some((f) => f.status === "LOST" && !illegible(f))) : t === "all" || t === "transfers" ? items : items.filter((i) => i.cat === t));
   const shown = inTab(tab);
   const it = shown.find((i) => i.id === itemId) || shown[0];
   CTX = { dept, p, tab, items: shown, it, pts };
@@ -719,15 +739,16 @@ function worklist(dept, pts) {
 }
 
 function banner(p, dept) {
-  const lost = lostOf(p).length, pic = unverifiedOf(p).length;
+  const ill = lostOf(p).filter(illegible).length, lost = lostOf(p).length - ill, pic = unverifiedOf(p).length;
   const field = (l, v) => `<div><label>${l}</label>${v}</div>`;
   return `<div class="banner">
     <div class="name"><b>${esc(p.family.toUpperCase())}, ${esc(p.given)}</b><span>${p.sex === "M" ? "Male" : "Female"}, ${age(p.dob)} y</span></div>
     <div class="fields">${field("Date of birth", fmtDate(p.dob))}${field("Patient no.", p.mrn)}${field("BSN", p.bsn)}</div>
     <div class="alerts">
       ${lost ? st("LOST", `${plural(lost, "result")} not received`) : ""}
+      ${ill ? st("LOST", `${plural(ill, "result")} not legible`) : ""}
       ${pic ? st("PICTURE", `${plural(pic, "result")} unverified`) : ""}
-      ${!lost && !pic ? `<span class="dim">All results received</span>` : ""}
+      ${!lost && !pic && !ill ? `<span class="dim">All results received</span>` : ""}
     </div></div>`;
 }
 
@@ -739,14 +760,14 @@ function docGrid(items, sel, dept, p, tab) {
 
 // A document can hold several results: say how many still need attention, so the counts add up to the worklist's.
 function docStatus(i) {
-  const n = (v) => i.facts.filter((f) => verdict(f) === v).length, unv = n("PICTURE"), lost = n("LOST");
-  if (i.added || unv + lost < 2) return st(worst(i));
-  return `<span class="stack">${unv ? st("PICTURE", `${unv} unverified`) : ""}${lost ? st("LOST", `${lost} not received`) : ""}</span>`;
+  const n = (v) => i.facts.filter((f) => verdict(f) === v).length, unv = n("PICTURE"), ill = i.facts.filter(illegible).length, lost = n("LOST") - ill;
+  if (i.added || unv + lost + ill < 2) return ill ? st("LOST", "Not legible") : st(worst(i));
+  return `<span class="stack">${unv ? st("PICTURE", `${unv} unverified`) : ""}${ill ? st("LOST", `${ill} not legible`) : ""}${lost ? st("LOST", `${lost} not received`) : ""}</span>`;
 }
 function docDetail(it, admin = false) {
   const fsel = it.facts.find((f) => factKey(f) === S.sel.fact) || it.facts[0];
   const rows = it.facts.map((f) => `<tr class="row ${f === fsel ? "sel" : ""}" data-fact="${esc(factKey(f))}">
-    ${tdt(label(f))}${td(value(f), typeof f.got === "number" || f.got == null || f.status === "LOST" ? "num" : "", TR[f.got] || "")}${td(st(verdict(f)))}</tr>`);
+    ${tdt(label(f))}${td(value(f), typeof f.got === "number" || f.got == null || f.status === "LOST" ? "num" : "", TR[f.got] || "")}${td(st(verdict(f), verdict(f) === "LOST" && illegible(f) ? "Not legible" : WORD[verdict(f)]))}</tr>`);
   const src = SOURCE[it.source] || { system: it.via || "Manual upload" };
   const cap = it.facts.find((f) => f.captured)?.captured;
   return `

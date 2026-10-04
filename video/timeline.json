@@ -132,7 +132,7 @@
      "hold": 0.3
     },
     {
-     "caption": "LVEF 64 %, read by optical character recognition with OCR confidence 96%.",
+     "caption": "LVEF 64 %, read from the image by optical character recognition. Verification required.",
      "hold": 4
     },
     {
