@@ -235,3 +235,6 @@ body.portal #app { display: block; overflow-y: auto; }
 .inline { flex-wrap: wrap; }
 .inline button, .actions button { white-space: nowrap; flex: none; }
 button.primary kbd { border-color: rgba(255,255,255,.35); color: #dfe3e7; background: transparent; }
+#top .who { display: flex; align-items: center; gap: 16px; }
+#top .user { display: flex; align-items: center; gap: 8px; color: #fff; font-weight: 600; font-size: 12px; letter-spacing: .06em; padding-left: 16px; border-left: 1px solid #4a5560; height: 20px; }
+#top .user svg { color: #aab2ba; }

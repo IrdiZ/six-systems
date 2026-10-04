@@ -266,7 +266,7 @@ const unverifiedOf = (p) => p.facts.filter((f) => verdict(f) === "PICTURE");
 // P001 and P004 answered by fax, P003 link opened, P004 fax, P005 chat, P007 GP letter, P014 no consent, P016 rejected.
 const cohort = (path) => C.patients.filter((p) => p.path === path).map((p) => p.pid);
 const CP = cohort("chest_pain"), KID = cohort("kidney");
-const ROLE = { answered: [CP[0], CP[3]], opened: [CP[2]], gp: CP[CP.length - 1], noConsent: [KID[0]], rejected: [KID[2]], ...SC.roles };
+const ROLE = { answered: [CP[0], CP[3]], opened: [CP[2]], published: [CP[5]].filter(Boolean), gp: CP[CP.length - 1], noConsent: [KID[0]], rejected: [KID[2]], ...SC.roles };
 ROLE.fax ??= [...ROLE.answered].reverse().find((pid) => patient(pid)?.facts.some((f) => f.fact === "troponin_poc"));
 ROLE.chat ??= CP.filter((pid) => patient(pid).facts.some((f) => f.source === "echo" && f.status === "LOST")).pop();
 
@@ -585,7 +585,7 @@ const USERS = { Cardiology: ["L. Hermans", "Cardiologist"], Pulmonology: ["S. Ba
 const reqId = () => "REQ-" + rand().toString(16).slice(2, 10).toUpperCase();
 const ACTION = (l) => l.kind === "send" ? "Sent referral" : l.kind === "request" ? "Requested result" : "Made available";
 function logAccess(o) {
-  S.access.push({ id: "A" + (S.access.length + 1), time: now(), user: "Demo User", role: CTX?.admin ? "Data manager" : CTX?.dept ? `Clinician, ${DEPTS[CTX.dept].label}` : "Clinician",
+  S.access.push({ id: "A" + (S.access.length + 1), time: now(), user: "User", role: CTX?.admin ? "Data manager" : CTX?.dept ? `Clinician, ${DEPTS[CTX.dept].label}` : "Clinician",
     pid: null, basis: CTX?.admin ? "Data management" : "Treatment relationship", system: "Handover application", req: reqId(), ...o });
 }
 function seedAccess() {
@@ -1043,17 +1043,28 @@ function recipientView(l) {
 
 // A search on the regional platform: a FHIR query that answers at once, not a message to a person. Logged as access (NEN 7513).
 function searchRegion(key) {
-  const p = CTX.p, f = p.facts.find((x) => factKey(x) === key), loinc = C.fact_defs[f.fact]?.loinc;
+  const p = CTX.p, f = p.facts.find((x) => factKey(x) === key), loinc = C.fact_defs[f.fact]?.loinc, sender = SOURCE[f.source]?.sender;
   const query = `GET [regional platform]/Observation?patient.identifier=http://fhir.nl/fhir/NamingSystem/bsn|${p.bsn}${loinc ? `&code=http://loinc.org|${loinc}` : ""}&date=ge${f.time.slice(0, 10)}`;
-  // point-of-care results stay on the analyser and are not published to the platform: the search finds nothing (synthetic outcome)
-  const bundle = JSON.stringify({ resourceType: "Bundle", type: "searchset", total: 0 }, null, 2);
+  // One emergency department analyser is connected to the sender's laboratory system, so that patient's result is on the platform (synthetic).
+  const hit = f.status === "LOST" && f.truth_value != null && ROLE.published.includes(p.pid);
+  const obs = hit && { resourceType: "Observation", status: "final", code: loinc ? { coding: [{ system: "http://loinc.org", code: loinc }], text: LABEL[f.fact] } : { text: LABEL[f.fact] },
+    subject: { identifier: { system: "http://fhir.nl/fhir/NamingSystem/bsn", value: p.bsn } }, effectiveDateTime: f.time,
+    valueQuantity: { value: f.truth_value, unit: unit(C.fact_defs[f.fact].unit), system: "http://unitsofmeasure.org", code: C.fact_defs[f.fact].unit }, performer: [{ display: sender }] };
+  const bundle = JSON.stringify({ resourceType: "Bundle", type: "searchset", total: hit ? 1 : 0, ...(hit ? { entry: [{ resource: obs }] } : {}) }, null, 2);
   logAccess({ pid: p.pid, action: "Searched regional platform", object: label(f), basis: "Explicit consent, checked in Mitz by the platform", system: "Regional platform" });
   openDialog(`<div class="dlg"><header><b>Regional platform search</b><span class="pt">${esc(p.name)} · ${esc(label(f))}</span></header>
     <div class="body" style="gap:0;padding:0">
-      <div class="block"><dl class="kv"><dt>Searched</dt><dd>${now()}</dd><dt>Looked for</dt><dd>${esc(label(f))}${loinc ? ` (LOINC ${loinc})` : ""} from ${f.time.slice(0, 10)}</dd></dl></div>
+      <div class="block"><dl class="kv"><dt>Searched</dt><dd>${now()}</dd><dt>Looked for</dt><dd>${esc(label(f))}${loinc ? ` (LOINC ${loinc})` : ""} from ${f.time.slice(0, 10)}</dd>
+        ${hit ? `<dt>Found</dt><dd>${esc(String(f.truth_value).replace(".", ","))} ${esc(unit(C.fact_defs[f.fact].unit))} · ${fmtTime(f.time)} · ${esc(sender)}</dd>` : ""}</dl></div>
       <div class="block"><h4>Query</h4><pre class="raw">${esc(query)}</pre></div>
       <div class="block"><h4>Response</h4><pre class="raw">${esc(bundle)}</pre></div></div>
-    <footer><button type="button" class="primary" data-act="close">Close</button></footer></div>`);
+    <footer><button type="button" ${hit ? "" : 'class="primary"'} data-act="close">Close</button>${hit ? `<button type="button" class="primary" id="rs-import">Import result</button>` : ""}</footer></div>`);
+  $("#rs-import")?.addEventListener("click", () => {
+    const it = fileResult(p.pid, { fact: f.fact, value: f.truth_value, via: "Regional platform", by: sender, origin: sender });
+    Object.assign(f, { status: "DATA" }); Object.assign(it, { format: "FHIR Observation" });
+    logAccess({ pid: p.pid, action: "Imported result from regional platform", object: label(f), basis: "Explicit consent, checked in Mitz by the platform", system: "Regional platform" });
+    closeDialog(); flash(`${label(f)} imported from the regional platform: structured`); route();
+  });
 }
 
 function addDialog() {
@@ -1101,7 +1112,7 @@ function addDialog() {
       note = `; ${from} registered as a temporary institution`;
     }
     const kind = f.kind.selectedOptions[0].textContent;
-    const it = fileResult(p.pid, { fact: d.get("fact"), value: d.get("value"), via: "Manual upload", by: "Demo User", origin: from || "Not documented", title: file?.name || kind, cat: d.get("kind"),
+    const it = fileResult(p.pid, { fact: d.get("fact"), value: d.get("value"), via: "Manual upload", by: "User", origin: from || "Not documented", title: file?.name || kind, cat: d.get("kind"),
       upload: file && { name: file.name, type: file.type, size: file.size, url } });
     logAccess({ pid: p.pid, action: "Attached document", object: it.title });
     flash(`${it.facts.length ? label(it.facts[0]) + " entered, unverified" : "Document attached"}${note}`);
@@ -1111,7 +1122,7 @@ function addDialog() {
 function confirmValue() {
   const f = CTX?.it && (CTX.it.facts.find((x) => factKey(x) === S.sel.fact) || CTX.it.facts[0]);
   if (!f || verdict(f) !== "PICTURE") return;
-  S.confirmed[factKey(f)] = "Demo User, " + now();
+  S.confirmed[factKey(f)] = "User, " + now();
   logAccess({ pid: f.pid, action: "Verified result", object: label(f) });
   flash(`${label(f)} verified`);
 }
@@ -1355,7 +1366,7 @@ function dirDetail(d) {
     <div class="block"><dl class="kv"><dt>Type</dt><dd>${esc(d.type)}</dd>${d.dept ? `<dt>Department</dt><dd>${esc(d.dept)}</dd>` : ""}
       <dt>AGB code</dt><dd>${esc(d.agb || "Not documented")}</dd><dt>URA number</dt><dd>${esc(d.ura || "Not documented")}</dd><dt>Preferred channel</dt><dd>${esc(d.channel)}</dd>${recogLine("institution", d.name)}
       <dt>Status</dt><dd>${dirStatus(d)}</dd><dt>Verification</dt><dd>${esc(d.verified)}</dd>${d.expires ? `<dt>Expires</dt><dd>${d.expires}</dd>` : ""}
-      ${d.remark ? `<dt>Remark</dt><dd>${esc(d.remark)}</dd>` : ""}${d.added ? `<dt>Added</dt><dd>${d.added}, Demo User</dd>` : ""}</dl>
+      ${d.remark ? `<dt>Remark</dt><dd>${esc(d.remark)}</dd>` : ""}${d.added ? `<dt>Added</dt><dd>${d.added}, User</dd>` : ""}</dl>
       <div class="inline">${d.status !== "Verified" ? `<button data-q-act="dir-verify" data-key="${esc(d.name)}">Verified by telephone call-back</button>` : ""}
         ${d.status === "Temporary" ? `<button data-q-act="dir-perm" data-key="${esc(d.name)}">Make permanent</button>` : ""}</div></div>
     <div class="block"><h4>Contact points</h4>${table([["Channel", "36%"], ["Address"]], d.points.map(([c, a]) => `<tr>${tdt(c)}${tdt(a)}</tr>`))}</div>
@@ -1651,7 +1662,7 @@ function mapDialog() {
     e.preventDefault();
     const d = Object.fromEntries(new FormData(f)), id = "M" + (Math.max(...MAPS.map((m) => Number(m.id.slice(1)))) + 1);
     MAPS.push({ id, sender: d.sender, format: d.format, code: d.code.trim(), localUnit: d.localUnit.trim(), fact: d.fact, factor: String(Number(d.factor.replace(",", "."))),
-      equation: d.fact === "egfr" ? d.equation : "", range: d.range, status: "Draft", by: "", on: "", version: 1, custom: true, created: `Demo User, ${now()}`,
+      equation: d.fact === "egfr" ? d.equation : "", range: d.range, status: "Draft", by: "", on: "", version: 1, custom: true, created: `User, ${now()}`,
       note: "New mapping. A clinical chemist checks code, unit and factor before it is applied to incoming messages." });
     logAccess({ action: "Drafted code mapping", object: `${d.sender} ${d.code.trim()} → LOINC ${C.fact_defs[d.fact].loinc}`, basis: "Data management" });
     flash(`Mapping ${id} saved as a draft`);
@@ -1885,7 +1896,7 @@ function exportCsv(table, scope) {
   const csv = "\uFEFF" + table.map((r) => r.map(cell).join(";")).join("\r\n");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-  a.download = `six-sys_${CTX.admin}_${scope}_${now().replace(/[-: ]/g, "").slice(0, 12)}.csv`;
+  a.download = `demo_${CTX.admin}_${scope}_${now().replace(/[-: ]/g, "").slice(0, 12)}.csv`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   logAccess({ action: "Exported data", object: `${a.download}, ${plural(table.length - 1, "row")}`, basis: "Data management" });
@@ -2019,7 +2030,7 @@ function reconAct(a, key) {
   if (a.startsWith("cert-") && !CERTS[key]) return;
   if (a === "i-file") {
     const pid = $("#i-pid").value; if (!pid) return $("#i-pid").focus();
-    fileResult(pid, { fact: i.fact, value: $("#i-val")?.value, via: chanName(i.channel), by: "Demo User, Documents to File", origin: i.from, title: i.title, upload: scanFile(i) || undefined });
+    fileResult(pid, { fact: i.fact, value: $("#i-val")?.value, via: chanName(i.channel), by: "User, Documents to File", origin: i.from, title: i.title, upload: scanFile(i) || undefined });
     Object.assign(i, { pid, status: "Filed" });
     logAccess({ pid, action: "Filed document", object: i.subject, basis: "Treatment relationship", system: chanName(i.channel) });
     return flash(`Filed to ${patient(pid).name}; routed to the ${DEPTS[deptOf(patient(pid))].label} worklist`);
@@ -2045,15 +2056,15 @@ function reconAct(a, key) {
     return go("#/admin/mapping");
   }
   if (a === "cert-g4") { CERTS[key].g4 = true; return flash(`G4 CA certificates loaded for ${CERTS[key].subject}`); }
-  if (a === "cert-renew") { Object.assign(CERTS[key], { renew: true, note: `Renewal requested ${now().slice(0, 10)}, Demo User` }); return flash(`Renewal requested for ${CERTS[key].subject}`); }
+  if (a === "cert-renew") { Object.assign(CERTS[key], { renew: true, note: `Renewal requested ${now().slice(0, 10)}, User` }); return flash(`Renewal requested for ${CERTS[key].subject}`); }
   if (a === "map-approve") {
     const m = MAPS.find((x) => x.id === key), eq = $("#m-eq")?.value ?? m.equation;
-    Object.assign(m, { status: "Approved", equation: eq, by: "Demo User", on: now().slice(0, 10), version: m.status === "Draft" ? m.version : m.version + 1,
+    Object.assign(m, { status: "Approved", equation: eq, by: "User", on: now().slice(0, 10), version: m.status === "Draft" ? m.version : m.version + 1,
       note: eq.startsWith("Not stated") ? "Approved without an equation: values from this sender stay on a separate trend line." : "" });
     logAccess({ action: "Approved code mapping", object: `${m.sender} ${m.code}, version ${m.version}`, basis: "Data management" });
     return flash(`Mapping ${m.id} approved, version ${m.version}`);
   }
-  if (a === "dir-verify") { Object.assign(d, { status: d.status === "Temporary" ? "Temporary" : "Verified", verified: `Confirmed by telephone call-back, ${now()}, Demo User` }); return flash(`${d.name} verified`); }
+  if (a === "dir-verify") { Object.assign(d, { status: d.status === "Temporary" ? "Temporary" : "Verified", verified: `Confirmed by telephone call-back, ${now()}, User` }); return flash(`${d.name} verified`); }
   if (a === "dir-perm") { Object.assign(d, { status: /Not verified/.test(d.verified) ? "Unverified" : "Verified", expires: "", remark: "" }); return flash(`${d.name} is now a permanent contact`); }
   if (a === "reopen") delete S.resolved[key];
   else if (a === "link") { S.resolved[key] = "Matched to " + patient($("#q-link").value).name; logAccess({ pid: $("#q-link").value, action: "Matched report to patient", object: key.replace(/^U\|/, "") }); }
