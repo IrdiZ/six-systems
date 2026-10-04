@@ -17,9 +17,9 @@ const all = () => C.patients.flatMap((p) => p.facts); // results filed during th
 
 // Care path in six-sys → the department that owns the patient here.
 const DEPTS = {
-  cardiology: { label: "Cardiology", path: "chest_pain", pathway: "Chest pain" },
-  pulmonology: { label: "Pulmonology", path: "lung_nodule", pathway: "Pulmonary nodule" },
-  nephrology: { label: "Nephrology", path: "kidney", pathway: "Renal function follow-up" },
+  cardiology: { label: "Cardiology", path: "chest_pain" },
+  pulmonology: { label: "Pulmonology", path: "lung_nodule" },
+  nephrology: { label: "Nephrology", path: "kidney" },
 };
 // Fictional organisations, as named in six-systems/sim/model.py.
 const HOSPITAL = "Academisch Ziekenhuis Zuid";
@@ -718,8 +718,7 @@ function banner(p, dept) {
   const field = (l, v) => `<div><label>${l}</label>${v}</div>`;
   return `<div class="banner">
     <div class="name"><b>${esc(p.family.toUpperCase())}, ${esc(p.given)}</b><span>${p.sex === "M" ? "Male" : "Female"}, ${age(p.dob)} y</span></div>
-    <div class="fields">${field("Date of birth", fmtDate(p.dob))}${field("Patient no.", p.mrn)}${field("BSN", p.bsn)}
-      ${field("Care pathway", DEPTS[dept].pathway)}</div>
+    <div class="fields">${field("Date of birth", fmtDate(p.dob))}${field("Patient no.", p.mrn)}${field("BSN", p.bsn)}</div>
     <div class="alerts">
       ${lost ? st("LOST", `${plural(lost, "result")} not received`) : ""}
       ${pic ? st("PICTURE", `${plural(pic, "result")} unverified`) : ""}
