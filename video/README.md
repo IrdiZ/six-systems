@@ -13,10 +13,14 @@ Needs Python with `playwright` (+ `playwright install chromium-headless-shell`) 
 Only `timeline.json`. Globals: `size`, `viewport` (page size; 1440x810 scaled to 1920x1080), `fps`, `clock`
 (fixed time, also passed as `?t=`), `app`, `scenario` (`?s=`), `cursor` (start position).
 Each scene: `id`, `setup` (off camera: a route string, then steps) and `steps`. A step may combine, in this order:
-`route`, `caption` (text, `{"text", "dur"}` or null), `ring` (selector or null), `zoom` (selector, `[x, y, w, h]`
-or null; `scale`, `dur`, `ease`), `scroll` (selector, `by`, `dur`), `click` (selector, `move` seconds),
-`key`, `type` (text, `cps`), `hold` (seconds). Selectors are Playwright selectors; a list means "first that matches".
-Numbers in captions must be visible on screen.
+`route`, `caption` (`{"title", "sub", "side", "dur"}`, plain text, or null), `ring` (selector or null), `zoom` (selector,
+`[x, y, w, h]` or null; `scale`, `dur`, `ease`), `scroll` (selector, `by`, `dur`), `click` (selector, `move` seconds),
+`select` (`[selector, option label]`), `key`, `type` (text, `cps`), `hold` (seconds). Selectors are Playwright selectors;
+a list means "first that matches".
+
+The callout sits next to the ring (below, above, right, left: the first side that fits; `side` pins one) and glides
+when the ring moves; without a ring it sits lower left. Captions: a title of a few words naming the feature, one sub-line
+of fact; no lab values, no words from the never-list in `.context/research/ocr.md`. Callout font Geist (cached like the app's).
 
 ## Caching
 Each scene is one segment, `.cache/seg-<hash>.mp4`. The hash covers the scene JSON, the globals, the page and
