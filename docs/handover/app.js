@@ -1050,8 +1050,7 @@ function searchRegion(key) {
   logAccess({ pid: p.pid, action: "Searched regional platform", object: label(f), basis: "Explicit consent, checked in Mitz by the platform", system: "Regional platform" });
   openDialog(`<div class="dlg"><header><b>Regional platform search</b><span class="pt">${esc(p.name)} · ${esc(label(f))}</span></header>
     <div class="body" style="gap:0;padding:0">
-      <div class="block"><dl class="kv"><dt>Searched</dt><dd>${now()}</dd><dt>Looked for</dt><dd>${esc(label(f))}${loinc ? ` (LOINC ${loinc})` : ""} from ${f.time.slice(0, 10)}</dd>
-        <dt>Outcome</dt><dd>${st("LOST", "No matching result on the platform")}<br><span class="dim">Point-of-care results are not published to the platform.</span></dd></dl></div>
+      <div class="block"><dl class="kv"><dt>Searched</dt><dd>${now()}</dd><dt>Looked for</dt><dd>${esc(label(f))}${loinc ? ` (LOINC ${loinc})` : ""} from ${f.time.slice(0, 10)}</dd></dl></div>
       <div class="block"><h4>Query</h4><pre class="raw">${esc(query)}</pre></div>
       <div class="block"><h4>Response</h4><pre class="raw">${esc(bundle)}</pre></div></div>
     <footer><button type="button" class="primary" data-act="close">Close</button></footer></div>`);
