@@ -7,9 +7,9 @@
 
 | | |
 |---|---|
-| **96%** | of all true facts have a file in the archive: the case *looks* complete |
-| **31%** | arrive usable as data: coded, right unit, right patient |
-| **94%** | recovered by this pipeline after code maps, unit maths, identity matching, OCR and PDF reading (0 wrong values) |
+| **97%** | of all true facts have a file in the archive: the case *looks* complete |
+| **41%** | arrive usable as data: coded, right unit, right patient |
+| **95%** | recovered by this pipeline after code maps, unit maths, identity matching, OCR and PDF reading (0 wrong values) |
 
 ## What this is, in plain words
 
@@ -21,7 +21,7 @@ We can't use real patient data, so we made up a hospital:
 2. **Assembler.** Tries to turn all those files into clean data: works out which patient each file belongs to, translates codes and units, and reads numbers off images and PDFs.
 3. **Scoring.** Compares the result against the answer key the assembler never saw.
 
-The result: the archive **looks** 96% complete, but only 31% of it arrives as usable data. With a lot of repair work the assembler gets that to 94%, with zero wrong values. The gap is the problem, and the repair work is the part nobody currently owns.
+The result: the archive **looks** 97% complete, but only 41% of it arrives as usable data. With a lot of repair work the assembler gets that to 95%, with zero wrong values. The gap is the problem, and the repair work is the part nobody currently owns.
 
 **Follow one patient.** The [explainer page](https://irdiz.github.io/six-systems/explained.html) walks through one invented patient's heart scare, using their actual files:
 

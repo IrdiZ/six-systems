@@ -61,12 +61,34 @@ FACTS = {
     "fvc":            {"label": "FVC",                    "unit": "L",             "loinc": "19870-5", "kind": "measurement"},
     "fev1_fvc":       {"label": "FEV1/FVC",               "unit": "%",             "loinc": "19926-5", "kind": "measurement"},
     "dlco":           {"label": "DLCO",                   "unit": "mmol/min/kPa",  "loinc": "19911-7", "kind": "measurement"},
+    # second batch
+    "egfr_2021":      {"label": "eGFR (CKD-EPI 2021)",    "unit": "mL/min/1.73m2", "loinc": "98979-8", "kind": "lab"},
+    "ddimer":         {"label": "D-dimer (FEU)",          "unit": "mg{FEU}/L",     "loinc": "48065-7", "kind": "lab"},
+    "mcv":            {"label": "MCV",                    "unit": "fL",            "loinc": "787-2",   "kind": "lab"},
+    "tsh":            {"label": "TSH",                    "unit": "m[IU]/L",       "loinc": "3016-3",  "kind": "lab", "nhg": "1385"},
+    "ft4":            {"label": "Free T4",                "unit": "pmol/L",        "loinc": "14920-3", "kind": "lab", "nhg": "348"},
+    "alt":            {"label": "ALT",                    "unit": "U/L",           "loinc": "1742-6",  "kind": "lab"},
+    "ast":            {"label": "AST",                    "unit": "U/L",           "loinc": "1920-8",  "kind": "lab"},
+    "alp":            {"label": "Alkaline phosphatase",   "unit": "U/L",           "loinc": "6768-6",  "kind": "lab"},
+    "ggt":            {"label": "Gamma-GT",               "unit": "U/L",           "loinc": "2324-2",  "kind": "lab"},
+    "bilirubin":      {"label": "Bilirubin, total",       "unit": "umol/L",        "loinc": "14631-6", "kind": "lab"},
+    "albumin":        {"label": "Albumin",                "unit": "g/L",           "loinc": "1751-7",  "kind": "lab"},
+    "ldh":            {"label": "LDH",                    "unit": "U/L",           "loinc": "14804-9", "kind": "lab"},
+    "cea":            {"label": "CEA",                    "unit": "ug/L",          "loinc": "2039-6",  "kind": "lab"},
+    "urea":           {"label": "Urea",                   "unit": "mmol/L",        "loinc": "22664-7", "kind": "lab"},
+    "pth":            {"label": "Parathyroid hormone",    "unit": "pmol/L",        "loinc": "14866-8", "kind": "lab"},
+    "bicarbonate":    {"label": "Bicarbonate",            "unit": "mmol/L",        "loinc": "1963-8",  "kind": "lab"},
+    "ferritin":       {"label": "Ferritin",               "unit": "ug/L",          "loinc": "2276-4",  "kind": "lab", "nhg": "328"},
+    "lvpwd":          {"label": "LV posterior wall (diastole)", "unit": "mm",      "loinc": "18152-9", "kind": "measurement"},
+    "av_vmax":        {"label": "Aortic valve peak velocity", "unit": "cm/s",      "loinc": "79964-3", "kind": "measurement"},
+    "av_meangrad":    {"label": "Aortic valve mean gradient", "unit": "mm[Hg]",    "loinc": "79962-7", "kind": "measurement"},
 }
 
 NHG_TO_FACT = {f["nhg"]: k for k, f in FACTS.items() if f.get("nhg")}
 NHG_MEMO = {"523": "KREA", "3583": "KREC", "371": "GLUC", "412": "HB", "4186": "HTNI", "1968": "NTPR", "624": "NA", "513": "K",
             "40": "ALBK", "2816": "HBAC", "192": "CHOL", "542": "LDL", "446": "HDL", "1377": "TRIG", "227": "CRP",
-            "547": "LEUK", "1379": "TROM", "508": "INR", "1744": "RRSY", "1740": "RRDI", "1875": "POLS", "357": "GEW"}
+            "547": "LEUK", "1379": "TROM", "508": "INR", "1744": "RRSY", "1740": "RRDI", "1875": "POLS", "357": "GEW",
+            "1385": "TSH", "348": "FT4", "328": "FERR"}
 
 # The external lab speaks its own dialect: local codes and conventional units.
 # factor converts the external unit into the canonical unit; `formula` replaces it where
@@ -85,6 +107,7 @@ EXT_LAB_CODES = {
     "calcium":    {"code": "CA",    "name": "Calcium",        "unit": "mg/dL", "factor": 0.25,    "decimals": 1},
     "phosphate":  {"code": "FOSF",  "name": "Fosfaat",        "unit": "mg/dL", "factor": 0.323,   "decimals": 1},
     "lithium":    {"code": "LITH",  "name": "Lithium",        "unit": "meq/L", "factor": 1.0,     "decimals": 2},
+    "urea":       {"code": "BUN",   "name": "Ureumstikstof",  "unit": "mg/dL", "factor": 0.357,   "decimals": 0},
 }
 
 # LOINC-coded results that arrive under a sibling code or in another unit. key: (fact, unit as sent).
@@ -93,6 +116,9 @@ UNIT_CONVERSIONS = {
     ("nt_probnp", "pmol/L"): ("÷", 0.118),
     ("digoxin", "nmol/L"): ("÷", 1.281),
     ("tapse", "cm"): ("×", 10),
+    ("lvpwd", "cm"): ("×", 10),
+    ("av_vmax", "m/s"): ("×", 100),
+    ("ddimer", "ug{FEU}/L"): ("×", 0.001),  # SI prefix within FEU; never FEU to DDU
 }
 
 
@@ -105,6 +131,7 @@ LOINC_ALIASES = {"33763-4": "nt_probnp"}  # NT-proBNP [Moles/volume]
 NOT_CONVERTIBLE = {
     "troponin_i": "Troponin I assay of the sender. Not convertible to troponin T: each assay has its own 99th percentile.",
     "bnp": "BNP, not NT-proBNP: a different molecule. Not converted; kept as a separate result.",
+    "egfr_2021": "eGFR by the CKD-EPI 2021 equation; ours reports CKD-EPI. Not on the same trend line: recompute from creatinine.",
 }
 
 

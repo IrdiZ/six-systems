@@ -66,6 +66,11 @@ class World:
         return f"{prefix}{self.counter2:05d}"
 
     @staticmethod
+    def extra2(p: Patient) -> random.Random:
+        """Second batch, its own stream again, so the first batch keeps its values."""
+        return random.Random(f"extra2:{SEED}:{p.pid}")
+
+    @staticmethod
     def extra(p: Patient) -> random.Random:
         """Values added later come from their own stream, so every original value stays the same."""
         return random.Random(f"extra:{SEED}:{p.pid}")
@@ -189,16 +194,34 @@ class World:
         if x.random() < 0.35:
             nb["digoxin"] = round(x.uniform(0.6, 1.6), 1)
             units["digoxin"] = "nmol/L"
+        y = self.extra2(p)
+        nb.update(creatinine=y.randint(64, 140), egfr_2021=y.randint(42, 92))
+        if y.random() < 0.5:
+            nb["ddimer"] = round(y.uniform(0.2, 2.4), 2)
+            units["ddimer"] = "ug{FEU}/L"
         self.nb_lab(p, t0 + timedelta(minutes=25), nb, units)
         self.epic_lab(p, t1 + timedelta(minutes=5), later=True, values={
             "potassium": round(x.uniform(3.5, 5.0), 1), "sodium": x.randint(134, 144), "nt_probnp": round(x.uniform(100, 5000)),
+            "wbc": round(y.uniform(4.8, 12.5), 1), "platelets": y.randint(150, 390), "mcv": y.randint(82, 99), "crp": y.randint(1, 40),
+            "tsh": round(y.uniform(0.5, 4.8), 2), "ft4": round(y.uniform(11, 22), 1),
         })
         tapse_cm, lavi = round(x.uniform(1.4, 2.6), 1), x.randint(22, 48)
         sr = RAW / "echo" / f"{echo_acc}_sr.dcm"
+        lvpw_cm, vmax_ms, grad = round(y.uniform(0.8, 1.4), 1), round(y.uniform(1.0, 4.2), 1), y.randint(4, 46)
         write_sr(sr, p, te, echo_acc, "TTE volledig", [
-            ("77903-3", "TAPSE", tapse_cm, "cm"), ("79984-1", "LA volume index (biplane)", lavi, "mL/m2")], device="Echo 5")
+            ("77903-3", "TAPSE", tapse_cm, "cm"), ("79984-1", "LA volume index (biplane)", lavi, "mL/m2"),
+            ("18152-9", "LV posterior wall thickness, diastole", lvpw_cm, "cm"), ("79964-3", "Aortic valve peak velocity", vmax_ms, "m/s"),
+            ("79962-7", "Aortic valve mean gradient", grad, "mm[Hg]")], device="Echo 5")
         self.fact(p, "tapse", round(tapse_cm * 10), te, "echo", self.rel(sr))
         self.fact(p, "lavi", lavi, te, "echo", self.rel(sr))
+        self.fact(p, "lvpwd", round(lvpw_cm * 10), te, "echo", self.rel(sr))
+        self.fact(p, "av_vmax", round(vmax_ms * 100), te, "echo", self.rel(sr))
+        self.fact(p, "av_meangrad", grad, te, "echo", self.rel(sr))
+
+    @staticmethod
+    def _liver(y: random.Random) -> dict[str, float]:
+        return {"alt": y.randint(10, 60), "ast": y.randint(12, 55), "alp": y.randint(45, 140), "ggt": y.randint(12, 90),
+                "bilirubin": y.randint(5, 22), "albumin": y.randint(33, 46), "ldh": y.randint(140, 320), "cea": round(y.uniform(0.8, 12), 1)}
 
     def lung_nodule(self, p: Patient, t0: datetime) -> None:
         r = self.rng
@@ -245,6 +268,7 @@ class World:
             "crp": x.randint(1, 25), "wbc": round(x.uniform(4.5, 11.5), 1), "platelets": x.randint(160, 420),
             "inr": round(x.uniform(0.9, 1.2), 1), "sodium": x.randint(135, 145), "potassium": round(x.uniform(3.6, 5.0), 1),
             "pco2": round(x.uniform(4.6, 6.0), 1), "po2": round(x.uniform(9.0, 12.5), 1),
+            **self._liver(self.extra2(p)),
         })
         fev1, ratio, dlco = round(x.uniform(1.4, 3.4), 2), x.uniform(0.55, 0.80), round(x.uniform(4.5, 9.5), 1)
         fvc, pred = round(fev1 / ratio, 2), x.randint(55, 105)
@@ -269,6 +293,8 @@ class World:
         self.gp_export(p, [("sbp", tg, x.randint(130, 172)), ("dbp", tg, x.randint(75, 98)), ("heart_rate", tg, x.randint(60, 92)),
                            ("weight", tg, round(x.uniform(60, 118), 1))], "Verminderde nierfunctie")
         k = x.uniform(4.0, 4.8)
+        y = self.extra2(p)
+        urea = y.uniform(8, 14)
         for visit in range(5):
             crea *= r.uniform(1.0, 1.12)
             egfr = max(12, round(4800 / crea))
@@ -280,6 +306,8 @@ class World:
                 added["lithium"] = round(x.uniform(0.5, 1.0), 2)
             if visit == 4:
                 added.update(calcium=round(x.uniform(2.1, 2.5), 2), phosphate=round(x.uniform(1.0, 1.8), 2))
+            urea *= y.uniform(1.0, 1.15)
+            added["urea"] = round(urea, 1)
             self.ext_lab(p, when, {
                 "creatinine": round(crea, 1),
                 "egfr": egfr,
@@ -300,6 +328,7 @@ class World:
             "glucose": round(r.uniform(5.2, 9.8), 1),
             "potassium": round(k, 1),
             "hb": round(x.uniform(6.2, 8.4), 1),
+            "pth": round(y.uniform(6, 32), 1), "bicarbonate": y.randint(17, 26), "ferritin": y.randint(40, 520),
         })
 
 

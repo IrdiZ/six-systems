@@ -51,6 +51,10 @@ const LABEL = {
   platelets: "Platelets", inr: "INR", pco2: "pCO2, arterial", po2: "pO2, arterial", sbp: "Blood pressure, systolic",
   dbp: "Blood pressure, diastolic", heart_rate: "Heart rate", weight: "Body weight", tapse: "TAPSE", lavi: "Left atrial volume index (LAVI)",
   fev1: "FEV1", fvc: "FVC", fev1_fvc: "FEV1/FVC", dlco: "DLCO (diffusing capacity)",
+  egfr_2021: "eGFR (CKD-EPI 2021)", ddimer: "D-dimer (FEU)", mcv: "MCV", tsh: "TSH", ft4: "Free T4", alt: "ALT", ast: "AST",
+  alp: "Alkaline phosphatase", ggt: "Gamma-GT", bilirubin: "Bilirubin, total", albumin: "Albumin", ldh: "LDH", cea: "CEA", urea: "Urea",
+  pth: "Parathyroid hormone (PTH)", bicarbonate: "Bicarbonate", ferritin: "Ferritin", lvpwd: "LV posterior wall, diastole (LVPWd)",
+  av_vmax: "Aortic valve peak velocity", av_meangrad: "Aortic valve mean gradient",
 };
 // six-sys stores report text in Dutch; shown translated.
 const TR = {
@@ -58,7 +62,7 @@ const TR = {
   "Plaveiselcelcarcinoom van de long": "Squamous cell carcinoma of the lung", "Carcinoïd tumor, typisch": "Typical carcinoid tumour",
 };
 const unit = (u) => String(u || "").replace(/\bu(mol|g)\b/g, "µ$1").replace("1.73m2", "1.73 m²").replace("mm[Hg]", "mmHg").replace("10*9/L", "× 10⁹/L")
-  .replace("{INR}", "").replace("mL/m2", "mL/m²");
+  .replace("{INR}", "").replace("mL/m2", "mL/m²").replace("m[IU]/L", "mU/L").replace("mg{FEU}/L", "mg/L FEU").replace("ug{FEU}/L", "µg/L FEU");
 const label = (f) => LABEL[f.fact] || f.fact;
 // External laboratory dialect as the assembler applied it (six-systems/sim/model.py, EXT_LAB_CODES, shipped in cases.js).
 const CM_ = C.code_maps;
@@ -1191,7 +1195,8 @@ function renalRows() {
   return rows;
 }
 const LOCAL_LAB = { TROP: "troponin", KREA: "creatinine", EGFR: "egfr", GLUC: "glucose", HB: "hb", K: "potassium", NA: "sodium", NTPRO: "nt_probnp",
-  CRP: "crp", LEUK: "wbc", TROM: "platelets", INR: "inr", PCO2: "pco2", PO2: "po2" };
+  CRP: "crp", LEUK: "wbc", TROM: "platelets", INR: "inr", PCO2: "pco2", PO2: "po2", MCV: "mcv", TSH: "tsh", FT4: "ft4", ALAT: "alt",
+  ASAT: "ast", AF: "alp", GGT: "ggt", BILI: "bilirubin", ALB: "albumin", LD: "ldh", CEA: "cea", PTH: "pth", BIC: "bicarbonate", FERR: "ferritin" };
 function labRows() {
   return C.patients.flatMap((p) => p.facts.filter((f) => f.source === "epic_lab").map((f) => ({
     PATID: p.mrn, BEPALING: Object.keys(LOCAL_LAB).find((k) => LOCAL_LAB[k] === f.fact), UITSLAG: comma(f.truth_value),
@@ -1643,14 +1648,15 @@ const outboundRows = () => [...S.log].sort((a, b) => b.time.localeCompare(a.time
 const SPECIMEN = { troponin: "Serum or plasma", creatinine: "Serum", egfr: "Serum (calculated)", glucose: "Plasma", hb: "Whole blood",
   potassium: "Serum or plasma", sodium: "Serum or plasma", nt_probnp: "Serum or plasma", crp: "Serum or plasma", wbc: "Whole blood", platelets: "Whole blood",
   inr: "Platelet-poor plasma", pco2: "Arterial blood", po2: "Arterial blood", uacr: "Urine", hba1c: "Whole blood", calcium: "Serum or plasma",
-  phosphate: "Serum or plasma", lithium: "Serum or plasma", digoxin: "Serum or plasma", troponin_i: "Serum or plasma", ck: "Serum or plasma" };
+  phosphate: "Serum or plasma", lithium: "Serum or plasma", digoxin: "Serum or plasma", troponin_i: "Serum or plasma", ck: "Serum or plasma",
+  urea: "Serum or plasma", ddimer: "Platelet-poor plasma", mcv: "Whole blood", tsh: "Serum or plasma", ft4: "Serum or plasma", ferritin: "Serum or plasma" };
 const EGFR_NOTE = "The sender does not state the eGFR equation. CKD-EPI 2009 and 2021 can differ by more than 10%, so values from two laboratories may not belong on one trend line.";
 const NB_LOINC = { nt_probnp: "33763-4" }; // the molar sibling code Heuvelland sends
 const MAPS = [
   ...Object.entries(EXT_LAB_CODES).map(([fact, [code, u, factor]]) => ({ src: "ext_lab", sender: "Regiolab Zuid", format: "EDIFACT MEDLAB", code, localUnit: u, fact, factor: String(factor),
     equation: fact === "egfr" ? "Not stated by sender" : "", range: "Sender's reference range, shown as received", status: fact === "egfr" ? "Flagged" : "Approved",
     by: fact === "egfr" ? "" : "Clinical chemist, AZ Zuid", on: fact === "egfr" ? "" : "2026-03-02", version: fact === "egfr" ? 1 : 2, note: fact === "egfr" ? EGFR_NOTE : "" })),
-  ...CM_.units.filter((u) => u.fact !== "tapse").map((u) => ({ src: "nb_lab", sender: "Heuvelland Ziekenhuis", format: "HL7 v2 ORU^R01", code: NB_LOINC[u.fact] || C.fact_defs[u.fact].loinc,
+  ...CM_.units.filter((u) => C.fact_defs[u.fact].kind === "lab").map((u) => ({ src: "nb_lab", sender: "Heuvelland Ziekenhuis", format: "HL7 v2 ORU^R01", code: NB_LOINC[u.fact] || C.fact_defs[u.fact].loinc,
     localUnit: u.unit, fact: u.fact, factor: u.op === "÷" ? `1/${u.k}` : String(u.k), equation: "", range: "Sender's reference range, shown as received", status: "Approved",
     by: "Clinical chemist, AZ Zuid", on: "2026-04-14", version: 1, note: "" })),
   ...Object.entries(CM_.nhg).map(([code, fact]) => ({ src: "gp", sender: "General practitioner", format: "HIS export, NHG Tabel 45", code, localUnit: C.fact_defs[fact].unit, fact, factor: "1",
