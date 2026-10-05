@@ -1264,13 +1264,10 @@ function intakeDetail(i) {
   const ans = i.pid && i.fact && [...S.log].reverse().find((l) => l.kind === "request" && l.pid === i.pid && l.facts?.includes(i.fact)); // the request this answers
   const pts = C.patients.map((p) => `<option value="${p.pid}" ${p.pid === i.pid ? "selected" : ""}>${esc(p.family)}, ${esc(p.given)} · ${fmtDate(p.dob)} · ${p.mrn}</option>`).join("");
   return `
-    <div class="block"><dl class="kv"><dt>Channel</dt><dd>${esc(c.name)}</dd><dt>Received</dt><dd>${i.time}</dd>
-      ${i.channel === "fax" ? `<dt>Calling number</dt><dd>${esc(i.calling || "Not transmitted")}</dd>
-      <dt>Sender</dt><dd>${faxOf(i.calling) ? `${esc(faxOf(i.calling).name)} · matched by fax number in Institutions` : `${st("PICTURE", "Unknown fax number")}<br><span class="dim">Call back on a number from Institutions, not the one on the fax.</span>`}</dd>
-      <dt>Header on the fax</dt><dd>${esc(i.tsi || "None")} <span class="dim">· as stated by the sender, not verified</span></dd>`
-      : i.channel === "folder" ? "" : `<dt>Sender</dt><dd>${esc(i.from)}${ok ? "" : ` · ${st("PICTURE", "Not a registered institution")}`}</dd>`}
-      ${ans ? `<dt>Answers</dt><dd>Result request of ${esc(ans.time)}, sent by ${esc(ans.channel)}; the sender replied by fax</dd>` : ""}
-      ${!ok ? `<dt>Routing</dt><dd>Rule R8: held until the sender is a registered institution</dd>` : ans ? `<dt>Routing</dt><dd>Once filed, rule R1 returns it to ${esc(ans.from)} and notifies the requester</dd>` : ""}</dl></div>
+    <div class="block"><dl class="kv"><dt>Received</dt><dd>${i.time} · ${esc(c.name)}</dd>
+      ${i.channel === "fax" ? `<dt>From</dt><dd>${faxOf(i.calling) ? `${esc(faxOf(i.calling).name)} <span class="dim">· matched by fax number</span>` : `${st("PICTURE", "Unknown fax number")} <span class="dim">· call back on a number from Institutions</span>`}</dd>`
+      : i.channel === "folder" ? "" : `<dt>From</dt><dd>${esc(i.from)}${ok ? "" : ` · ${st("PICTURE", "Not a registered institution")}`}</dd>`}
+      ${ans ? `<dt>Answers</dt><dd>Result request of ${esc(ans.time.slice(0, 10))} (${esc(ans.channel)})</dd>` : ""}</dl></div>
     <div class="block"><h4>Filing</h4>${open ? `
       <label class="field"><span>Patient</span><select id="i-pid"><option value="">Select patient</option>${pts}</select></label>
       <div class="field"><span></span><div class="dim">${esc(i.match)}</div></div>
