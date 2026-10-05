@@ -11,6 +11,8 @@
 | **56%** | arrive usable as data: coded, right unit, right patient |
 | **96%** | recovered by this pipeline after code maps, unit maths, identity matching, OCR and PDF reading (0 wrong values) |
 
+*The percentages reflect how this simulation was built. They show the mechanism, not a measured rate at any hospital.*
+
 ## What this is, in plain words
 
 Doctors and researchers at hospitals keep saying the same thing: *"we only get partial data."* That sounds odd, because hospitals store everything. But they store it for a **person to look at**, not for a **computer to use**. An ultrasound machine saves a picture of its screen with the numbers on it. A neighbouring lab sends results with its own codes and units. An emergency result goes by fax and never enters any system at all. It is like handing your accountant photos of receipts instead of a spreadsheet.
