@@ -1239,19 +1239,17 @@ function intakeDetail(i) {
       <div class="inline">${ok ? "" : `<button data-q-act="i-dir" data-key="${i.key}">Register sender as institution</button>`}
         <button class="primary" data-q-act="i-file" data-key="${i.key}" ${ok ? "" : "disabled"}>File to patient</button>
         <button data-q-act="i-reject" data-key="${i.key}">Reject</button></div>` : `<div>${esc(i.status)}</div>`}</div>
-    ${scanFile(i) ? uploadView(scanFile(i)) : ""}
+    ${scanFile(i) ? uploadView(scanFile(i)) : chatImage(i) ? viewer(chatImage(i)) : ""}
     <div class="block"><h4>${i.channel === "fax" ? "Text read from the fax (OCR)" : "Source message"}</h4><pre class="raw">${esc(i.text)}</pre></div>`;
 }
+// A chat message about a measurement: the exported capture it refers to, from the patient's own record.
+const chatImage = (i) => i.channel === "chat" && i.pid && patient(i.pid).facts.find((f) => f.fact === i.fact && f.media);
 const scanFile = (i) => i.channel !== "chat" && { name: { fax: "Fax", mail: "referral_letter.pdf" }[i.channel] || i.text.split("\n")[0].split("\\").pop(), type: "image/svg+xml",
   url: scanPage(i), note: i.channel === "folder" ? "Page 1 of 2" : "Page 1",
   box: i.channel === "fax" && i.fact ? [7.6, 19.8, 58, 2.6] : null }; // the result line on the fax page (4th line of the text)
 // A captured document as the scanned page that came in, drawn from the item's own text and the patient's data only.
 function scanPage(i) {
   const p = i.pid && patient(i.pid);
-  const scrawl = (x, y, len, k) => { // illegible handwriting: arches of uneven height, a gap between words
-    let d = `M${x} ${y}`;
-    for (let j = 0, w = 0; w < len; j++) { const h = 3 + ((j * 7 + k * 3) % 6), a = 3 + ((j * 5 + k) % 4); w += j % 6 === 5 ? 7 : a; d += j % 6 === 5 ? " m7 0" : ` c1 ${-h} ${a} ${-h} ${a} ${(j % 3) - 1}`; }
-    return `<path d="${d}" fill="none" stroke="#2a3a6a" stroke-width="1.1"/>`; };
   let body, font = "Arial, Helvetica, sans-serif";
   if (i.channel === "fax") {
     font = "'Courier New', monospace";
@@ -1265,10 +1263,18 @@ function scanPage(i) {
       + ["Dear colleague,", "", "I would be grateful if you would assess this patient at your cardiology outpatient", "clinic for chest pain. The ECG is attached.", "",
         "Kind regards,", "", "General practitioner", i.from].map((l, k) => T(60, 310 + k * 16, l, 'font-size="11"')).join("");
   } else {
+    // a printed consultation form whose patient label was never stuck on: why nothing on it identifies the patient
+    const para = (y, lines) => lines.map((l, k) => T(60, y + k * 15, l, 'font-size="10.5"')).join("");
     body = T(60, 70, HOSPITAL, `font-size="14" ${B}`) + T(60, 88, "Cardiology outpatient clinic · Consultation form", 'font-size="11"') + rule(60, 98, 475)
-      + ["Name", "Date of birth", "Patient no.", "BSN"].map((l, k) => T(60, 136 + k * 26, l, 'font-size="11"') + rule(170, 138 + k * 26, 250)).join("")
-      + T(60, 260, "Complaint and history", `font-size="11" ${B}`) + [440, 455, 410, 450, 180].map((n, k) => scrawl(62, 290 + k * 22, n, k)).join("")
-      + T(60, 420, "Examination", `font-size="11" ${B}`) + [430, 460, 260].map((n, k) => scrawl(62, 450 + k * 22, n, k + 5)).join("")
+      + `<rect x="330" y="112" width="205" height="72" fill="none" stroke="#9a9a9a" stroke-dasharray="4 3"/>` + T(432, 152, "Patient label", 'font-size="10" fill="#9a9a9a" text-anchor="middle"')
+      + T(60, 126, "Clinician", 'font-size="10.5"') + rule(130, 128, 170) + T(60, 152, "Date", 'font-size="10.5"') + rule(130, 154, 170)
+      + T(60, 214, "Complaint and history", `font-size="11" ${B}`)
+      + para(236, ["Chest pain on exertion for several weeks, radiating to the left arm, settling with rest.", "No pain at rest. Known hypertension, on treatment. Non-smoker.",
+        "Referred by the general practitioner for further assessment."])
+      + T(60, 302, "Examination", `font-size="11" ${B}`)
+      + para(324, ["Alert, no distress. Heart sounds regular, no murmur. Chest clear.", "No peripheral oedema."])
+      + T(60, 376, "Plan", `font-size="11" ${B}`)
+      + para(398, ["Exercise ECG and echocardiography. Review with results.", "Laboratory: troponin, renal function, lipid profile."])
       + T(297, 800, "1 / 2", 'font-size="9" text-anchor="middle"');
   }
   return sheet(body, font, true);
@@ -1277,7 +1283,7 @@ function scanPage(i) {
 const T = (x, y, t, o = "") => `<text x="${x}" y="${y}" ${o}>${esc(t)}</text>`, B = 'font-weight="700"';
 const rule = (x, y, w) => `<line x1="${x}" y1="${y}" x2="${x + w}" y2="${y}" stroke="#555" stroke-width=".6"/>`;
 const sheet = (body, font, scan) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 595 842" width="595" height="842">
-  ${scan ? `<defs><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="3"/><feColorMatrix values="0 0 0 0 .35 0 0 0 0 .35 0 0 0 0 .33 .28 0 0 0 0"/></filter></defs>` : ""}
+  ${scan ? `<defs><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="3"/><feColorMatrix values="0 0 0 0 .35 0 0 0 0 .35 0 0 0 0 .35 .14 0 0 0 0"/></filter></defs>` : ""}
   <rect width="595" height="842" fill="${scan ? "#eeece4" : "#fff"}"/><g ${scan ? 'transform="rotate(-.4 297 421)" ' : ""}fill="#232327" font-family="${font}">${body}</g>
   ${scan ? `<rect width="595" height="842" filter="url(#n)"/>` : ""}</svg>`);
 // A document with no image of its own, printed from the data: a laboratory report as the sender reported it, or a page
