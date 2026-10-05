@@ -5,7 +5,7 @@ python video/render.py [--only <scene>] [--force] [--preview]
 import argparse, base64, concurrent.futures as cf, functools, hashlib, html, http.server, json, os, re, subprocess, threading, time, urllib.parse, urllib.request
 from pathlib import Path
 
-RENDER_VERSION = "2"  # bump when capture or overlay logic changes in a way the hash cannot see
+RENDER_VERSION = "3"  # bump when capture or overlay logic changes in a way the hash cannot see
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent  # served over http, so the app's ../data and ../media resolve
 CACHE = HERE / ".cache"
@@ -19,8 +19,9 @@ def encode_args(fps):  # identical for every segment, each starts on a keyframe:
 
 
 def fonts(index):
-    """Cache every Google Fonts stylesheet and its font files once; pages get them by route interception (offline, deterministic)."""
-    urls = [html.unescape(u) for u in re.findall(r'href="(https://fonts\.googleapis\.com/css2[^"]+)"', index.read_text(encoding="utf-8"))]
+    """Cache every Google Fonts stylesheet (the app's and the overlay's) and its font files once; pages get them by route interception (offline, deterministic)."""
+    text = index.read_text(encoding="utf-8") + (HERE / "overlay.js").read_text(encoding="utf-8")
+    urls = [html.unescape(u) for u in re.findall(r'(?:href="|FONT = ")(https://fonts\.googleapis\.com/css2[^"]+)"', text)]
     if not urls:
         return None
     d = CACHE / "fonts" / hashlib.sha256(" ".join(urls).encode()).hexdigest()[:12]
@@ -103,8 +104,7 @@ class Rec:
             pg.evaluate("h => (location.hash = h)", st["route"])
             self.settle()
         if "caption" in st:
-            c = st["caption"] if isinstance(st["caption"], dict) or st["caption"] is None else {"text": st["caption"]}
-            ov("caption", c and c["text"], self.t, c and c.get("dur"))
+            ov("caption", st["caption"], self.t)
         if "ring" in st:
             ov("ring", st["ring"] and self.loc(st["ring"]).element_handle(), self.t)
         if "zoom" in st and live:
@@ -130,6 +130,16 @@ class Rec:
             pg.mouse.click(x, y)
             ov("ripple", x, y, self.t)
             self.settle()
+        if "select" in st:  # [selector, option label]
+            l = self.loc(st["select"][0])
+            b = l.bounding_box()
+            x, y = b["x"] + b["width"] / 2, b["y"] + b["height"] / 2
+            if live:
+                ov("move", x, y, self.t, st.get("move", 0.7), "inOut")
+                self.frames(st.get("move", 0.7))
+            l.select_option(label=st["select"][1])
+            ov("ripple", x, y, self.t)
+            self.settle()
         if "key" in st:
             pg.keyboard.press(st["key"])
             ov("key", st.get("label", st["key"].upper() if len(st["key"]) == 1 else st["key"]), self.t)
@@ -140,8 +150,11 @@ class Rec:
                 if live:
                     self.frames(1 / st.get("cps", 18))
             self.settle()
-        if live and st.get("hold"):
-            self.frames(st["hold"])
+        if st.get("rest") and live:  # the cursor glides back to its resting place
+            ov("move", *self.rest, self.t, 0.8, "inOut")
+            self.frames(0.8)
+        if st.get("hold"):
+            self.frames(st["hold"]) if live else pg.clock.run_for(round(st["hold"] * 1000))  # off camera the app's timers still run
 
 
 def render_scene(scene, g, port, preview, fdir, out):
@@ -180,11 +193,12 @@ def render_scene(scene, g, port, preview, fdir, out):
             cursor = "data:image/svg+xml;base64," + base64.b64encode((HERE / "cursor.svg").read_bytes()).decode()
             page.add_init_script(SEED + f"window.__CURSOR={json.dumps(cursor)};" + (HERE / "overlay.js").read_text(encoding="utf-8"))
             page.goto(f"{origin}{g['app']}?{q}{first}")
-            page.evaluate("document.fonts.ready.then(() => 1)")
+            page.evaluate("__ov.ready().then(() => 1)")
             r = Rec(page, fps, enc, {"x": 0, "y": 0, "width": vw, "height": vh, "scale": dsf})  # CDP captures CSS pixels unless scaled
             for st in setup:
                 r.step(st, live=False)
             r.settle()
+            r.rest = g["cursor"]
             page.evaluate("([x, y]) => __ov.cursor(x, y)", scene.get("cursor", g["cursor"]))
             for st in scene["steps"]:
                 r.step(st)
@@ -209,7 +223,12 @@ def main():
 
     tl = json.loads((HERE / "timeline.json").read_text(encoding="utf-8"))
     g = {k: v for k, v in tl.items() if k != "scenes"}
-    scenes = tl["scenes"]
+    scenes, done = [], {}
+    for s in tl["scenes"]:  # "from": start where that scene ends, by replaying its setup and steps off camera
+        if s.get("from"):
+            f = done[s["from"]]
+            s = {**s, "setup": f["setup"] + f["steps"] + s.get("setup", [])}
+        scenes.append(done.setdefault(s["id"], s))
     if a.only and a.only not in [s["id"] for s in scenes]:
         raise SystemExit(f"no scene {a.only!r}; scenes: {', '.join(s['id'] for s in scenes)}")
     CACHE.mkdir(exist_ok=True)

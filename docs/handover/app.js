@@ -126,6 +126,9 @@ const ABBR = { lvef: "LVEF", ivs_thickness: "IVSd", lv_diameter: "LVIDd", kidney
 const CM = ["ivs_thickness", "lv_diameter", "kidney_length"]; // shown in cm on the image, stored in mm
 const PDF_PREFIX = { calcium_score: "Agatston calciumscore: ", nodule_size: "diameter ", tumour_size: "Tumorgrootte: " }; // text before the value in the report
 const PATCH = {}; // image file → { name, values }: text to redraw on it (paintMedia)
+// Converted means a unit conversion took place; a code mapping alone leaves value and unit as sent.
+const unitConverted = (f) => (f.steps || []).some((x) => /[×÷]/.test(x));
+const wordOf = (f) => { const v = verdict(f); return v === "LOST" && illegible(f) ? "Not legible" : v === "CONFLICT" && !unitConverted(f) ? "Code mapped" : WORD[v]; };
 const patchOf = (png) => (PATCH[png] ||= { values: [] });
 // A measurement whose screen capture arrived but cannot be read: the image is there, the value is not.
 const illegible = (f) => f.status === "LOST" && !!f.media?.box && !f.media.png.endsWith(".pdf.png");
@@ -255,7 +258,7 @@ function paintMedia() {
 
 // ------------------------------------------------------------ session state
 
-const S = { q: {}, access: [], viewed: null, log: [], confirmed: {}, resolved: {}, added: {}, sel: {}, pick: {}, intake: [], off: {}, draft: null };
+const S = { asked: {}, q: {}, access: [], viewed: null, log: [], confirmed: {}, resolved: {}, added: {}, sel: {}, pick: {}, intake: [], off: {}, draft: null };
 const factKey = (f) => `${f.pid}|${f.fact}|${f.time}|${f.source}`;
 const verdict = (f) => (f.status === "PICTURE" && S.confirmed[factKey(f)] ? "CONFIRMED" : f.status);
 
@@ -376,17 +379,19 @@ function remark(f) {
   if (f.captured && v === "PICTURE") return `Received via ${f.captured.via.replace(/^Upload link$/, "upload link")}${f.captured.by ? `, entered by ${f.captured.by}` : ""}. ${f.got == null ? "Value not entered." : "Verification required."}`;
   if (v === "DATA" && f.db) return `Structured value from ${f.db} (data source bridge), ${f.dbAt}.`;
   if (v === "DATA" && NOT_CONVERTIBLE[f.fact]) return NOT_CONVERTIBLE[f.fact];
-  if (v === "DATA" && (f.file || "").endsWith("_sr.dcm")) return "Structured report (DICOM SR): LOINC-coded measurement with a UCUM unit. No image reading needed.";
+  if (v === "DATA" && (f.file || "").endsWith("_sr.dcm")) return "Structured report (DICOM SR): LOINC-coded measurement with a UCUM unit.";
   if (v === "DATA") return f.source === "radiology" ? "DICOM header attribute." : f.source === "nb_lab" ? "LOINC-coded result from the referring hospital's laboratory." : "LOINC-coded result in SI units.";
   if (v === "CONFLICT" && f.source === "gp") return f.fact === "crp_poc" ? "Point-of-care test coded in NHG Tabel 45; there is no LOINC code for it. Value as recorded by the GP."
     : "NHG Tabel 45 code mapped to LOINC on receipt. Value and unit as recorded by the GP; date only, no time.";
   if (v === "CONFLICT" && f.source === "nb_lab") return "Unit converted on receipt with a published factor. Original value retained.";
   if (v === "CONFLICT" && f.fact === "hba1c") return "Local code mapped to LOINC. Converted from % (NGSP) with the IFCC master equation, not a factor. Original value retained.";
-  if (v === "CONFLICT") return "Local code mapped to LOINC and unit converted on receipt. Original value retained.";
+  if (v === "CONFLICT") return unitConverted(f) ? "Local code mapped to LOINC and unit converted on receipt. Original value retained." : "Local code mapped to LOINC on receipt. Value and unit unchanged.";
   if (v === "CONFIRMED") return `Verified against the source image by ${S.confirmed[factKey(f)]}.`;
   if (v === "PICTURE") return (f.file || "").endsWith(".pdf")
     ? "Value extracted from the report text. No structured result available. Verification required."
-    : `No structured report (DICOM SR). Value extracted from the image by optical character recognition. Verification required.`;
+    : (C.patients.find((p) => p.pid === f.pid)?.facts.some((x) => x.file === (f.file || "").replace(/\.dcm$/, "_sr.dcm"))
+      ? "Not in the structured report (DICOM SR) of this examination; only on the exported screen capture. Value extracted from the image by optical character recognition. Verification required."
+      : "No structured report (DICOM SR). Value extracted from the image by optical character recognition. Verification required.");
   if (f.fact === "troponin_poc") return "Point-of-care result reported by fax. No electronic result received.";
   if (f.fact === "ecg_conclusion") return "ECG from the referring hospital came with the transfer on paper or by fax. Not archived.";
   if (f.fact === "wsi_slide") return "Proprietary whole-slide format. No DICOM WSI conversion available.";
@@ -516,6 +521,9 @@ const DIR = [
     remark: "Temporary contact for one exchange. Removed when it expires.", points: [["Secure e-mail with access code", "triage@hapzuid.example"]] },
 ];
 const dirOf = (name) => DIR.find((d) => d.name === name);
+// The connection each source arrives through (Management > Connections).
+const SOURCE_CHAN = { epic_lab: "lis", echo: "dicom", radiology: "dicom", ext_lab: "medlab", pathology: "path", nb_lab: "twiin", gp: "zd", offline: "fax" };
+const chanOf = (it) => !it.via && !it.added && CHANNELS.find((c) => c.id === SOURCE_CHAN[it.source]);
 const faxOf = (no) => DIR.find((d) => d.fax === no);
 const INTERNAL = TARGETS[1].items;
 const FORMATS = { Twiin: [TWIIN_FORMAT], ZorgMail: ["HL7 v2 ORU^R01", "PDF summary"], "Secure e-mail with access code": ["PDF summary"], Fax: ["PDF summary"], "Worklist (internal)": ["FHIR R4 bundle", "PDF summary"] };
@@ -554,26 +562,26 @@ const CHANNELS = [
   { id: "dicom", name: "Imaging and echocardiography", type: "DICOM receiver (C-STORE)", dir: "Inbound", scope: "Internal", source: "PACS, AE title AZZ_HANDOVER", route: "By care pathway", ack: "DICOM C-STORE response status; failures retried by the sender", msgs: fromSrc("radiology", "echo") },
   { id: "adt", name: "Patient administration", type: "HL7 v2 listener (ADT A04, A08, A40)", dir: "Internal", scope: "Internal", source: "Patient administration, interface engine port 6662", route: "Patient master index: matching on BSN, name and date of birth", ack: ACK_HL7 },
   { id: "twiin", name: "Twiin: BgZ and correspondence", type: "Twiin Notified Pull (FHIR STU3), through the EHR supplier's validated Twiin node", dir: "Outbound and inbound", scope: "National",
-    source: "ZORG-AB address book; mutual TLS with the UZI server certificate", route: "Rule R9", cert: "xchg", env: "Production",
+    source: "ZORG-AB address book; mutual TLS with the UZI server certificate", route: "Referrals and result requests to providers in ZORG-AB", cert: "xchg", env: "Production",
     onboard: steps(["2025-03-10", "2025-04-02", "2025-04-20", "2025-05-14", "2025-03-01", "2025-06-18", "2025-09-02", "2025-10-06", "2026-01-12"]),
-    ack: "The sender notifies; the recipient fetches. A fetch counts as receipt.", msgs: fromLog((l) => l.channel === "Twiin") },
+    ack: "The sender notifies; the recipient fetches. A fetch counts as receipt.", msgs: () => [...fromLog((l) => l.channel === "Twiin")(), ...fromSrc("nb_lab")()] },
   { id: "portaal", name: "Twiin Portaal: images", type: "Image and report send and receive portal", dir: "Outbound and inbound", scope: "National", source: "Radiology; received studies imported into PACS",
     route: "Radiology worklist", env: "Production", ack: "Download by the recipient is shown to the sender", msgs: () => [] },
   { id: "lsp", name: "National switch point (LSP)", type: "AORTA (HL7 v3): medication history query by BSN", dir: "Query", scope: "National", source: "Pharmacy and GP data; the data stays at the source",
     route: "Look-up from the patient record", cert: "lsp", env: "Production", ack: "Synchronous answer" },
-  { id: "zd", name: "ZorgDomein: GP referrals", type: "ZorgDomein EHR link (HL7 v2)", dir: "Inbound", scope: "National", source: "Referral catalogue of AZ Zuid, products per specialty", route: "By specialty", ack: ACK_HL7, msgs: () => [] },
+  { id: "zd", name: "ZorgDomein: GP referrals", type: "ZorgDomein EHR link (HL7 v2)", dir: "Inbound", scope: "National", source: "Referral catalogue of AZ Zuid, products per specialty", route: "By specialty", ack: ACK_HL7, msgs: fromSrc("gp") },
   { id: "medlab", name: "Regiolab Zuid", type: "ZorgMail mailbox (EDIFACT MEDLAB)", dir: "Inbound", scope: "Regional", source: "ZorgMail, laboratory mailbox AZ Zuid", route: "By care pathway; no patient match to To file",
     ack: "ZorgMail delivery receipt", msgs: fromSrc("ext_lab"),
     errors: () => C.unlinked.filter((u) => !S.resolved["U|" + u.file]).map((u) => ({ time: fmtTime(u.time), who: u.who, what: "External laboratory report " + docRef(u.file), status: "No patient match" })) },
   { id: "path", name: "Pathologie Limburg Samenwerking", type: "ZorgMail mailbox (PDF)", dir: "Inbound", scope: "Regional", source: "ZorgMail, pathology mailbox AZ Zuid", route: "Pulmonology; copy to MDT meeting list", ack: "ZorgMail delivery receipt", msgs: fromSrc("pathology") },
   { id: "region", name: "Regional data platform", type: "openEHR and FHIR, joined through Twiin; the regional cooperation organisation is the Twiin service provider", dir: "Outbound and inbound", scope: "Regional",
-    source: REGION, route: "Rule R12; the platform checks consent in Mitz", cert: "xchg", env: "Production, Nephrology only",
+    source: REGION, route: "Shared results; the platform checks consent in Mitz", cert: "xchg", env: "Production, Nephrology only",
     onboard: steps(["2026-02-02", "2026-02-20", "2026-03-11", "2026-04-08", "2025-03-01", "2026-06-15", "2026-08-24"], true),
     ack: "FHIR response; HTTP 201 counts as accepted", msgs: fromLog((l) => l.channel === "Regional platform"),
     remark: "The regional platform is being built for the whole region. This connection is ready for it: Nephrology is attached first, the other departments follow one at a time, each publishing and reading through its own worklist without a project of its own." },
-  { id: "out-zm", name: "Referrals and requests, ZorgMail", type: "ZorgMail (HL7 v2, EDIFACT, PDF)", dir: "Outbound", scope: "National", source: "ZorgMail address book", route: "Rule R10",
+  { id: "out-zm", name: "Referrals and requests, ZorgMail", type: "ZorgMail (HL7 v2, EDIFACT, PDF)", dir: "Outbound", scope: "National", source: "ZorgMail address book", route: "Referrals and requests to the ZorgMail address book",
     ack: "HL7 v2: AA or AE from the recipient; otherwise delivery receipt", msgs: fromLog((l) => l.channel === "ZorgMail") },
-  { id: "out-link", name: "Upload links and secure e-mail", type: "Secure e-mail gateway; links signed in with UZI pass", dir: "Outbound", scope: "Own", source: "Recipients without an electronic link", route: "Rule R11",
+  { id: "out-link", name: "Upload links and secure e-mail", type: "Secure e-mail gateway; links signed in with UZI pass", dir: "Outbound", scope: "Own", source: "Recipients without an electronic link", route: "Recipients without an electronic link",
     ack: "None: the recipient's upload or reply is the answer", msgs: fromLog((l) => l.channel === "Upload link" || l.channel === "Secure e-mail with access code") },
   { id: "portal", name: "Upload links", type: "Upload portal (HTTPS)", dir: "Inbound", scope: "Own", source: "One-time links for senders without an electronic link", route: "Answer to a result request: requesting department",
     msgs: () => docs().filter((i) => i.via === "Upload link").map(docMsg) },
@@ -585,24 +593,6 @@ const CHANNELS = [
 const onboarding = (c) => !!c.onboard?.some((x) => x.state !== "Done");
 const chanState = (c) => (S.off[c.id] ? "Paused" : onboarding(c) ? "Onboarding" : "Started");
 
-const ptsOn = (path) => () => docs().filter((i) => patient(i.pid).path === path && !i.via).length;
-const ROUTES = [
-  { id: "R1", when: "Answer to an open result request (upload link, To file)", to: "Worklist of the requesting department; requester notified", action: "File, unverified", n: () => docs().filter((i) => i.via).length },
-  { id: "R2", when: "Patient on the chest pain pathway", to: "Cardiology worklist", action: "File", n: ptsOn("chest_pain") },
-  { id: "R3", when: "Patient on the pulmonary nodule pathway", to: "Pulmonology worklist", action: "File", n: ptsOn("lung_nodule") },
-  { id: "R4", when: "Patient on the renal function pathway", to: "Nephrology worklist", action: "File", n: ptsOn("kidney") },
-  { id: "R5", when: "Pathology report", to: "Pulmonology worklist; copy to MDT meeting list", action: "File", n: () => docs().filter((i) => i.source === "pathology").length },
-  { id: "R6", when: "No patient match on BSN, or on name and date of birth", to: "To file", action: "Hold for review", n: () => C.unlinked.length },
-  { id: "R7", when: "Captured from fax, mailbox, shared folder or chat", to: "To file", action: "Hold for review", n: () => S.intake.length },
-  { id: "R8", when: "Sender not a registered institution", to: "To file", action: "Hold until the sender is registered", n: () => S.intake.filter((i) => !dirOf(i.from)).length },
-  { id: "R9", when: "Outbound: recipient reachable through Twiin (ZORG-AB entry)", to: "Twiin: notification; the recipient fetches BgZ and letter", action: "Send", n: () => S.log.filter((l) => l.channel === "Twiin").length },
-  { id: "R10", when: "Outbound: recipient in the ZorgMail address book", to: "ZorgMail: HL7 v2, EDIFACT or PDF", action: "Send", n: () => S.log.filter((l) => l.channel === "ZorgMail").length },
-  { id: "R11", when: "Outbound: recipient without an electronic link", to: "Result request by upload link; referral by secure e-mail with access code", action: "Send",
-    n: () => S.log.filter((l) => l.channel === "Upload link" || l.channel === "Secure e-mail with access code").length },
-  { id: "R12", when: "Outbound: results made available to the regional data platform", to: "Regional platform; consent checked in Mitz by the platform", action: "Make available",
-    n: () => S.log.filter((l) => l.channel === "Regional platform").length },
-];
-const ruleFor = (channel) => ({ Twiin: "R9", "Regional platform": "R12", ZorgMail: "R10", "Secure e-mail with access code": "R11", "Upload link": "R11" }[channel] || "");
 
 // ------------------------------------------------------------ central intake: results that arrive outside the interfaces (seeded from the patients' own not-received results)
 
@@ -752,7 +742,7 @@ function renderClinic(dept, pid, tab, itemId) {
   const items = itemsOf(p.pid);
   const inTab = (t) => (t === "missing" ? items.filter((i) => i.facts.some((f) => f.status === "LOST" && !illegible(f))) : t === "all" || t === "transfers" ? items : items.filter((i) => i.cat === t));
   const shown = inTab(tab);
-  const it = shown.find((i) => i.id === itemId) || shown[0];
+  const it = shown.find((i) => i.id === itemId) || shown.find((i) => ["LOST", "PICTURE"].includes(worst(i))) || shown[0];
   CTX = { dept, p, tab, items: shown, it, pts };
 
   const count = (t) => (t === "transfers" ? auditOf(p).length : inTab(t).length);
@@ -782,7 +772,7 @@ function renderQueue(dept, key, side, pts) {
   const who = (r) => (r.recon ? st("LOST", "No patient match") : r.pid ? esc(patient(r.pid).name) : "–");
   const list = phead("To file", "", filterBox("intake")) +
     table([["Date and time", "150px", "", 2], ["Sender", "25%", "", 3], ["Subject"], ["Patient", "200px"], ["Status", "100px"]],
-      rows.map((r) => tr(r, `${td(r.time)}${td(r.recon || known(r) ? esc(r.from) : st("PICTURE", r.from), "", r.from)}${tdt(r.subject)}${td(who(r), "", r.recon ? r.who : "")}${td(r.status === "Open" ? st("PICTURE", "Open") : esc(r.status), "", r.status)}`)));
+      rows.map((r) => tr(r, `${td(r.time)}${td(r.recon || known(r) ? esc(r.from) : st("PICTURE", r.from), "", r.from)}${tdt(r.subject)}${td(who(r), "", r.recon ? r.who : "")}${td(r.status === "Open" ? st("PICTURE", S.asked[r.key] ? "Requested again" : "Open") : esc(r.status), "", r.status)}`)));
   const detail = cur ? (cur.recon ? reconDetail(cur.recon) : intakeDetail(cur)) : `<p class="empty">Nothing to file for ${DEPTS[dept].label}.</p>`;
   CTX = { dept, pts, queue: "intake" };
   $("#app").innerHTML = side + `<section class="work queue"><div class="split"><div class="pane list">${list}</div><div class="pane detail">${detail}</div></div>${actionBar(false)}</section>`;
@@ -813,19 +803,19 @@ function banner(p, dept) {
 function docGrid(items, sel, dept, p, tab) {
   const rows = items.map((i) => `<tr class="row ${i === sel ? "sel" : ""}" data-href="#/clinic/${dept}/${p.pid}/${tab}/${i.id}" data-doc="${i.id}">
     ${td(i.receivedAt || fmtTime(i.time))}${tdt(i.title)}${tdt(i.origin)}${td(docStatus(i))}</tr>`);
-  return table([["Date and time", "152px", "", 2], ["Document"], ["Sender", "26%", "", 3], ["Status", "120px"]], rows);
+  return table([["Date and time", "152px", "", 2], ["Document"], ["Sender", "26%", "", 3], ["Status", "150px"]], rows);
 }
 
 // A document can hold several results: say how many still need attention, so the counts add up to the worklist's.
 function docStatus(i) {
   const n = (v) => i.facts.filter((f) => verdict(f) === v).length, unv = n("PICTURE"), ill = i.facts.filter(illegible).length, lost = n("LOST") - ill;
-  if (i.added || unv + lost + ill < 2) return ill ? st("LOST", "Not legible") : st(worst(i));
+  if (i.added || unv + lost + ill < 2) return ill ? st("LOST", "Not legible") : worst(i) === "CONFLICT" && !i.facts.some(unitConverted) ? st("CONFLICT", "Code mapped") : st(worst(i));
   return `<span class="stack">${unv ? st("PICTURE", `${unv} unverified`) : ""}${ill ? st("LOST", `${ill} not legible`) : ""}${lost ? st("LOST", `${lost} not received`) : ""}</span>`;
 }
 function docDetail(it, admin = false) {
   const fsel = it.facts.find((f) => factKey(f) === S.sel.fact) || it.facts[0];
   const rows = it.facts.map((f) => `<tr class="row ${f === fsel ? "sel" : ""}" data-fact="${esc(factKey(f))}">
-    ${tdt(label(f))}${td(value(f), typeof f.got === "number" || f.got == null || f.status === "LOST" ? "num" : "", typeof f.got === "string" ? tr(f.got) : "")}${td(st(verdict(f), verdict(f) === "LOST" && illegible(f) ? "Not legible" : WORD[verdict(f)]))}</tr>`);
+    ${tdt(label(f))}${td(value(f), typeof f.got === "number" || f.got == null || f.status === "LOST" ? "num" : "", typeof f.got === "string" ? tr(f.got) : "")}${td(st(verdict(f), wordOf(f)))}</tr>`);
   const src = SOURCE[it.source] || { system: it.via || "Manual upload" };
   const cap = it.facts.find((f) => f.captured)?.captured;
   return `
@@ -844,7 +834,8 @@ function docDetail(it, admin = false) {
       ${it.facts.flatMap(repairsOf).length ? `<dt>Repairs applied</dt><dd>${esc([...new Set(it.facts.flatMap(repairsOf))].join("; "))}</dd>` : ""}
       ${it.upload?.sha ? `<dt>Integrity (SHA-256)</dt><dd class="wrap">${esc(it.upload.sha)}</dd>` : ""}</dl></div>`
     : `<div class="block"><h4>Origin</h4><dl class="kv">
-      <dt>Performing organisation</dt><dd>${esc(it.origin)}</dd>
+      <dt>Performing organisation</dt><dd>${dirOf(it.origin.split(",")[0]) ? `<a class="link" href="#/admin/directory/${encodeURIComponent(it.origin.split(",")[0])}">${esc(it.origin)}</a>` : esc(it.origin)}</dd>
+      ${chanOf(it) ? `<dt>Received through</dt><dd><a class="link" href="#/admin/channels/${chanOf(it).id}">${esc(chanOf(it).name)}</a> <span class="dim">· ${esc(it.format)}</span></dd>` : ""}
       ${it.receivedAt ? `<dt>Received</dt><dd>${esc(it.receivedAt)}${it.via ? `, ${esc(it.via)}` : ""}</dd>` : ""}
       ${cap?.by ? `<dt>Entered by</dt><dd>${esc(cap.by)}</dd>` : ""}
       ${S.confirmed[factKey(fsel)] ? `<dt>Verified by</dt><dd>${esc(S.confirmed[factKey(fsel)])}</dd>` : ""}
@@ -867,13 +858,13 @@ function resultBlock(f, admin = false) {
     <dt>Remark</dt><dd>${esc(remark(f))}</dd></dl>${action}</div>`;
 }
 function viewer(f, it) {
-  // a laboratory message without an image is printed as a page; with nothing to show there is no viewer (the remark says why)
-  if (!f?.media && it && !it.added && !it.via && ["epic_lab", "ext_lab", "nb_lab", "gp"].includes(it.source) && !it.facts.every((x) => x.status === "LOST"))
+  // a structured message without an image is printed as it was sent; with nothing to show there is no viewer (the remark says why)
+  if (!f?.media && it && !it.added && !it.via && it.file && !it.facts.every((x) => x.status === "LOST"))
     return uploadView({ name: it.ref || it.title, type: "image/svg+xml", url: printPage(it), note: "Page 1" });
   if (!f?.media) return "";
   const b = f.media.box;
   return `<div class="viewer"><div class="bar"><b>${esc(f.media.png.replace(/^raw_\w+?_/, "").replace(/\.(pdf\.png|jpg|png)$/, ""))}</b><span>${esc(label(f))}</span>${expandBtn}</div>
-    <div class="stage" title="Double-click to expand"><div class="frame"><img src="${mediaSrc(f.media.png)}" alt="">${b ? `<div class="box" style="left:${b[0]}%;top:${b[1]}%;width:${b[2]}%;height:${b[3]}%"></div>` : ""}</div></div></div>`;
+    <div class="stage" title="Click to expand"><div class="frame"><img src="${mediaSrc(f.media.png)}" alt="">${b ? `<div class="box" style="left:${b[0]}%;top:${b[1]}%;width:${b[2]}%;height:${b[3]}%"></div>` : ""}</div></div></div>`;
 }
 
 // A file that came in through an upload link, intake or manual attachment; the viewer stays the only dark surface.
@@ -896,10 +887,10 @@ function expandViewer(v) {
   o.querySelector("[data-expand]").remove();
   document.body.append(o);
   o.addEventListener("change", (e) => { if (e.target.dataset.marking !== undefined) o.classList.toggle("nomark", !e.target.checked); });
-  o.addEventListener("click", (e) => { if (e.target.closest("[data-shrink]") || e.target === o.querySelector(".stage")) o.remove(); });
+  o.addEventListener("click", (e) => { if (!e.target.closest("label")) o.remove(); }); // anywhere closes it, except the marking switch
 }
 document.addEventListener("click", (e) => { if (e.target.closest("[data-expand]")) expandViewer(e.target.closest(".viewer")); });
-document.addEventListener("dblclick", (e) => { const v = e.target.closest("#app .viewer .stage"); if (v) expandViewer(v.closest(".viewer")); });
+document.addEventListener("click", (e) => { const v = e.target.closest("#app .viewer .stage"); if (v && v.closest(".viewer").querySelector("[data-expand]")) expandViewer(v.closest(".viewer")); });
 const openLink = (f) => [...S.log].reverse().find((l) => l.pid === f.pid && l.facts?.includes(f.fact) && l.portal?.state === "active");
 
 // Every received document, for one patient.
@@ -942,12 +933,12 @@ function logOut(o) {
   return l;
 }
 const opt = (v, sel, text = v) => `<option value="${esc(v)}" ${v === sel ? "selected" : ""}>${esc(text)}</option>`;
-// One line under the recipient: who they are in the directory and which routing rule picks the channel.
+// One line under the recipient: who they are in the directory.
 function dirLine(name, channel) {
-  const d = dirOf(name), r = ruleFor(channel);
+  const d = dirOf(name);
   const who = INTERNAL.includes(name) ? `Department of ${HOSPITAL}` : !d ? "Not a registered institution"
     : d.status === "Temporary" ? `Temporary contact, expires ${d.expires}` : `${d.status}: ${d.verified}`;
-  return `${who}${r ? ` · Rule ${r}: ${ROUTES.find((x) => x.id === r).when.replace("Outbound: ", "")}` : ""}`;
+  return who;
 }
 
 function sendDialog(preTo) {
@@ -965,7 +956,7 @@ function sendDialog(preTo) {
       <label class="field"><span>Channel</span><select name="channel"></select></label>
       <label class="field"><span>Message format</span><select name="format"></select></label>
       <label class="field"><span>Clinical question <span class="req">*</span></span><textarea name="q" required>${esc(draft?.q || "")}</textarea></label>
-      <div class="field"><span>Enclosures</span>${table([["", "44px"], ["Document"], ["Date and time", "152px"], ["Results", "70px", "num"], ["Status", "124px"]],
+      <div class="field"><span>Enclosures</span>${table([["", "44px"], ["Document"], ["Date and time", "152px"], ["Results", "70px", "num"], ["Status", "150px"]],
         items.map((i) => `<tr>${td(`<input type="checkbox" name="it" value="${i.id}" ${(draft ? draft.ids.includes(i.id) : i === it || !items.includes(it)) ? "checked" : ""}>`)}${tdt(i.title)}${td(i.receivedAt || fmtTime(i.time))}${td(i.facts.length || "", "num")}${td(st(worst(i)))}</tr>`))}</div>
       <div class="field"><span>Recipient receives</span><div id="send-preview"></div></div>
     </div>
@@ -1115,24 +1106,47 @@ function searchRegion(key) {
   const bundle = JSON.stringify({ resourceType: "Bundle", type: "searchset", total: hit ? 1 : 0, ...(hit ? { entry: [{ resource: obs }] } : {}) }, null, 2);
   openDialog(`<div class="dlg"><header><b>Regional platform search</b><span class="pt">${esc(p.name)} · ${esc(label(f))}</span></header>
     <div class="body" style="gap:0;padding:0">
-      <div class="block"><dl class="kv"><dt>Looking for</dt><dd>${esc(label(f))}${loinc ? ` (LOINC ${loinc})` : ""} from ${f.time.slice(0, 10)}</dd><dt>Status</dt><dd id="rs-state">Ready to search</dd></dl></div>
+      <div class="block"><dl class="kv"><dt>Looking for</dt><dd>${esc(label(f))}${loinc ? ` (LOINC ${loinc})` : ""} from ${f.time.slice(0, 10)}</dd><dt id="rs-l" hidden>Result</dt><dd id="rs-state" hidden></dd></dl></div>
       <div class="block"><h4>Query</h4><pre class="raw">${esc(query)}</pre></div>
       <div class="block" id="rs-resp" hidden><h4>Response</h4><pre class="raw">${esc(bundle)}</pre></div></div>
     <footer><button type="button" data-act="close">Close</button><button type="button" class="primary" id="rs-go">Search</button>
-      <button type="button" class="primary" id="rs-import" hidden>Import result</button></footer></div>`);
+      <button type="button" id="rs-other" hidden>Request another way</button><button type="button" class="primary" id="rs-import" hidden>Import result</button></footer></div>`);
   $("#rs-go").addEventListener("click", (e) => {
-    e.target.disabled = true; $("#rs-state").textContent = "Searching…";
+    e.target.disabled = true; e.target.textContent = "Searching…";
     logAccess({ pid: p.pid, action: "Searched regional platform", object: label(f), basis: "Explicit consent, checked in Mitz by the platform", system: "Regional platform" });
     setTimeout(() => {
       $("#rs-state").innerHTML = hit ? `${st("DATA", "1 result found")} · ${esc(String(f.truth_value).replace(".", ","))} ${esc(u)} · ${fmtTime(f.time)} · ${esc(sender)}` : st("LOST", "No result found");
-      $("#rs-resp").hidden = false; e.target.hidden = true; if (hit) $("#rs-import").hidden = false;
+      $("#rs-l").hidden = $("#rs-state").hidden = $("#rs-resp").hidden = false; e.target.hidden = true;
+      $("#rs-other").hidden = false; if (hit) $("#rs-import").hidden = false; // the other request channels stay one click away
     }, 700);
   });
+  $("#rs-other").addEventListener("click", () => requestDialog());
   $("#rs-import").addEventListener("click", () => {
     const it = fileResult(p.pid, { fact: f.fact, value: f.truth_value, via: "Regional platform", by: sender, origin: sender });
     Object.assign(f, { status: "DATA" }); Object.assign(it, { format: "FHIR Observation" });
     logAccess({ pid: p.pid, action: "Imported result from regional platform", object: label(f), basis: "Explicit consent, checked in Mitz by the platform", system: "Regional platform" });
     closeDialog(); flash(`${label(f)} imported from the regional platform: structured`); route();
+  });
+}
+
+// Back to the sender of something that cannot be filed: same channels as a result request, the message says what is missing.
+function askAgain(key) {
+  const i = S.intake.find((x) => x.key === key), x = !i && reconRows().find((y) => y.key === key);
+  const to = i ? i.from.replace(/^Scanner, (.)/, (m, c) => c.toUpperCase()) : SOURCE[x.src].sender, internal = i?.internal;
+  const chans = internal ? ["Worklist (internal)", "Secure e-mail with access code"] : reqChannels(to).filter((c) => c !== SEARCH);
+  const q = i ? (i.channel === "folder" ? "Scanned document without patient label. Please send it again with the patient label." : "Received without patient identification. Please send it again with name, date of birth and BSN.")
+    : "Report received without BSN; date of birth does not match. Please send it again including BSN.";
+  openDialog(`<form class="dlg" id="f-ask"><header><b>Request again</b><span class="pt">${esc(i ? i.subject : x.what)}</span></header>
+    <div class="body"><div class="field"><span>Recipient</span><div>${esc(to)}</div></div>
+      <label class="field"><span>Channel</span><select name="ch">${chans.map((c) => `<option value="${esc(c)}">${esc(chanLabel(c))}</option>`).join("")}</select></label>
+      <label class="field"><span>Message</span><textarea name="q">${esc(q)}</textarea></label></div>
+    <footer><button type="button" data-act="close">Cancel</button><button class="primary">Send request</button></footer></form>`);
+  $("#f-ask").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const d = new FormData(e.target), channel = d.get("ch");
+    logOut({ kind: "request", from: i ? "Cardiology" : "Data management", to, pid: null, who: i ? i.subject : x.who, what: [i ? i.subject : x.what], format: i ? "Message" : "Result request", channel, q: d.get("q") });
+    S.asked[key] = `Requested again ${now()} through ${channel}`;
+    closeDialog(); flash(`Requested again from ${to}`); route();
   });
 }
 
@@ -1304,34 +1318,43 @@ function intakeDetail(i) {
   const ans = i.pid && i.fact && [...S.log].reverse().find((l) => l.kind === "request" && l.pid === i.pid && l.facts?.includes(i.fact)); // the request this answers
   const pts = C.patients.map((p) => `<option value="${p.pid}" ${p.pid === i.pid ? "selected" : ""}>${esc(p.family)}, ${esc(p.given)} · ${fmtDate(p.dob)} · ${p.mrn}</option>`).join("");
   return `
-    <div class="block"><dl class="kv"><dt>Channel</dt><dd>${esc(c.name)} · ${esc(c.type)}</dd><dt>Received</dt><dd>${i.time}</dd>
-      ${i.channel === "fax" ? `<dt>Calling number</dt><dd>${esc(i.calling || "Not transmitted")}</dd>
-      <dt>Sender</dt><dd>${faxOf(i.calling) ? `${esc(faxOf(i.calling).name)} · matched by fax number in Institutions` : `${st("PICTURE", "Unknown fax number")}<br><span class="dim">Call back on a number from Institutions, not the one on the fax.</span>`}</dd>
-      <dt>Header on the fax</dt><dd>${esc(i.tsi || "None")} <span class="dim">· as stated by the sender, not verified</span></dd>`
-      : `<dt>Sender</dt><dd>${esc(i.from)}${ok ? "" : ` · ${st("PICTURE", "Not a registered institution")}`}</dd>`}<dt>Subject</dt><dd>${esc(i.subject)}</dd>
-      ${ans ? `<dt>Answers</dt><dd>Result request of ${esc(ans.time)}, sent by ${esc(ans.channel)}; the sender replied by fax</dd>` : ""}
-      <dt>Routing</dt><dd>${!ok ? "Rule R8: held in To file until the sender is a registered institution" : ans ? `Rule R7: held for review; once filed, rule R1 returns it to ${esc(ans.from)} and notifies the requester` : "Rule R7: held in To file for review"}</dd></dl></div>
+    <div class="block"><dl class="kv"><dt>Received</dt><dd>${i.time} · ${esc(c.name)}</dd>
+      ${i.channel === "fax" ? `<dt>From</dt><dd>${faxOf(i.calling) ? `${esc(faxOf(i.calling).name)} <span class="dim">· matched by fax number</span>` : `${st("PICTURE", "Unknown fax number")} <span class="dim">· call back on a number from Institutions</span>`}</dd>`
+      : i.channel === "folder" ? "" : `<dt>From</dt><dd>${esc(i.from)}${ok ? "" : ` · ${st("PICTURE", "Not a registered institution")}`}</dd>`}
+      ${ans ? `<dt>Answers</dt><dd>Result request of ${esc(ans.time.slice(0, 10))} (${esc(ans.channel)})</dd>` : ""}</dl></div>
     <div class="block"><h4>Filing</h4>${open ? `
       <label class="field"><span>Patient</span><select id="i-pid"><option value="">Select patient</option>${pts}</select></label>
       <div class="field"><span></span><div class="dim">${esc(i.match)}</div></div>
       ${i.fact ? `<div class="field"><span>${esc(LABEL[i.fact])}</span><div class="inline" style="margin:0"><input id="i-val" value="${esc(comma(i.value))}">
-        <span class="dim">${esc(unit(C.fact_defs[i.fact].unit))} · ${i.channel === "fax" ? "read from the fax by text recognition (profile T5)" : "read from the message"}, filed as unverified</span></div></div>` : ""}
+        <span class="dim">${esc(unit(C.fact_defs[i.fact].unit))} · ${i.channel === "fax" ? "read from the fax by text recognition" : "read from the message"}, filed as unverified</span></div></div>` : ""}
       <div class="inline">${ok ? "" : `<button data-q-act="i-dir" data-key="${i.key}">Register sender as institution</button>`}
         <button class="primary" data-q-act="i-file" data-key="${i.key}" ${ok ? "" : "disabled"}>File to patient</button>
-        <button data-q-act="i-reject" data-key="${i.key}">Reject</button></div>` : `<div>${esc(i.status)}</div>`}</div>
-    ${scanFile(i) ? uploadView(scanFile(i)) : ""}
-    <div class="block"><h4>${i.channel === "fax" ? "Text read from the fax (OCR)" : "Source message"}</h4><pre class="raw">${esc(i.text)}</pre></div>`;
+        ${!i.pid ? `<button data-q-act="ask" data-key="${i.key}">Request again</button>` : ""}
+        <button data-q-act="i-reject" data-key="${i.key}">Reject</button></div>${S.asked[i.key] ? `<p class="note dim">${esc(S.asked[i.key])}</p>` : ""}` : `<div>${esc(i.status)}</div>`}</div>
+    ${scanFile(i) ? uploadView(scanFile(i)) : chatImage(i) ? viewer(chatImage(i)) : ""}
+    ${originOf(i)}
+    ${["fax", "chat"].includes(i.channel) ? `<div class="block"><h4>${i.channel === "fax" ? "Text read from the fax (OCR)" : "Message"}</h4><pre class="raw">${esc(i.text)}</pre></div>` : ""}`;
 }
+// Where a captured document came from, stated the way a patient record states it.
+function originOf(i) {
+  const c = CHANNELS.find((x) => x.id === i.channel), lines = i.text.split("\n");
+  const sender = i.channel === "fax" ? (faxOf(i.calling)?.name || "Unknown fax number") : i.channel === "folder" ? i.from.replace(/^Scanner, (.)/, (m, x) => x.toUpperCase()) : i.from;
+  const doc = { fax: "Fax, 1 page", folder: `${lines[0].split("\\").pop()}, ${lines[1]?.split(".")[0] || ""}`, mail: lines.find((l) => l.startsWith("Attachments:")) || "", chat: "Chat message" }[i.channel];
+  const ident = i.channel === "folder" ? "None: no BSN, patient number or date of birth found on the scan" : i.match;
+  return `<div class="block"><h4>Origin</h4><dl class="kv">
+    <dt>Sender</dt><dd>${esc(sender)}${i.email ? ` <span class="dim">· ${esc(i.email)}</span>` : ""}</dd>
+    <dt>Received through</dt><dd>${esc(c.name)} <span class="dim">· ${esc(c.type)}</span></dd>
+    ${doc ? `<dt>Document</dt><dd>${esc(doc)}</dd>` : ""}
+    <dt>Patient identification</dt><dd>${esc(ident)}</dd></dl></div>`;
+}
+// A chat message about a measurement: the exported capture it refers to, from the patient's own record.
+const chatImage = (i) => i.channel === "chat" && i.pid && patient(i.pid).facts.find((f) => f.fact === i.fact && f.media);
 const scanFile = (i) => i.channel !== "chat" && { name: { fax: "Fax", mail: "referral_letter.pdf" }[i.channel] || i.text.split("\n")[0].split("\\").pop(), type: "image/svg+xml",
   url: scanPage(i), note: i.channel === "folder" ? "Page 1 of 2" : "Page 1",
   box: i.channel === "fax" && i.fact ? [7.6, 19.8, 58, 2.6] : null }; // the result line on the fax page (4th line of the text)
 // A captured document as the scanned page that came in, drawn from the item's own text and the patient's data only.
 function scanPage(i) {
   const p = i.pid && patient(i.pid);
-  const scrawl = (x, y, len, k) => { // illegible handwriting: arches of uneven height, a gap between words
-    let d = `M${x} ${y}`;
-    for (let j = 0, w = 0; w < len; j++) { const h = 3 + ((j * 7 + k * 3) % 6), a = 3 + ((j * 5 + k) % 4); w += j % 6 === 5 ? 7 : a; d += j % 6 === 5 ? " m7 0" : ` c1 ${-h} ${a} ${-h} ${a} ${(j % 3) - 1}`; }
-    return `<path d="${d}" fill="none" stroke="#2a3a6a" stroke-width="1.1"/>`; };
   let body, font = "Arial, Helvetica, sans-serif";
   if (i.channel === "fax") {
     font = "'Courier New', monospace";
@@ -1345,10 +1368,18 @@ function scanPage(i) {
       + ["Dear colleague,", "", "I would be grateful if you would assess this patient at your cardiology outpatient", "clinic for chest pain. The ECG is attached.", "",
         "Kind regards,", "", "General practitioner", i.from].map((l, k) => T(60, 310 + k * 16, l, 'font-size="11"')).join("");
   } else {
+    // a printed consultation form whose patient label was never stuck on: why nothing on it identifies the patient
+    const para = (y, lines) => lines.map((l, k) => T(60, y + k * 15, l, 'font-size="10.5"')).join("");
     body = T(60, 70, HOSPITAL, `font-size="14" ${B}`) + T(60, 88, "Cardiology outpatient clinic · Consultation form", 'font-size="11"') + rule(60, 98, 475)
-      + ["Name", "Date of birth", "Patient no.", "BSN"].map((l, k) => T(60, 136 + k * 26, l, 'font-size="11"') + rule(170, 138 + k * 26, 250)).join("")
-      + T(60, 260, "Complaint and history", `font-size="11" ${B}`) + [440, 455, 410, 450, 180].map((n, k) => scrawl(62, 290 + k * 22, n, k)).join("")
-      + T(60, 420, "Examination", `font-size="11" ${B}`) + [430, 460, 260].map((n, k) => scrawl(62, 450 + k * 22, n, k + 5)).join("")
+      + `<rect x="330" y="112" width="205" height="72" fill="none" stroke="#9a9a9a" stroke-dasharray="4 3"/>` + T(432, 152, "Patient label", 'font-size="10" fill="#9a9a9a" text-anchor="middle"')
+      + T(60, 126, "Clinician", 'font-size="10.5"') + rule(130, 128, 170) + T(60, 152, "Date", 'font-size="10.5"') + rule(130, 154, 170)
+      + T(60, 214, "Complaint and history", `font-size="11" ${B}`)
+      + para(236, ["Chest pain on exertion for several weeks, radiating to the left arm, settling with rest.", "No pain at rest. Known hypertension, on treatment. Non-smoker.",
+        "Referred by the general practitioner for further assessment."])
+      + T(60, 302, "Examination", `font-size="11" ${B}`)
+      + para(324, ["Alert, no distress. Heart sounds regular, no murmur. Chest clear.", "No peripheral oedema."])
+      + T(60, 376, "Plan", `font-size="11" ${B}`)
+      + para(398, ["Exercise ECG and echocardiography. Review with results.", "Laboratory: troponin, renal function, lipid profile."])
       + T(297, 800, "1 / 2", 'font-size="9" text-anchor="middle"');
   }
   return sheet(body, font, true);
@@ -1357,18 +1388,19 @@ function scanPage(i) {
 const T = (x, y, t, o = "") => `<text x="${x}" y="${y}" ${o}>${esc(t)}</text>`, B = 'font-weight="700"';
 const rule = (x, y, w) => `<line x1="${x}" y1="${y}" x2="${x + w}" y2="${y}" stroke="#555" stroke-width=".6"/>`;
 const sheet = (body, font, scan) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 595 842" width="595" height="842">
-  ${scan ? `<defs><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="3"/><feColorMatrix values="0 0 0 0 .35 0 0 0 0 .35 0 0 0 0 .33 .28 0 0 0 0"/></filter></defs>` : ""}
+  ${scan ? `<defs><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="3"/><feColorMatrix values="0 0 0 0 .35 0 0 0 0 .35 0 0 0 0 .35 .14 0 0 0 0"/></filter></defs>` : ""}
   <rect width="595" height="842" fill="${scan ? "#eeece4" : "#fff"}"/><g ${scan ? 'transform="rotate(-.4 297 421)" ' : ""}fill="#232327" font-family="${font}">${body}</g>
   ${scan ? `<rect width="595" height="842" filter="url(#n)"/>` : ""}</svg>`);
 // A document with no image of its own, printed from the data: a laboratory report as the sender reported it, or a page
 // that says what was expected and did not arrive. Rows are [label, value] or, in the table, [test, result, unit].
 function printPage(it) {
-  const p = patient(it.pid), lost = it.facts.every((f) => f.status === "LOST"), lab = !lost && ["epic_lab", "ext_lab", "nb_lab", "gp"].includes(it.source);
+  const p = patient(it.pid), lost = it.facts.every((f) => f.status === "LOST"), lab = !lost;
   const kv = [["Patient", `${p.family}, ${p.given}`], ["Date of birth", fmtDate(p.dob)], ["Patient no.", p.mrn], ["Date and time", fmtTime(it.time)]];
   // the test name and value as the message carries them (OBX for HL7, INV and RSL for EDIFACT), else ours
   const row = (f) => {
     const x = f.excerpt || "", obx = /OBX\|\d+\|\w+\|[^^]*\^([^^]+)\^LN\|\|([^|]*)\|([^|]*)\|/.exec(x), inv = /INV\+(\w+):([^:']+)/.exec(x), rsl = /RSL\+NV\+([^+]+)\+([^']+)'/.exec(x);
-    return obx ? [obx[1], obx[2], unit(obx[3])] : inv && rsl ? [`${inv[2]} (${inv[1]})`, rsl[1], unit(rsl[2])] : [label(f), f.got ?? "", unit(C.fact_defs[f.fact]?.unit)];
+    const sent = (f.steps || []).map((s) => /^([\d.,]+)\s*([^\s→]+) → /.exec(s)).find(Boolean); // e.g. "1.9 cm → 19 mm": the value as the sender wrote it
+    return obx ? [obx[1], obx[2], unit(obx[3])] : inv && rsl ? [`${inv[2]} (${inv[1]})`, rsl[1], unit(rsl[2])] : sent ? [label(f), sent[1], unit(sent[2])] : [label(f), (f.got == null ? "" : tr(f.got)), unit(C.fact_defs[f.fact]?.unit)];
   };
   const head = lab ? [T(60, 70, it.origin, `font-size="15" ${B}`), T(60, 88, `${it.title} ${it.ref}`, 'font-size="11"')]
     : [T(60, 70, it.file ? "No preview available" : "Document not received", `font-size="15" ${B}`), T(60, 88, full(it), 'font-size="11"')];
@@ -1433,9 +1465,6 @@ function onboardBlock(c) {
     ${next ? `<div class="inline"><button data-q-act="ch-step" data-key="${c.id}">Step done: ${esc(next.step)}</button></div>` : ""}</div>`;
 }
 
-const routeDetail = (r) => `<div class="block"><dl class="kv"><dt>Rule</dt><dd>${r.id}</dd><dt>Condition</dt><dd>${esc(r.when)}</dd><dt>Destination</dt><dd>${esc(r.to)}</dd>
-  <dt>Action</dt><dd>${esc(r.action)}</dd><dt>Matches</dt><dd>${r.n()}</dd><dt>Active</dt><dd>${S.off[r.id] ? "No" : "Yes"}</dd>
-  <dt>Order</dt><dd>Rules are evaluated top to bottom and the first match applies. Inbound R1 to R8, outbound R9 to R12. Every change is logged.</dd></dl></div>`;
 
 const dirStatus = (d) => d.status === "Verified" ? st("DATA", "Verified") : d.status === "Temporary" ? st("CONFLICT", "Temporary") : st("PICTURE", d.status);
 function dirDetail(d) {
@@ -1825,7 +1854,7 @@ const lowCount = (t) => reads(t).filter((r) => below(t, r)).length;
 function recogDetail(t) {
   const rs = reads(t), conf = (r) => (r.conf == null ? `<span class="dim">–</span>` : below(t, r) ? st("FAIL", r.conf + "%") : r.conf + "%");
   const hooks = [...CHANNELS.map((c) => ["channel", c.id, `Connection: ${c.name}`]), ...DIR.map((d) => ["institution", d.name, `Institution: ${d.name}`])];
-  return `<div class="block"><dl class="kv"><dt>Profile</dt><dd>${t.id} · ${esc(t.name)}</dd>
+  return `<div class="block"><dl class="kv"><dt>Profile</dt><dd>${esc(t.name)}</dd>
       <dt>Attached to</dt><dd><select data-recog-hook="${t.id}">${hooks.map(([k, id, l]) => `<option value="${k}|${esc(id)}" ${t.hook.kind === k && t.hook.id === id ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></dd>
       <dt>Method</dt><dd>${METHODS[t.method]}</dd><dt>Document type</dt><dd>${esc(t.doc)}</dd>
       <dt>Values read</dt><dd>${esc(t.ids ? "BSN, patient number and date of birth, to find the patient" : t.facts.map((k) => LABEL[k]).join(", "))}</dd>
@@ -1835,8 +1864,8 @@ function recogDetail(t) {
       <dt>Not legible</dt><dd>Shown as Not legible in the patient record</dd>
       <dt>Every read</dt><dd>Stays unverified until a person verifies it against the image</dd>
       <dt>Active</dt><dd><label><input type="checkbox" data-recog-on="${t.id}" ${t.on ? "checked" : ""}> ${t.on ? "Reading new documents" : "Off: new documents are filed as images, nothing is read"}</label></dd></dl></div>
-    <div class="block"><h4>Reads</h4>${table([["Patient", "32%"], ["Line read → value"], ["Confidence", "84px", "num"], ["Status", "96px"]],
-      rs.map((r) => `<tr class="row" data-href="${r.href}">${td(`${esc(r.who)}<br><span class="dim">${esc(r.time)}</span>`)}${td(`${r.line ? `<code>${esc(r.line)}</code>` : `<span class="dim">–</span>`}${r.value ? ` → ${esc(r.value)}` : ""}`)}${td(conf(r), "num")}${tdt(r.status)}</tr>`))}</div>`;
+    <div class="block"><h4>Reads</h4>${table([["Patient"], ["Read", "28%"], ["Value", "18%", "num"], ["Confidence", "92px", "num"]],
+      rs.map((r) => `<tr class="row" data-href="${r.href}">${td(`${esc(r.who)}<br><span class="dim">${esc(r.time)}</span>`)}${td(r.line ? `<code>${esc(r.line)}</code>` : `<span class="dim">–</span>`, "nowrap")}${td(r.value ? esc(r.value) : `<span class="dim">–</span>`, "num nowrap", r.status)}${td(conf(r), "num nowrap")}</tr>`))}</div>`;
 }
 function recogDialog() {
   const hooks = [...CHANNELS.map((c) => ["channel", c.id, `Connection: ${c.name}`]), ...DIR.map((d) => ["institution", d.name, `Institution: ${d.name}`])];
@@ -1864,15 +1893,14 @@ const recogLine = (kind, id) => { const ts = recogFor(kind, id);
 
 const ADMIN = {
   overview: { label: "Overview" },
-  inbound: { label: "Received", sub: "Inbound Documents and Messages per Sender; Unidentified Messages Are Matched to a Patient Here" },
-  outbound: { label: "Sent", sub: "Outbound Referrals, Result Requests and Shared Results, with Acknowledgement and Delivery Status" },
-  mapping: { label: "Code and Unit Conversion", sub: "Local Test Codes and Units per Sender, Mapped to LOINC and UCUM; Reviewed and Versioned Before Use" },
-  recog: { label: "Text Recognition", sub: "Extraction Profiles for Images (OCR) and PDF Text per Connection or Institution, with Confidence Thresholds" },
-  sources: { label: "Department Databases", sub: "Departmental Databases Read Through a Read-Only Connection; Column Mapping and Data Quality per Synchronisation" },
-  channels: { label: "Connections", sub: "Interfaces, Mailboxes and Endpoints for Message Exchange; Queues, Errors and Certificate Validity" },
-  routing: { label: "Delivery Rules", sub: "Routing Rules for Inbound and Outbound Messages, Evaluated in Order; the First Matching Rule Applies" },
-  directory: { label: "Institutions", sub: "Register of External Institutions: AGB and URA Identifiers, Preferred Channel and Verification Status" },
-  access: { label: "Access Log", sub: "Access to Patient Data per NEN 7513: User, Action, Object and Legal Basis; Exportable per Patient" },
+  inbound: { label: "Received" },
+  outbound: { label: "Sent" },
+  mapping: { label: "Code and Unit Conversion" },
+  recog: { label: "Text Recognition" },
+  sources: { label: "Department Databases" },
+  channels: { label: "Connections" },
+  directory: { label: "Institutions" },
+  access: { label: "Access Log" },
 };
 
 function renderAdmin(tab, key) {
@@ -1911,13 +1939,6 @@ function renderAdmin(tab, key) {
       rows.map((c) => { const x = stat(c), s0 = chanState(c);
         return row(c, cur, c.id, `${td(s0 === "Started" ? st("DATA", s0) : st("PICTURE", s0))}${tdt(c.name)}${td(c.scope || "")}${certCell(c)}${td(x.n, "num")}${td(x.q || "", "num")}${td(x.e ? st("LOST", x.e) : "", "num")}${td(x.last)}`); }));
     detail = cur && channelDetail(cur);
-  } else if (tab === "routing") {
-    rows = ROUTES; cur = sel(rows);
-    cols = ["Rule", "Condition", "Destination", "Action", "Matches", "Active"];
-    line = (r) => [r.id, r.when, r.to, r.action, r.n(), S.off[r.id] ? "No" : "Yes"];
-    list = table([["Rule", "56px"], ["Condition"], ["Destination", "30%", "", 2], ["Action", "15%", "", 3], ["Matches", "76px", "num", 3], ["Active", "62px"]],
-      rows.map((r) => row(r, cur, r.id, `${td(r.id)}${tdt(r.when)}${tdt(r.to)}${tdt(r.action)}${td(r.n(), "num")}${td(`<input type="checkbox" data-route="${r.id}" ${S.off[r.id] ? "" : "checked"}>`)}`)));
-    detail = cur && routeDetail(cur);
   } else if (tab === "directory") {
     rows = DIR.map((d) => ({ key: d.name, d })); cur = sel(rows);
     cols = ["Name", "Type", "Department", "AGB code", "URA number", "Preferred channel", "Status", "Verification", "Expires"];
@@ -1938,7 +1959,7 @@ function renderAdmin(tab, key) {
     cols = ["Date and time", "Sender", "Patient", "Document", "Message format", "Acknowledgement", "Status"];
     line = (r) => [r.time, r.from, r.who, r.what, r.format, ack(r), r.status];
     list = table([["Date and time", "140px"], ["Sender", "200px", "", 4], ["Patient", "180px"], ["Document"], ["Acknowledgement", "130px", "", 3], ["Status", "116px", "", 2]],
-      rows.map((r) => row(r, cur, r.key, `${td(r.time)}${tdt(r.from)}${r.status === "Unmatched" ? td(st("LOST", r.who), "", "Unmatched: " + r.who) : tdt(r.who)}${tdt(r.what)}${flagCell(ack(r))}${td(r.status === "Unmatched" ? st("LOST", "Unmatched") : esc(r.status), "", r.status)}`)));
+      rows.map((r) => row(r, cur, r.key, `${td(r.time)}${tdt(r.from)}${r.status === "Unmatched" ? td(st("LOST", "No patient match"), "", "Report: " + r.who) : tdt(r.who)}${tdt(r.what)}${flagCell(ack(r))}${td(r.status === "Unmatched" ? st("LOST", "Unmatched") : esc(r.status), "", r.status)}`)));
     detail = cur && (cur.u ? reconDetail(reconRows().find((x) => x.key === cur.key)) : docDetail(cur.item, true));
   } else if (tab === "recog") {
     rows = RECOG; cur = sel(rows);
@@ -1946,7 +1967,7 @@ function renderAdmin(tab, key) {
     line = (t) => [t.id, t.name, hookText(t.hook), METHODS[t.method], t.doc, t.ids ? "Patient identifiers" : t.facts.map((k) => LABEL[k]).join(", "), t.min ?? "", t.on ? "Yes" : "No", reads(t).length, lowCount(t)];
     list = table([["Active", "70px"], ["Profile"], ["Attached to", "230px", "", 2], ["Method", "110px", "", 3], ["Reads", "70px", "num"], ["Below threshold", "130px", "num"]],
       rows.map((t) => { const lo = lowCount(t);
-        return row(t, cur, t.id, `${td(`<input type="checkbox" data-recog-on="${t.id}" ${t.on ? "checked" : ""}>`)}${tdt(`${t.id} · ${t.name}`)}${tdt(hookText(t.hook))}${td(t.method === "ocr" ? "Image (OCR)" : "PDF text")}${td(reads(t).length, "num")}${td(lo ? st("FAIL", lo) : "", "num")}`); }));
+        return row(t, cur, t.id, `${td(`<input type="checkbox" data-recog-on="${t.id}" ${t.on ? "checked" : ""}>`)}${tdt(t.name)}${tdt(hookText(t.hook))}${td(t.method === "ocr" ? "Image (OCR)" : "PDF text")}${td(reads(t).length, "num")}${td(lo ? st("FAIL", lo) : "", "num")}`); }));
     detail = cur && recogDetail(cur);
   } else if (tab === "access") {
     rows = [...S.access].sort((a, b) => b.time.localeCompare(a.time)); cur = sel(rows);
@@ -1967,7 +1988,7 @@ function renderAdmin(tab, key) {
   const keyOf = (r) => r.key || r.id;
   const chosen = pick.size ? rows.filter((r) => pick.has(keyOf(r))) : cur ? [cur] : [];
   CTX.exp = { all: [cols, ...rows.map(line)], sel: chosen.length ? [cols, ...chosen.map(line)] : null, n: chosen.length };
-  $("#app").innerHTML = `<section class="work admin">${tabs}<div class="split"><div class="pane list">${phead(t.label, t.sub, filterBox("admin-" + tab))}${list}</div>
+  $("#app").innerHTML = `<section class="work admin">${tabs}<div class="split"><div class="pane list">${phead(t.label, "", filterBox("admin-" + tab))}${list}</div>
     <div class="pane detail">${detail || `<p class="empty">None</p>`}</div></div>${adminBar()}</section>`;
 }
 
@@ -2030,7 +2051,9 @@ function reconDetail(r) {
   const action = done ? `<div>${esc(done)}</div><div class="inline"><button data-q-act="reopen" data-key="${esc(r.key)}">Reopen</button></div>`
     : r.u ? `${likely ? `<div class="field"><span>Probable match</span><div>${esc(likely.name)} · ${fmtDate(likely.dob)} · ${likely.mrn}<br><span class="dim">Same name; the date of birth on the report differs (${esc(r.who.split("born ")[1] || "")}).</span></div></div>` : ""}
         <label class="field"><span>Match to patient</span><select id="q-link">${C.patients.filter((p) => p.path === "kidney").map((p) => `<option value="${p.pid}" ${p === likely ? "selected" : ""}>${esc(p.family)}, ${esc(p.given)} · ${fmtDate(p.dob)}</option>`).join("")}</select></label>
-        <div class="inline"><button class="primary" data-q-act="link" data-key="${esc(r.key)}">Match</button><button data-q-act="reject" data-key="${esc(r.key)}">Reject message</button></div>`
+        <div class="inline"><button class="primary" data-q-act="link" data-key="${esc(r.key)}">Match</button>
+          <button data-q-act="ask" data-key="${esc(r.key)}">Request again</button>
+          <button data-q-act="reject" data-key="${esc(r.key)}">Reject message</button></div>${S.asked[r.key] ? `<p class="note dim">${esc(S.asked[r.key])}</p>` : ""}`
     : `<div class="inline" style="margin-top:0">Manual entry <input id="q-val"> ${esc(unit(C.fact_defs[r.f.fact].unit))} <button class="primary" data-q-act="enter" data-key="${esc(r.key)}">Save</button></div>`;
   return `
     <div class="block"><dl class="kv"><dt>Sender</dt><dd>${esc(SOURCE[r.src].sender)}</dd><dt>Message format</dt><dd>${esc(SOURCE[r.src].format)}</dd>
@@ -2054,7 +2077,7 @@ function outboundDetail(l) {
   const p = l.pid && patient(l.pid);
   return `
     <div class="block"><dl class="kv"><dt>Patient</dt><dd>${esc(p ? `${p.name} · ${fmtDate(p.dob)} · ${p.mrn}` : l.who)}</dd><dt>Sender</dt><dd>${esc(l.from)}</dd><dt>Recipient</dt><dd>${esc(l.to)}</dd>
-      <dt>Message format</dt><dd>${esc(l.format)}</dd>${l.channel ? `<dt>Channel</dt><dd>${esc(l.channel)}${ruleFor(l.channel) ? ` · rule ${ruleFor(l.channel)}` : ""}</dd>` : ""}
+      <dt>Message format</dt><dd>${esc(l.format)}</dd>${l.channel ? `<dt>Channel</dt><dd>${esc(l.channel)}</dd>` : ""}
       <dt>${l.kind === "send" ? "Clinical question" : "Message"}</dt><dd>${esc(l.q || "")}</dd>
       <dt>Legal basis</dt><dd>${esc(basisOf(l))}<br><span class="dim">${esc(BASIS_WHY[basisOf(l)])}</span></dd>
       <dt>Acknowledgement</dt><dd>${esc(ackOf(l))}</dd></dl></div>
@@ -2083,16 +2106,14 @@ document.addEventListener("click", (e) => {
   if (t.dataset.qAct) return reconAct(t.dataset.qAct, t.dataset.key);
 });
 document.addEventListener("change", (e) => {
-  const r = e.target.dataset?.route;
-  if (r) { S.off[r] = !e.target.checked; flash(`Rule ${r} ${S.off[r] ? "deactivated" : "activated"}`); }
   const t = RECOG.find((x) => [e.target.dataset?.recogOn, e.target.dataset?.recogMin, e.target.dataset?.recogHook].includes(x.id));
   if (!t) return;
-  if (e.target.dataset.recogOn) { t.on = e.target.checked; return flash(`${t.id} ${t.name}: ${t.on ? "on" : "off"}`); }
-  if (e.target.dataset.recogMin) { t.min = Number(e.target.value); return flash(`${t.id}: minimum confidence ${t.min}%, ${plural(lowCount(t), "read")} below it`); }
+  if (e.target.dataset.recogOn) { t.on = e.target.checked; return flash(`${t.name}: ${t.on ? "on" : "off"}`); }
+  if (e.target.dataset.recogMin) { t.min = Number(e.target.value); return flash(`${t.name}: minimum confidence ${t.min}%, ${plural(lowCount(t), "read")} below it`); }
   const [kind, ...rest] = e.target.value.split("|");
   t.hook = { kind, id: rest.join("|") };
-  logAccess({ action: "Attached text recognition profile", object: `${t.id} to ${hookText(t.hook)}`, basis: "Data management" });
-  flash(`${t.id} attached to ${hookText(t.hook)}`);
+  logAccess({ action: "Attached text recognition profile", object: `${t.name} to ${hookText(t.hook)}`, basis: "Data management" });
+  flash(`${t.name} attached to ${hookText(t.hook)}`);
 });
 $("#dialog").addEventListener("click", (e) => { if (e.target.id === "dialog") closeDialog(); });
 
@@ -2127,6 +2148,7 @@ function reconAct(a, key) {
     return flash(`Filed to ${patient(pid).name}; routed to the ${DEPTS[deptOf(patient(pid))].label} worklist`);
   }
   if (a === "i-reject") { i.status = "Rejected"; return route(); }
+  if (a === "ask") return askAgain(key);
   if (a === "i-dir") return contactDialog({ name: i.from, email: i.email, type: "GP practice" });
   if (a === "db-test") return flash(`Connection to ${db.name} succeeded. Account has read rights only.`);
   if (a === "db-sync") { if (db.rows) db.synced = "Today " + now().slice(11); return flash(db.rows ? `${db.name} synchronised: ${plural(db.rows().length, "row")} read` : "First sync scheduled"); }

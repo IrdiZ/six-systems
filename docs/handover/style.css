@@ -111,7 +111,7 @@ table.grid { border-collapse: collapse; width: 100%; table-layout: fixed; }
 .block .grid tr:last-child td, .field .grid tr:last-child td { border-bottom: 0; }
 
 /* status: text stays ink, a small square carries the state */
-.st { display: inline-flex; align-items: center; gap: 8px; }
+.st { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 .st::before { content: ""; width: 8px; height: 8px; border-radius: 2px; flex: none; }
 .st.DATA::before { background: var(--st-structured); }
 .st.CONFLICT::before { background: var(--st-converted); }
@@ -148,8 +148,9 @@ pre.raw { margin: 0; padding: 8px 12px; background: var(--soft); border: 1px sol
 #lightbox .bar { display: flex; gap: 10px; align-items: center; padding: 0 16px; height: 40px; color: #8f98a1; flex: none; border-bottom: 1px solid #22272c; }
 #lightbox .bar b { color: #dfe3e7; }
 #lightbox .bar label.vx { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-#lightbox .stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 16px; cursor: zoom-out; }
-#lightbox .frame { overflow: hidden; position: relative; line-height: 0; cursor: default; }
+#lightbox { cursor: zoom-out; }
+#lightbox .stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 16px; }
+#lightbox .frame { overflow: hidden; position: relative; line-height: 0; }
 #lightbox .frame img { display: block; max-width: calc(100vw - 32px); max-height: calc(100vh - 72px); }
 #lightbox .frame .box { position: absolute; outline: 2px solid #e8c84a; outline-offset: 4px; border-radius: 2px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, .25); pointer-events: none; }
 #lightbox.nomark .frame .box { display: none; }
@@ -237,5 +238,8 @@ body.portal #app { display: block; overflow-y: auto; }
 .inline button, .actions button { white-space: nowrap; flex: none; }
 button.primary kbd { border-color: rgba(255,255,255,.35); color: #dfe3e7; background: transparent; }
 #top .who { display: flex; align-items: center; gap: 16px; }
-#top .user { display: flex; align-items: center; gap: 8px; color: #fff; padding-left: 16px; border-left: 1px solid #4a5560; height: 20px; }
+#top .user { display: flex; align-items: center; gap: 8px; color: #fff; height: 20px; }
 #top .user svg { color: #aab2ba; }
+.grid td.nowrap { white-space: nowrap; }
+dl.kv dd select { max-width: 100%; }
+a.link { color: var(--accent); } a.link:hover { text-decoration: underline; }
