@@ -755,7 +755,7 @@ function banner(p, dept) {
 function docGrid(items, sel, dept, p, tab) {
   const rows = items.map((i) => `<tr class="row ${i === sel ? "sel" : ""}" data-href="#/clinic/${dept}/${p.pid}/${tab}/${i.id}" data-doc="${i.id}">
     ${td(i.receivedAt || fmtTime(i.time))}${tdt(i.title)}${tdt(i.origin)}${td(docStatus(i))}</tr>`);
-  return table([["Date and time", "152px", "", 2], ["Document"], ["Sender", "26%", "", 3], ["Status", "120px"]], rows);
+  return table([["Date and time", "152px", "", 2], ["Document"], ["Sender", "26%", "", 3], ["Status", "150px"]], rows);
 }
 
 // A document can hold several results: say how many still need attention, so the counts add up to the worklist's.
@@ -907,7 +907,7 @@ function sendDialog(preTo) {
       <label class="field"><span>Channel</span><select name="channel"></select></label>
       <label class="field"><span>Message format</span><select name="format"></select></label>
       <label class="field"><span>Clinical question <span class="req">*</span></span><textarea name="q" required>${esc(draft?.q || "")}</textarea></label>
-      <div class="field"><span>Enclosures</span>${table([["", "44px"], ["Document"], ["Date and time", "152px"], ["Results", "70px", "num"], ["Status", "124px"]],
+      <div class="field"><span>Enclosures</span>${table([["", "44px"], ["Document"], ["Date and time", "152px"], ["Results", "70px", "num"], ["Status", "150px"]],
         items.map((i) => `<tr>${td(`<input type="checkbox" name="it" value="${i.id}" ${(draft ? draft.ids.includes(i.id) : i === it || !items.includes(it)) ? "checked" : ""}>`)}${tdt(i.title)}${td(i.receivedAt || fmtTime(i.time))}${td(i.facts.length || "", "num")}${td(st(worst(i)))}</tr>`))}</div>
       <div class="field"><span>Recipient receives</span><div id="send-preview"></div></div>
     </div>
@@ -1906,7 +1906,7 @@ function renderAdmin(tab, key) {
     cols = ["Date and time", "Sender", "Patient", "Document", "Message format", "Acknowledgement", "Status"];
     line = (r) => [r.time, r.from, r.who, r.what, r.format, ack(r), r.status];
     list = table([["Date and time", "140px"], ["Sender", "200px", "", 4], ["Patient", "180px"], ["Document"], ["Acknowledgement", "130px", "", 3], ["Status", "116px", "", 2]],
-      rows.map((r) => row(r, cur, r.key, `${td(r.time)}${tdt(r.from)}${r.status === "Unmatched" ? td(st("LOST", r.who), "", "Unmatched: " + r.who) : tdt(r.who)}${tdt(r.what)}${flagCell(ack(r))}${td(r.status === "Unmatched" ? st("LOST", "Unmatched") : esc(r.status), "", r.status)}`)));
+      rows.map((r) => row(r, cur, r.key, `${td(r.time)}${tdt(r.from)}${r.status === "Unmatched" ? td(st("LOST", "No patient match"), "", "Report: " + r.who) : tdt(r.who)}${tdt(r.what)}${flagCell(ack(r))}${td(r.status === "Unmatched" ? st("LOST", "Unmatched") : esc(r.status), "", r.status)}`)));
     detail = cur && (cur.u ? reconDetail(reconRows().find((x) => x.key === cur.key)) : docDetail(cur.item, true));
   } else if (tab === "recog") {
     rows = RECOG; cur = sel(rows);

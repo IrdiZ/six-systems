@@ -111,7 +111,7 @@ table.grid { border-collapse: collapse; width: 100%; table-layout: fixed; }
 .block .grid tr:last-child td, .field .grid tr:last-child td { border-bottom: 0; }
 
 /* status: text stays ink, a small square carries the state */
-.st { display: inline-flex; align-items: center; gap: 8px; }
+.st { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 .st::before { content: ""; width: 8px; height: 8px; border-radius: 2px; flex: none; }
 .st.DATA::before { background: var(--st-structured); }
 .st.CONFLICT::before { background: var(--st-converted); }
