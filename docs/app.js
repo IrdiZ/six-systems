@@ -497,7 +497,7 @@
           <div class="row"><b>${noBsnFiles}</b><span>files that arrived without a BSN; ${C.unlinked.length} could not be linked at all, stranding ${stranded} values</span></div>
           <div class="row"><b>${faxed}</b><span>emergency results that only ever existed on a fax</span></div>
         </div>
-        <div class="owner">Owner: <b>clinical care, EHR integration team</b>. Forcing function: the Dutch Wegiz BgZ exchange mandate.</div>
+        <div class="owner">Owner: <b>clinical care, EHR integration team</b>. Forcing function: the EU EHDS exchange deadlines (2029, 2031).</div>
       </div>
       <div class="half" style="--c:var(--PICTURE)">
         <h3>Getting data out for research</h3>
