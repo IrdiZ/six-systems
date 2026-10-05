@@ -91,6 +91,9 @@ const ABBR = { lvef: "LVEF", ivs_thickness: "IVSd", lv_diameter: "LVIDd", kidney
 const CM = ["ivs_thickness", "lv_diameter", "kidney_length"]; // shown in cm on the image, stored in mm
 const PDF_PREFIX = { calcium_score: "Agatston calciumscore: ", nodule_size: "diameter ", tumour_size: "Tumorgrootte: " }; // text before the value in the report
 const PATCH = {}; // image file → { name, values }: text to redraw on it (paintMedia)
+// Converted means a unit conversion took place; a code mapping alone leaves value and unit as sent.
+const unitConverted = (f) => (f.steps || []).some((x) => /[×÷]/.test(x));
+const wordOf = (f) => { const v = verdict(f); return v === "LOST" && illegible(f) ? "Not legible" : v === "CONFLICT" && !unitConverted(f) ? "Code mapped" : WORD[v]; };
 const patchOf = (png) => (PATCH[png] ||= { values: [] });
 // A measurement whose screen capture arrived but cannot be read: the image is there, the value is not.
 const illegible = (f) => f.status === "LOST" && !!f.media?.box && !f.media.png.endsWith(".pdf.png");
@@ -341,11 +344,13 @@ function remark(f) {
     : "NHG Tabel 45 code mapped to LOINC on receipt. Value and unit as recorded by the GP; date only, no time.";
   if (v === "CONFLICT" && f.source === "nb_lab") return "Unit converted on receipt with a published factor. Original value retained.";
   if (v === "CONFLICT" && f.fact === "hba1c") return "Local code mapped to LOINC. Converted from % (NGSP) with the IFCC master equation, not a factor. Original value retained.";
-  if (v === "CONFLICT") return "Local code mapped to LOINC and unit converted on receipt. Original value retained.";
+  if (v === "CONFLICT") return unitConverted(f) ? "Local code mapped to LOINC and unit converted on receipt. Original value retained." : "Local code mapped to LOINC on receipt. Value and unit unchanged.";
   if (v === "CONFIRMED") return `Verified against the source image by ${S.confirmed[factKey(f)]}.`;
   if (v === "PICTURE") return (f.file || "").endsWith(".pdf")
     ? "Value extracted from the report text. No structured result available. Verification required."
-    : `No structured report (DICOM SR). Value extracted from the image by optical character recognition. Verification required.`;
+    : (C.patients.find((p) => p.pid === f.pid)?.facts.some((x) => x.file === (f.file || "").replace(/\.dcm$/, "_sr.dcm"))
+      ? "Not in the structured report (DICOM SR) of this examination; only on the exported screen capture. Value extracted from the image by optical character recognition. Verification required."
+      : "No structured report (DICOM SR). Value extracted from the image by optical character recognition. Verification required.");
   if (f.fact === "troponin_poc") return "Point-of-care result reported by fax. No electronic result received.";
   if (f.fact === "wsi_slide") return "Proprietary whole-slide format. No DICOM WSI conversion available.";
   if (f.source === "ext_lab") return "Result received without BSN. No patient match on name and date of birth.";
@@ -707,7 +712,7 @@ function renderClinic(dept, pid, tab, itemId) {
   const items = itemsOf(p.pid);
   const inTab = (t) => (t === "missing" ? items.filter((i) => i.facts.some((f) => f.status === "LOST" && !illegible(f))) : t === "all" || t === "transfers" ? items : items.filter((i) => i.cat === t));
   const shown = inTab(tab);
-  const it = shown.find((i) => i.id === itemId) || shown[0];
+  const it = shown.find((i) => i.id === itemId) || shown.find((i) => ["LOST", "PICTURE"].includes(worst(i))) || shown[0];
   CTX = { dept, p, tab, items: shown, it, pts };
 
   const count = (t) => (t === "transfers" ? auditOf(p).length : inTab(t).length);
@@ -774,13 +779,13 @@ function docGrid(items, sel, dept, p, tab) {
 // A document can hold several results: say how many still need attention, so the counts add up to the worklist's.
 function docStatus(i) {
   const n = (v) => i.facts.filter((f) => verdict(f) === v).length, unv = n("PICTURE"), ill = i.facts.filter(illegible).length, lost = n("LOST") - ill;
-  if (i.added || unv + lost + ill < 2) return ill ? st("LOST", "Not legible") : st(worst(i));
+  if (i.added || unv + lost + ill < 2) return ill ? st("LOST", "Not legible") : worst(i) === "CONFLICT" && !i.facts.some(unitConverted) ? st("CONFLICT", "Code mapped") : st(worst(i));
   return `<span class="stack">${unv ? st("PICTURE", `${unv} unverified`) : ""}${ill ? st("LOST", `${ill} not legible`) : ""}${lost ? st("LOST", `${lost} not received`) : ""}</span>`;
 }
 function docDetail(it, admin = false) {
   const fsel = it.facts.find((f) => factKey(f) === S.sel.fact) || it.facts[0];
   const rows = it.facts.map((f) => `<tr class="row ${f === fsel ? "sel" : ""}" data-fact="${esc(factKey(f))}">
-    ${tdt(label(f))}${td(value(f), typeof f.got === "number" || f.got == null || f.status === "LOST" ? "num" : "", TR[f.got] || "")}${td(st(verdict(f), verdict(f) === "LOST" && illegible(f) ? "Not legible" : WORD[verdict(f)]))}</tr>`);
+    ${tdt(label(f))}${td(value(f), typeof f.got === "number" || f.got == null || f.status === "LOST" ? "num" : "", TR[f.got] || "")}${td(st(verdict(f), wordOf(f)))}</tr>`);
   const src = SOURCE[it.source] || { system: it.via || "Manual upload" };
   const cap = it.facts.find((f) => f.captured)?.captured;
   return `
