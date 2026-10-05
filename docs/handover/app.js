@@ -833,7 +833,7 @@ function viewer(f, it) {
   if (!f?.media) return "";
   const b = f.media.box;
   return `<div class="viewer"><div class="bar"><b>${esc(f.media.png.replace(/^raw_\w+?_/, "").replace(/\.(pdf\.png|jpg|png)$/, ""))}</b><span>${esc(label(f))}</span>${expandBtn}</div>
-    <div class="stage" title="Double-click to expand"><div class="frame"><img src="${mediaSrc(f.media.png)}" alt="">${b ? `<div class="box" style="left:${b[0]}%;top:${b[1]}%;width:${b[2]}%;height:${b[3]}%"></div>` : ""}</div></div></div>`;
+    <div class="stage" title="Click to expand"><div class="frame"><img src="${mediaSrc(f.media.png)}" alt="">${b ? `<div class="box" style="left:${b[0]}%;top:${b[1]}%;width:${b[2]}%;height:${b[3]}%"></div>` : ""}</div></div></div>`;
 }
 
 // A file that came in through an upload link, intake or manual attachment; the viewer stays the only dark surface.
@@ -856,10 +856,10 @@ function expandViewer(v) {
   o.querySelector("[data-expand]").remove();
   document.body.append(o);
   o.addEventListener("change", (e) => { if (e.target.dataset.marking !== undefined) o.classList.toggle("nomark", !e.target.checked); });
-  o.addEventListener("click", (e) => { if (e.target.closest("[data-shrink]") || e.target === o.querySelector(".stage")) o.remove(); });
+  o.addEventListener("click", (e) => { if (!e.target.closest("label")) o.remove(); }); // anywhere closes it, except the marking switch
 }
 document.addEventListener("click", (e) => { if (e.target.closest("[data-expand]")) expandViewer(e.target.closest(".viewer")); });
-document.addEventListener("dblclick", (e) => { const v = e.target.closest("#app .viewer .stage"); if (v) expandViewer(v.closest(".viewer")); });
+document.addEventListener("click", (e) => { const v = e.target.closest("#app .viewer .stage"); if (v && v.closest(".viewer").querySelector("[data-expand]")) expandViewer(v.closest(".viewer")); });
 const openLink = (f) => [...S.log].reverse().find((l) => l.pid === f.pid && l.facts?.includes(f.fact) && l.portal?.state === "active");
 
 // Every received document, for one patient.
