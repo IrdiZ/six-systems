@@ -1224,13 +1224,13 @@ function intakeDetail(i) {
   const ans = i.pid && i.fact && [...S.log].reverse().find((l) => l.kind === "request" && l.pid === i.pid && l.facts?.includes(i.fact)); // the request this answers
   const pts = C.patients.map((p) => `<option value="${p.pid}" ${p.pid === i.pid ? "selected" : ""}>${esc(p.family)}, ${esc(p.given)} · ${fmtDate(p.dob)} · ${p.mrn}</option>`).join("");
   return `
-    <div class="block"><dl class="kv"><dt>Channel</dt><dd>${esc(c.name)} · ${esc(c.type)}</dd><dt>Received</dt><dd>${i.time}</dd>
+    <div class="block"><dl class="kv"><dt>Channel</dt><dd>${esc(c.name)}</dd><dt>Received</dt><dd>${i.time}</dd>
       ${i.channel === "fax" ? `<dt>Calling number</dt><dd>${esc(i.calling || "Not transmitted")}</dd>
       <dt>Sender</dt><dd>${faxOf(i.calling) ? `${esc(faxOf(i.calling).name)} · matched by fax number in Institutions` : `${st("PICTURE", "Unknown fax number")}<br><span class="dim">Call back on a number from Institutions, not the one on the fax.</span>`}</dd>
       <dt>Header on the fax</dt><dd>${esc(i.tsi || "None")} <span class="dim">· as stated by the sender, not verified</span></dd>`
-      : `<dt>Sender</dt><dd>${esc(i.from)}${ok ? "" : ` · ${st("PICTURE", "Not a registered institution")}`}</dd>`}<dt>Subject</dt><dd>${esc(i.subject)}</dd>
+      : i.channel === "folder" ? "" : `<dt>Sender</dt><dd>${esc(i.from)}${ok ? "" : ` · ${st("PICTURE", "Not a registered institution")}`}</dd>`}
       ${ans ? `<dt>Answers</dt><dd>Result request of ${esc(ans.time)}, sent by ${esc(ans.channel)}; the sender replied by fax</dd>` : ""}
-      <dt>Routing</dt><dd>${!ok ? "Rule R8: held in To file until the sender is a registered institution" : ans ? `Rule R7: held for review; once filed, rule R1 returns it to ${esc(ans.from)} and notifies the requester` : "Rule R7: held in To file for review"}</dd></dl></div>
+      ${!ok ? `<dt>Routing</dt><dd>Rule R8: held until the sender is a registered institution</dd>` : ans ? `<dt>Routing</dt><dd>Once filed, rule R1 returns it to ${esc(ans.from)} and notifies the requester</dd>` : ""}</dl></div>
     <div class="block"><h4>Filing</h4>${open ? `
       <label class="field"><span>Patient</span><select id="i-pid"><option value="">Select patient</option>${pts}</select></label>
       <div class="field"><span></span><div class="dim">${esc(i.match)}</div></div>
@@ -1778,15 +1778,15 @@ const recogLine = (kind, id) => { const ts = recogFor(kind, id);
 
 const ADMIN = {
   overview: { label: "Overview" },
-  inbound: { label: "Received", sub: "Inbound Documents and Messages per Sender; Unidentified Messages Are Matched to a Patient Here" },
-  outbound: { label: "Sent", sub: "Outbound Referrals, Result Requests and Shared Results, with Acknowledgement and Delivery Status" },
-  mapping: { label: "Code and Unit Conversion", sub: "Local Test Codes and Units per Sender, Mapped to LOINC and UCUM; Reviewed and Versioned Before Use" },
-  recog: { label: "Text Recognition", sub: "Extraction Profiles for Images (OCR) and PDF Text per Connection or Institution, with Confidence Thresholds" },
-  sources: { label: "Department Databases", sub: "Departmental Databases Read Through a Read-Only Connection; Column Mapping and Data Quality per Synchronisation" },
-  channels: { label: "Connections", sub: "Interfaces, Mailboxes and Endpoints for Message Exchange; Queues, Errors and Certificate Validity" },
-  routing: { label: "Delivery Rules", sub: "Routing Rules for Inbound and Outbound Messages, Evaluated in Order; the First Matching Rule Applies" },
-  directory: { label: "Institutions", sub: "Register of External Institutions: AGB and URA Identifiers, Preferred Channel and Verification Status" },
-  access: { label: "Access Log", sub: "Access to Patient Data per NEN 7513: User, Action, Object and Legal Basis; Exportable per Patient" },
+  inbound: { label: "Received" },
+  outbound: { label: "Sent" },
+  mapping: { label: "Code and Unit Conversion" },
+  recog: { label: "Text Recognition" },
+  sources: { label: "Department Databases" },
+  channels: { label: "Connections" },
+  routing: { label: "Delivery Rules" },
+  directory: { label: "Institutions" },
+  access: { label: "Access Log" },
 };
 
 function renderAdmin(tab, key) {
@@ -1881,7 +1881,7 @@ function renderAdmin(tab, key) {
   const keyOf = (r) => r.key || r.id;
   const chosen = pick.size ? rows.filter((r) => pick.has(keyOf(r))) : cur ? [cur] : [];
   CTX.exp = { all: [cols, ...rows.map(line)], sel: chosen.length ? [cols, ...chosen.map(line)] : null, n: chosen.length };
-  $("#app").innerHTML = `<section class="work admin">${tabs}<div class="split"><div class="pane list">${phead(t.label, t.sub, filterBox("admin-" + tab))}${list}</div>
+  $("#app").innerHTML = `<section class="work admin">${tabs}<div class="split"><div class="pane list">${phead(t.label, "", filterBox("admin-" + tab))}${list}</div>
     <div class="pane detail">${detail || `<p class="empty">None</p>`}</div></div>${adminBar()}</section>`;
 }
 
