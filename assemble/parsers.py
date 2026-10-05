@@ -336,6 +336,7 @@ PDF_PATTERNS = {
     "tumour_size": (r"Tumorgrootte:\s*(\d+(?:[.,]\d+)?)\s*mm", "Tumorgrootte"),
     "path_diagnosis": (r"Conclusie\s+(.+?)\.(?:\s|$)", None, "pathology"),
     "pet_result": (r"PET-conclusie\s+(.+?)\.(?:\s|$)", None, "radiology"),
+    "cad_rads": (r"CAD-RADS (\w+)\.", "CAD-RADS", "radiology"),
     "mdo_advice": (r"Advies\s+(.+?)\.(?:\s|$)", None, "mdo"),
     "heart_rate": (r"Ventrikelfrequentie\s+(\d+)", "Ventrikelfrequentie", "ecg"),
     "pr": (r"PR-interval\s+(\d+)", "PR-interval", "ecg"),

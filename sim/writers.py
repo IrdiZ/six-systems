@@ -41,7 +41,7 @@ def write_hl7_rows(path: Path, p: Patient, when: datetime, rows: list[tuple[str,
         f"OBR|1|{msg_id}||LAB^Laboratory panel^L|||{ts}",
     ]
     for i, (loinc, label, value, unit) in enumerate(rows, 1):
-        kind, v = ("ST", value) if isinstance(value, str) else ("NM", _fmt(value, 1))
+        kind, v = ("ST", value) if isinstance(value, str) else ("NM", _fmt(value, 2 if round(value, 2) != round(value, 1) else 1))
         segs.append(f"OBX|{i}|{kind}|{loinc}^{label}^LN||{v}|{unit or ''}|||||F|||{ts}")
     path.write_text("\r".join(segs) + "\r")
 

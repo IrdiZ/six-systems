@@ -8,8 +8,8 @@
 | | |
 |---|---|
 | **97%** | of all true facts have a file in the archive: the case *looks* complete |
-| **41%** | arrive usable as data: coded, right unit, right patient |
-| **95%** | recovered by this pipeline after code maps, unit maths, identity matching, OCR and PDF reading (0 wrong values) |
+| **56%** | arrive usable as data: coded, right unit, right patient |
+| **96%** | recovered by this pipeline after code maps, unit maths, identity matching, OCR and PDF reading (0 wrong values) |
 
 ## What this is, in plain words
 
@@ -17,11 +17,11 @@ Doctors and researchers at hospitals keep saying the same thing: *"we only get p
 
 We can't use real patient data, so we made up a hospital:
 
-1. **Simulator.** Invents 20 fake patients and their care, and writes every department's files in its real, messy format. It also writes a hidden answer key with the true values.
+1. **Simulator.** Invents 40 fake patients and their care, each on its own branching care path, and writes every department's files in its real, messy format. It also writes a hidden answer key with the true values.
 2. **Assembler.** Tries to turn all those files into clean data: works out which patient each file belongs to, translates codes and units, and reads numbers off images and PDFs.
 3. **Scoring.** Compares the result against the answer key the assembler never saw.
 
-The result: the archive **looks** 97% complete, but only 41% of it arrives as usable data. With a lot of repair work the assembler gets that to 95%, with zero wrong values. The gap is the problem, and the repair work is the part nobody currently owns.
+The result: the archive **looks** 97% complete, but only 56% of it arrives as usable data. With a lot of repair work the assembler gets that to 96%, with zero wrong values. The gap is the problem, and the repair work is the part nobody currently owns.
 
 **Follow one patient.** The [explainer page](https://irdiz.github.io/six-systems/explained.html) walks through one invented patient's heart scare, using their actual files:
 
@@ -43,7 +43,7 @@ The result: the archive **looks** 97% complete, but only 41% of it arrives as us
 
 ## What it does
 
-Twenty synthetic patients move through three care paths (chest pain, lung nodule, kidney follow-up) across a fictional Dutch academic hospital, a neighbouring hospital, a regional lab, a GP practice and a shared pathology lab. Nine sources, each in its own format:
+Forty synthetic patients move through three branching care paths (chest pain, lung nodule, kidney follow-up; the decision rules come from ESC 2023, Fleischner 2017, NHG and KDIGO, cited in `sim/run.py`) across a fictional Dutch academic hospital, a neighbouring hospital, a regional lab, a GP practice and a shared pathology lab. Nine sources, each in its own format:
 
 | Source | Format | What goes wrong, on purpose |
 |---|---|---|

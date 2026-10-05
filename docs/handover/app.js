@@ -60,7 +60,7 @@ const LABEL = {
   av_vmax: "Aortic valve peak velocity", av_meangrad: "Aortic valve mean gradient", cag_result: "Coronary angiography, conclusion",
   pr: "PR interval", qrs: "QRS duration", qtc: "QTc interval", ecg_conclusion: "ECG, conclusion", tsat: "Transferrin saturation",
   b12: "Vitamin B12", urine_hb: "Blood in urine (dipstick)", kidney_length_right: "Renal length, right", pet_result: "PET-CT, conclusion",
-  mdo_advice: "Multidisciplinary meeting, advice", aptt: "aPTT",
+  mdo_advice: "Multidisciplinary meeting, advice", aptt: "aPTT", cad_rads: "CAD-RADS", folate: "Folate",
 };
 // six-sys stores report text in Dutch; shown translated.
 const TR = {
@@ -91,8 +91,9 @@ const TR_PART = {
   "CTA longembolie": "CT pulmonary angiography", "CT thorax low-dose, zonder contrast": "CT thorax, low-dose, without contrast",
   "negatief": "negative",
 };
-const TR_RE = [[/^FDG-avide nodus rechter bovenkwab, SUVmax ([\d,]+)$/, "FDG-avid nodule, right upper lobe, SUVmax $1"],
-  [/^Lobectomie rechter bovenkwab bij (.+)$/, "Right upper lobectomy, $1"],
+const LOBE = { "rechter bovenkwab": "right upper lobe", "linker bovenkwab": "left upper lobe", "rechter onderkwab": "right lower lobe" };
+const TR_RE = [[/^FDG-avide nodus (.+), SUVmax ([\d,]+)$/, (m, l, v) => `FDG-avid nodule, ${LOBE[l] || l}, SUVmax ${v}`],
+  [/^Anatomische resectie \(segmentectomie of lobectomie\) (.+) bij (.+)$/, (m, l, st) => `Anatomical resection (segmentectomy or lobectomy), ${LOBE[l] || l}, ${st}`],
   [/^Stereotactische radiotherapie \(SBRT\), medisch inoperabel bij (.+)$/, "Stereotactic radiotherapy (SBRT), medically inoperable, $1"]];
 const tr = (v) => TR[v] ?? (typeof v === "string" ? v.split("; ").map((x) => TR_PART[x] ?? TR_RE.reduce((y, [re, to]) => y.replace(re, to), x)).join("; ") : v);
 const unit = (u) => String(u || "").replace(/\bu(mol|g)\b/g, "µ$1").replace("1.73m2", "1.73 m²").replace("mm[Hg]", "mmHg").replace("10*9/L", "× 10⁹/L")
@@ -1237,7 +1238,7 @@ const LOCAL_LAB = { TROP: "troponin", KREA: "creatinine", EGFR: "egfr", GLUC: "g
   CRP: "crp", LEUK: "wbc", TROM: "platelets", INR: "inr", PCO2: "pco2", PO2: "po2", MCV: "mcv", TSH: "tsh", FT4: "ft4", ALAT: "alt",
   ASAT: "ast", AF: "alp", GGT: "ggt", BILI: "bilirubin", ALB: "albumin", LD: "ldh", CEA: "cea", PTH: "pth", BIC: "bicarbonate", FERR: "ferritin",
   UREUM: "urea", CHOL: "cholesterol", LDL: "ldl", HDL: "hdl", TRIG: "triglycerides", HBA1C: "hba1c", CA: "calcium", FOSF: "phosphate", ACR: "uacr",
-  LITH: "lithium", TSAT: "tsat", B12: "b12", APTT: "aptt", UHB: "urine_hb" };
+  LITH: "lithium", TSAT: "tsat", B12: "b12", APTT: "aptt", UHB: "urine_hb", FOL: "folate", RRSY: "sbp", RRDI: "dbp", GEW: "weight" };
 function labRows() {
   return C.patients.flatMap((p) => p.facts.filter((f) => f.source === "epic_lab").map((f) => ({
     PATID: p.mrn, BEPALING: Object.keys(LOCAL_LAB).find((k) => LOCAL_LAB[k] === f.fact), UITSLAG: comma(f.truth_value),

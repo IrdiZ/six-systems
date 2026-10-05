@@ -95,6 +95,8 @@ FACTS = {
     "kidney_length_right": {"label": "Kidney length (right)", "unit": "mm",        "loinc": "15291-8", "kind": "measurement"},
     "pet_result":     {"label": "PET-CT, conclusion",     "unit": None,            "loinc": None,      "kind": "text"},
     "mdo_advice":     {"label": "MDT meeting, advice",    "unit": None,            "loinc": None,      "kind": "text"},
+    "cad_rads":       {"label": "CAD-RADS",               "unit": None,            "loinc": None,      "kind": "text"},
+    "folate":         {"label": "Folate",                 "unit": "nmol/L",        "loinc": "14732-2", "kind": "lab"},
 }
 
 NHG_TO_FACT = {f["nhg"]: k for k, f in FACTS.items() if f.get("nhg")}

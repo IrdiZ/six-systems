@@ -1,5 +1,5 @@
 {
- "e03e20908711f960cfff927b24328d98360d090f54e468af3b0520e3d6b211d8": [
+ "140f5c280da2f6fe5b9e3891fac89b756418af551ac85303d4b852a4fb8ede1c": [
   {
    "fact": "lvef",
    "value": 32.0,
@@ -24,17 +24,17 @@
   },
   {
    "fact": "ivs_thickness",
-   "value": 11.0,
+   "value": 9.0,
    "unit": "mm",
    "source": "echo",
    "status": "PICTURE",
    "steps": [
     "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"IVSd_ 1.1¢m\"",
-    "1.1 cm → 11 mm",
-    "OCR confidence 63%"
+    "OCR read: \"IVSd 0.9cm\"",
+    "0.9 cm → 9 mm",
+    "OCR confidence 65%"
    ],
-   "excerpt": "OCR line: \"IVSd_ 1.1¢m\"\n\n(0010,0020) PatientID      1991709\n(0010,0010) PatientName    Vallenduuk^Mike\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "excerpt": "OCR line: \"IVSd 0.9cm\"\n\n(0010,0020) PatientID      1991709\n(0010,0010) PatientName    Vallenduuk^Mike\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
     "png": "raw_echo_US00005.jpg",
     "box": [
@@ -47,17 +47,17 @@
   },
   {
    "fact": "lv_diameter",
-   "value": 48.0,
+   "value": 53.0,
    "unit": "mm",
    "source": "echo",
    "status": "PICTURE",
    "steps": [
     "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"LVIDd 4.8cm\"",
-    "4.8 cm → 48 mm",
-    "OCR confidence 82%"
+    "OCR read: \"LVIDd 5.3cm\"",
+    "5.3 cm → 53 mm",
+    "OCR confidence 62%"
    ],
-   "excerpt": "OCR line: \"LVIDd 4.8cm\"\n\n(0010,0020) PatientID      1991709\n(0010,0010) PatientName    Vallenduuk^Mike\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "excerpt": "OCR line: \"LVIDd 5.3cm\"\n\n(0010,0020) PatientID      1991709\n(0010,0010) PatientName    Vallenduuk^Mike\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
     "png": "raw_echo_US00005.jpg",
     "box": [
@@ -69,21 +69,21 @@
    }
   }
  ],
- "4356735c4c3fe5ade3b35ec6597635473bb50663946845e28915bcb5a34105a1": [
+ "4db69b82d0d34f76ad83259016ab3b92eb469c0cd3ccdb1ea9d25ca237bfa09d": [
   {
    "fact": "lvef",
-   "value": 56.0,
+   "value": 52.0,
    "unit": "%",
    "source": "echo",
    "status": "PICTURE",
    "steps": [
     "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"LVEF 56%\"",
+    "OCR read: \"LVEF 52%\"",
     "OCR confidence 96%"
    ],
-   "excerpt": "OCR line: \"LVEF 56%\"\n\n(0010,0020) PatientID      8074924\n(0010,0010) PatientName    Bud^Merel\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "excerpt": "OCR line: \"LVEF 52%\"\n\n(0010,0020) PatientID      8074924\n(0010,0010) PatientName    Bud^Merel\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
-    "png": "raw_echo_US00020.jpg",
+    "png": "raw_echo_US00022.jpg",
     "box": [
      72.56,
      21.33,
@@ -103,7 +103,7 @@
    ],
    "excerpt": "OCR line: \"IVSd\"\n\n(0010,0020) PatientID      8074924\n(0010,0010) PatientName    Bud^Merel\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
-    "png": "raw_echo_US00020.jpg",
+    "png": "raw_echo_US00022.jpg",
     "box": [
      72.56,
      28.83,
@@ -114,19 +114,19 @@
   },
   {
    "fact": "lv_diameter",
-   "value": 56.0,
+   "value": 47.0,
    "unit": "mm",
    "source": "echo",
    "status": "PICTURE",
    "steps": [
     "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"LVIDd 5.6cm\"",
-    "5.6 cm → 56 mm",
-    "OCR confidence 82%"
+    "OCR read: \"LVIDd 4.7cm\"",
+    "4.7 cm → 47 mm",
+    "OCR confidence 75%"
    ],
-   "excerpt": "OCR line: \"LVIDd 5.6cm\"\n\n(0010,0020) PatientID      8074924\n(0010,0010) PatientName    Bud^Merel\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "excerpt": "OCR line: \"LVIDd 4.7cm\"\n\n(0010,0020) PatientID      8074924\n(0010,0010) PatientName    Bud^Merel\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
-    "png": "raw_echo_US00020.jpg",
+    "png": "raw_echo_US00022.jpg",
     "box": [
      72.56,
      36.5,
@@ -136,21 +136,21 @@
    }
   }
  ],
- "3b13600e3639378536d92609d6aa0826259891a389f39a91299444ddcd5a5aee": [
+ "0613e6a30beac74c5e3d86d7373625a2291693bb270e6e40258a9f24430baa4d": [
   {
    "fact": "lvef",
-   "value": 62.0,
+   "value": 56.0,
    "unit": "%",
    "source": "echo",
    "status": "PICTURE",
    "steps": [
     "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"LVEF 62%\"",
+    "OCR read: \"LVEF 56%\"",
     "OCR confidence 96%"
    ],
-   "excerpt": "OCR line: \"LVEF 62%\"\n\n(0010,0020) PatientID      6963698\n(0010,0010) PatientName    Kuit^Floor\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "excerpt": "OCR line: \"LVEF 56%\"\n\n(0010,0020) PatientID      6963698\n(0010,0010) PatientName    Kuit^Floor\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
-    "png": "raw_echo_US00026.jpg",
+    "png": "raw_echo_US00027.jpg",
     "box": [
      72.56,
      21.33,
@@ -161,19 +161,19 @@
   },
   {
    "fact": "ivs_thickness",
-   "value": 11.0,
+   "value": 10.0,
    "unit": "mm",
    "source": "echo",
    "status": "PICTURE",
    "steps": [
     "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"IVSd_ 1.1¢m\"",
-    "1.1 cm → 11 mm",
-    "OCR confidence 63%"
+    "OCR read: \"IVSd_ 1.0cm\"",
+    "1.0 cm → 10 mm",
+    "OCR confidence 52%"
    ],
-   "excerpt": "OCR line: \"IVSd_ 1.1¢m\"\n\n(0010,0020) PatientID      6963698\n(0010,0010) PatientName    Kuit^Floor\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "excerpt": "OCR line: \"IVSd_ 1.0cm\"\n\n(0010,0020) PatientID      6963698\n(0010,0010) PatientName    Kuit^Floor\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
-    "png": "raw_echo_US00026.jpg",
+    "png": "raw_echo_US00027.jpg",
     "box": [
      72.56,
      28.83,
@@ -196,7 +196,7 @@
    ],
    "excerpt": "OCR line: \"LVIDd 5.5cm\"\n\n(0010,0020) PatientID      6963698\n(0010,0010) PatientName    Kuit^Floor\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
-    "png": "raw_echo_US00026.jpg",
+    "png": "raw_echo_US00027.jpg",
     "box": [
      72.56,
      36.5,
@@ -206,21 +206,21 @@
    }
   }
  ],
- "4a0824b7cabbcb430404a77aba0f2efb02776b1019193670027a5669ef932b6b": [
+ "ecb3c49ce927cc7d71c9eb6637eb8d0467f0d6ac1577966111872c55e7e02f66": [
   {
    "fact": "lvef",
-   "value": 47.0,
+   "value": 42.0,
    "unit": "%",
    "source": "echo",
    "status": "PICTURE",
    "steps": [
     "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"LVEF 47%\"",
+    "OCR read: \"LVEF 42%\"",
     "OCR confidence 96%"
    ],
-   "excerpt": "OCR line: \"LVEF 47%\"\n\n(0010,0020) PatientID      8056971\n(0010,0010) PatientName    Kok^Kian\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "excerpt": "OCR line: \"LVEF 42%\"\n\n(0010,0020) PatientID      8056971\n(0010,0010) PatientName    Kok^Kian\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
-    "png": "raw_echo_US00105.jpg",
+    "png": "raw_echo_US00115.jpg",
     "box": [
      72.56,
      21.33,
@@ -243,7 +243,7 @@
    ],
    "excerpt": "OCR line: \"IVSd_ 1.2cm\"\n\n(0010,0020) PatientID      8056971\n(0010,0010) PatientName    Kok^Kian\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
-    "png": "raw_echo_US00105.jpg",
+    "png": "raw_echo_US00115.jpg",
     "box": [
      72.56,
      28.83,
@@ -254,19 +254,19 @@
   },
   {
    "fact": "lv_diameter",
-   "value": 59.0,
+   "value": 56.0,
    "unit": "mm",
    "source": "echo",
    "status": "PICTURE",
    "steps": [
     "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"LVIDd 5.9cm\"",
-    "5.9 cm → 59 mm",
-    "OCR confidence 56%"
+    "OCR read: \"LVIDd 5.6cm\"",
+    "5.6 cm → 56 mm",
+    "OCR confidence 82%"
    ],
-   "excerpt": "OCR line: \"LVIDd 5.9cm\"\n\n(0010,0020) PatientID      8056971\n(0010,0010) PatientName    Kok^Kian\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "excerpt": "OCR line: \"LVIDd 5.6cm\"\n\n(0010,0020) PatientID      8056971\n(0010,0010) PatientName    Kok^Kian\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
-    "png": "raw_echo_US00105.jpg",
+    "png": "raw_echo_US00115.jpg",
     "box": [
      72.56,
      36.5,
@@ -276,21 +276,21 @@
    }
   }
  ],
- "1cdf57747c932a20d1262d4a8babcaea10e8d892079bac29c4003f9c947a9943": [
+ "8281ae2577e792235437f8a1fc29b0995e4b3c6ed3e563fffda1eb386bf58f13": [
   {
    "fact": "lvef",
-   "value": 52.0,
+   "value": 31.0,
    "unit": "%",
    "source": "echo",
    "status": "PICTURE",
    "steps": [
     "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"LVEF 52%\"",
-    "OCR confidence 96%"
+    "OCR read: \"LVEF 31%\"",
+    "OCR confidence 95%"
    ],
-   "excerpt": "OCR line: \"LVEF 52%\"\n\n(0010,0020) PatientID      5154974\n(0010,0010) PatientName    Schrik^Mark\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "excerpt": "OCR line: \"LVEF 31%\"\n\n(0010,0020) PatientID      5154974\n(0010,0010) PatientName    Schrik^Mark\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
-    "png": "raw_echo_US00113.jpg",
+    "png": "raw_echo_US00123.jpg",
     "box": [
      72.56,
      21.33,
@@ -301,19 +301,19 @@
   },
   {
    "fact": "ivs_thickness",
-   "value": 10.0,
+   "value": 12.0,
    "unit": "mm",
    "source": "echo",
    "status": "PICTURE",
    "steps": [
     "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"IVSd_ 1.0cm\"",
-    "1.0 cm → 10 mm",
-    "OCR confidence 52%"
+    "OCR read: \"IVSd_ 1.2cm\"",
+    "1.2 cm → 12 mm",
+    "OCR confidence 64%"
    ],
-   "excerpt": "OCR line: \"IVSd_ 1.0cm\"\n\n(0010,0020) PatientID      5154974\n(0010,0010) PatientName    Schrik^Mark\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "excerpt": "OCR line: \"IVSd_ 1.2cm\"\n\n(0010,0020) PatientID      5154974\n(0010,0010) PatientName    Schrik^Mark\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
-    "png": "raw_echo_US00113.jpg",
+    "png": "raw_echo_US00123.jpg",
     "box": [
      72.56,
      28.83,
@@ -324,19 +324,19 @@
   },
   {
    "fact": "lv_diameter",
-   "value": 46.0,
+   "value": 49.0,
    "unit": "mm",
    "source": "echo",
    "status": "PICTURE",
    "steps": [
     "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"LVIDd 4.6cm\"",
-    "4.6 cm → 46 mm",
-    "OCR confidence 80%"
+    "OCR read: \"LVIDd 4.9cm\"",
+    "4.9 cm → 49 mm",
+    "OCR confidence 75%"
    ],
-   "excerpt": "OCR line: \"LVIDd 4.6cm\"\n\n(0010,0020) PatientID      5154974\n(0010,0010) PatientName    Schrik^Mark\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "excerpt": "OCR line: \"LVIDd 4.9cm\"\n\n(0010,0020) PatientID      5154974\n(0010,0010) PatientName    Schrik^Mark\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
-    "png": "raw_echo_US00113.jpg",
+    "png": "raw_echo_US00123.jpg",
     "box": [
      72.56,
      36.5,
@@ -346,67 +346,67 @@
    }
   }
  ],
- "db600baf1500310315f70bf50c67d04cc95075ffc27e36313b8471c174969300": [
+ "bfd8dbb4c487da565c7ec22e8998a7c907ea5bd402907a32e1c2ec4e574d4f7d": [
   {
    "fact": "lvef",
+   "value": 55.0,
+   "unit": "%",
+   "source": "echo",
+   "status": "PICTURE",
+   "steps": [
+    "OCR on pixels burned into a DICOM Secondary Capture",
+    "OCR read: \"LVEF 55%\"",
+    "OCR confidence 95%"
+   ],
+   "excerpt": "OCR line: \"LVEF 55%\"\n\n(0010,0020) PatientID      4834497\n(0010,0010) PatientName    te Bastiaense^Kate\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "media": {
+    "png": "raw_echo_US00138.jpg",
+    "box": [
+     72.56,
+     21.33,
+     18.44,
+     5.33
+    ]
+   }
+  },
+  {
+   "fact": "ivs_thickness",
+   "value": 12.0,
+   "unit": "mm",
+   "source": "echo",
+   "status": "PICTURE",
+   "steps": [
+    "OCR on pixels burned into a DICOM Secondary Capture",
+    "OCR read: \"IVSd_ 1.2cm\"",
+    "1.2 cm → 12 mm",
+    "OCR confidence 64%"
+   ],
+   "excerpt": "OCR line: \"IVSd_ 1.2cm\"\n\n(0010,0020) PatientID      4834497\n(0010,0010) PatientName    te Bastiaense^Kate\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "media": {
+    "png": "raw_echo_US00138.jpg",
+    "box": [
+     72.56,
+     28.83,
+     20.22,
+     5.5
+    ]
+   }
+  },
+  {
+   "fact": "lv_diameter",
    "value": 53.0,
-   "unit": "%",
-   "source": "echo",
-   "status": "PICTURE",
-   "steps": [
-    "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"LVEF 53%\"",
-    "OCR confidence 96%"
-   ],
-   "excerpt": "OCR line: \"LVEF 53%\"\n\n(0010,0020) PatientID      4834497\n(0010,0010) PatientName    te Bastiaense^Kate\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
-   "media": {
-    "png": "raw_echo_US00127.jpg",
-    "box": [
-     72.56,
-     21.33,
-     18.44,
-     5.33
-    ]
-   }
-  },
-  {
-   "fact": "ivs_thickness",
-   "value": 9.0,
    "unit": "mm",
    "source": "echo",
    "status": "PICTURE",
    "steps": [
     "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"IVSd 0.9cm\"",
-    "0.9 cm → 9 mm",
-    "OCR confidence 65%"
+    "OCR read: \"LVIDd 5.3cm\"",
+    "5.3 cm → 53 mm",
+    "OCR confidence 62%"
    ],
-   "excerpt": "OCR line: \"IVSd 0.9cm\"\n\n(0010,0020) PatientID      4834497\n(0010,0010) PatientName    te Bastiaense^Kate\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "excerpt": "OCR line: \"LVIDd 5.3cm\"\n\n(0010,0020) PatientID      4834497\n(0010,0010) PatientName    te Bastiaense^Kate\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
-    "png": "raw_echo_US00127.jpg",
-    "box": [
-     72.56,
-     28.83,
-     20.22,
-     5.5
-    ]
-   }
-  },
-  {
-   "fact": "lv_diameter",
-   "value": 46.0,
-   "unit": "mm",
-   "source": "echo",
-   "status": "PICTURE",
-   "steps": [
-    "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"LVIDd 4.6cm\"",
-    "4.6 cm → 46 mm",
-    "OCR confidence 80%"
-   ],
-   "excerpt": "OCR line: \"LVIDd 4.6cm\"\n\n(0010,0020) PatientID      4834497\n(0010,0010) PatientName    te Bastiaense^Kate\n(0008,1030) StudyDescr     TTE volledig\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
-   "media": {
-    "png": "raw_echo_US00127.jpg",
+    "png": "raw_echo_US00138.jpg",
     "box": [
      72.56,
      36.5,
@@ -416,55 +416,7 @@
    }
   }
  ],
- "6af2ff85ded750a9d30749d0ee7bfa81af7426d6503eabe5702904b459bd5b26": [
-  {
-   "fact": "kidney_length_right",
-   "value": 98.0,
-   "unit": "mm",
-   "source": "radiology",
-   "status": "PICTURE",
-   "steps": [
-    "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"Nierre 9.8cm\"",
-    "9.8 cm → 98 mm",
-    "OCR confidence 83%"
-   ],
-   "excerpt": "OCR line: \"Nierre 9.8cm\"\n\n(0010,0020) PatientID      3459582\n(0010,0010) PatientName    van de Willems^Kyara\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
-   "media": {
-    "png": "raw_radiology_US00061.jpg",
-    "box": [
-     72.56,
-     21.33,
-     21.67,
-     5.33
-    ]
-   }
-  },
-  {
-   "fact": "kidney_length",
-   "value": 99.0,
-   "unit": "mm",
-   "source": "radiology",
-   "status": "PICTURE",
-   "steps": [
-    "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"Nier li 9.9m\"",
-    "9.9 cm → 99 mm",
-    "OCR confidence 0%"
-   ],
-   "excerpt": "OCR line: \"Nier li 9.9m\"\n\n(0010,0020) PatientID      3459582\n(0010,0010) PatientName    van de Willems^Kyara\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
-   "media": {
-    "png": "raw_radiology_US00061.jpg",
-    "box": [
-     72.56,
-     28.83,
-     20.22,
-     5.5
-    ]
-   }
-  }
- ],
- "2292ad12950448e721f50fe4dee3df4ce8b333ef1053f73dfa876f1b4750b157": [
+ "ed971fdfe8a6c2dd7989641c4c280ca3d388b56f10a151649afcf27bbf105f51": [
   {
    "fact": "kidney_length_right",
    "value": 91.0,
@@ -479,7 +431,7 @@
    ],
    "excerpt": "OCR line: \"Nierre 9.1cm\"\n\n(0010,0020) PatientID      9433856\n(0010,0010) PatientName    Nek^Milan\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
-    "png": "raw_radiology_US00069.jpg",
+    "png": "raw_radiology_US00071.jpg",
     "box": [
      72.56,
      21.33,
@@ -490,19 +442,19 @@
   },
   {
    "fact": "kidney_length",
-   "value": 90.0,
+   "value": 96.0,
    "unit": "mm",
    "source": "radiology",
    "status": "PICTURE",
    "steps": [
     "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"Nier li 9.0cm\"",
-    "9.0 cm → 90 mm",
-    "OCR confidence 56%"
+    "OCR read: \"Nier li 9.6 cm\"",
+    "9.6 cm → 96 mm",
+    "OCR confidence 88%"
    ],
-   "excerpt": "OCR line: \"Nier li 9.0cm\"\n\n(0010,0020) PatientID      9433856\n(0010,0010) PatientName    Nek^Milan\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "excerpt": "OCR line: \"Nier li 9.6 cm\"\n\n(0010,0020) PatientID      9433856\n(0010,0010) PatientName    Nek^Milan\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
-    "png": "raw_radiology_US00069.jpg",
+    "png": "raw_radiology_US00071.jpg",
     "box": [
      72.56,
      28.83,
@@ -512,118 +464,22 @@
    }
   }
  ],
- "6dc76ee036f13f290130793f52c72a57d82a080cd642a2d05668eaf52fae4050": [
+ "f40f47512101d66abab73e540dcb82d24f4e1607724d849089441c9cedddb621": [
   {
    "fact": "kidney_length_right",
-   "value": 98.0,
+   "value": 92.0,
    "unit": "mm",
    "source": "radiology",
    "status": "PICTURE",
    "steps": [
     "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"Nierre 9.8cm\"",
-    "9.8 cm → 98 mm",
-    "OCR confidence 83%"
+    "OCR read: \"Nierre 9.2cm\"",
+    "9.2 cm → 92 mm",
+    "OCR confidence 88%"
    ],
-   "excerpt": "OCR line: \"Nierre 9.8cm\"\n\n(0010,0020) PatientID      1468706\n(0010,0010) PatientName    Gruijl^Suze\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "excerpt": "OCR line: \"Nierre 9.2cm\"\n\n(0010,0020) PatientID      1468706\n(0010,0010) PatientName    Gruijl^Suze\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
-    "png": "raw_radiology_US00079.jpg",
-    "box": [
-     72.56,
-     21.33,
-     21.67,
-     5.33
-    ]
-   }
-  },
-  {
-   "fact": "kidney_length",
-   "value": 101.0,
-   "unit": "mm",
-   "source": "radiology",
-   "status": "PICTURE",
-   "steps": [
-    "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"Nier li 10.1 cm\"",
-    "10.1 cm → 101 mm",
-    "OCR confidence 87%"
-   ],
-   "excerpt": "OCR line: \"Nier li 10.1 cm\"\n\n(0010,0020) PatientID      1468706\n(0010,0010) PatientName    Gruijl^Suze\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
-   "media": {
-    "png": "raw_radiology_US00079.jpg",
-    "box": [
-     72.56,
-     28.83,
-     22.11,
-     5.5
-    ]
-   }
-  }
- ],
- "f0374eeb58291c56936472f5567a7bbd0fc4957df4abf7994ce96ae5791ef4de": [
-  {
-   "fact": "kidney_length_right",
-   "value": 99.0,
-   "unit": "mm",
-   "source": "radiology",
-   "status": "PICTURE",
-   "steps": [
-    "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"Nierre 9.9cm\"",
-    "9.9 cm → 99 mm",
-    "OCR confidence 64%"
-   ],
-   "excerpt": "OCR line: \"Nierre 9.9cm\"\n\n(0010,0020) PatientID      3995097\n(0010,0010) PatientName    te Peronne^Joep\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
-   "media": {
-    "png": "raw_radiology_US00088.jpg",
-    "box": [
-     72.56,
-     21.33,
-     21.67,
-     5.33
-    ]
-   }
-  },
-  {
-   "fact": "kidney_length",
-   "value": 104.0,
-   "unit": "mm",
-   "source": "radiology",
-   "status": "PICTURE",
-   "steps": [
-    "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"Nier li 10.4cm\"",
-    "10.4 cm → 104 mm",
-    "OCR confidence 68%"
-   ],
-   "excerpt": "OCR line: \"Nier li 10.4cm\"\n\n(0010,0020) PatientID      3995097\n(0010,0010) PatientName    te Peronne^Joep\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
-   "media": {
-    "png": "raw_radiology_US00088.jpg",
-    "box": [
-     72.56,
-     28.83,
-     22.11,
-     5.5
-    ]
-   }
-  }
- ],
- "8f710cf39db6b7d352a21c1df4893d61c472ab44a75d48abee3f72af441128f0": [
-  {
-   "fact": "kidney_length_right",
-   "value": 98.0,
-   "unit": "mm",
-   "source": "radiology",
-   "status": "PICTURE",
-   "steps": [
-    "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"Nierre 9.8cm\"",
-    "9.8 cm → 98 mm",
-    "OCR confidence 83%"
-   ],
-   "excerpt": "OCR line: \"Nierre 9.8cm\"\n\n(0010,0020) PatientID      3535887\n(0010,0010) PatientName    Schroeff^Nadia\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
-   "media": {
-    "png": "raw_radiology_US00096.jpg",
+    "png": "raw_radiology_US00081.jpg",
     "box": [
      72.56,
      21.33,
@@ -644,9 +500,9 @@
     "9.5 cm → 95 mm",
     "OCR confidence 17%"
    ],
-   "excerpt": "OCR line: \"Nier li 9.5 cm\"\n\n(0010,0020) PatientID      3535887\n(0010,0010) PatientName    Schroeff^Nadia\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "excerpt": "OCR line: \"Nier li 9.5 cm\"\n\n(0010,0020) PatientID      1468706\n(0010,0010) PatientName    Gruijl^Suze\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
-    "png": "raw_radiology_US00096.jpg",
+    "png": "raw_radiology_US00081.jpg",
     "box": [
      72.56,
      28.83,
@@ -656,151 +512,7 @@
    }
   }
  ],
- "143acc13e4eecc579abfd6894fc07792d897dfc503dad1eaed3780532a979da7": [
-  {
-   "fact": "kidney_length_right",
-   "value": 87.0,
-   "unit": "mm",
-   "source": "radiology",
-   "status": "PICTURE",
-   "steps": [
-    "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"Nierre 8.7cm\"",
-    "8.7 cm → 87 mm",
-    "OCR confidence 76%"
-   ],
-   "excerpt": "OCR line: \"Nierre 8.7cm\"\n\n(0010,0020) PatientID      5513686\n(0010,0010) PatientName    Vegt^Kevin\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
-   "media": {
-    "png": "raw_radiology_US00166.jpg",
-    "box": [
-     72.56,
-     21.33,
-     21.67,
-     5.33
-    ]
-   }
-  },
-  {
-   "fact": "kidney_length",
-   "value": 90.0,
-   "unit": "mm",
-   "source": "radiology",
-   "status": "PICTURE",
-   "steps": [
-    "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"Nier li 9.0cm\"",
-    "9.0 cm → 90 mm",
-    "OCR confidence 56%"
-   ],
-   "excerpt": "OCR line: \"Nier li 9.0cm\"\n\n(0010,0020) PatientID      5513686\n(0010,0010) PatientName    Vegt^Kevin\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
-   "media": {
-    "png": "raw_radiology_US00166.jpg",
-    "box": [
-     72.56,
-     28.83,
-     20.22,
-     5.5
-    ]
-   }
-  }
- ],
- "95059ad2c5e32797cce9138e78ab45a999605d5b357cb0e48a69c87e5f2ba174": [
-  {
-   "fact": "kidney_length_right",
-   "value": 102.0,
-   "unit": "mm",
-   "source": "radiology",
-   "status": "PICTURE",
-   "steps": [
-    "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"Nierre 10.2cm\"",
-    "10.2 cm → 102 mm",
-    "OCR confidence 89%"
-   ],
-   "excerpt": "OCR line: \"Nierre 10.2cm\"\n\n(0010,0020) PatientID      7402632\n(0010,0010) PatientName    den Ligtvoet^Isa\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
-   "media": {
-    "png": "raw_radiology_US00174.jpg",
-    "box": [
-     72.56,
-     21.33,
-     23.56,
-     5.33
-    ]
-   }
-  },
-  {
-   "fact": "kidney_length",
-   "value": 106.0,
-   "unit": "mm",
-   "source": "radiology",
-   "status": "PICTURE",
-   "steps": [
-    "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"Nier li 10.6 cm\"",
-    "10.6 cm → 106 mm",
-    "OCR confidence 91%"
-   ],
-   "excerpt": "OCR line: \"Nier li 10.6 cm\"\n\n(0010,0020) PatientID      7402632\n(0010,0010) PatientName    den Ligtvoet^Isa\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
-   "media": {
-    "png": "raw_radiology_US00174.jpg",
-    "box": [
-     72.56,
-     28.83,
-     22.11,
-     5.5
-    ]
-   }
-  }
- ],
- "2555472a27e5c253a74a82c99a362da4c0fa79aad071529837e9dfe1445d6c4a": [
-  {
-   "fact": "kidney_length_right",
-   "value": 110.0,
-   "unit": "mm",
-   "source": "radiology",
-   "status": "PICTURE",
-   "steps": [
-    "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"Nierre 11.0cm\"",
-    "11.0 cm → 110 mm",
-    "OCR confidence 80%"
-   ],
-   "excerpt": "OCR line: \"Nierre 11.0cm\"\n\n(0010,0020) PatientID      1699055\n(0010,0010) PatientName    Lemmens^Jason\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
-   "media": {
-    "png": "raw_radiology_US00181.jpg",
-    "box": [
-     72.56,
-     21.33,
-     23.56,
-     5.33
-    ]
-   }
-  },
-  {
-   "fact": "kidney_length",
-   "value": 107.0,
-   "unit": "mm",
-   "source": "radiology",
-   "status": "PICTURE",
-   "steps": [
-    "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"Nier li 10.7 cm\"",
-    "10.7 cm → 107 mm",
-    "OCR confidence 92%"
-   ],
-   "excerpt": "OCR line: \"Nier li 10.7 cm\"\n\n(0010,0020) PatientID      1699055\n(0010,0010) PatientName    Lemmens^Jason\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
-   "media": {
-    "png": "raw_radiology_US00181.jpg",
-    "box": [
-     72.56,
-     28.83,
-     22.11,
-     5.5
-    ]
-   }
-  }
- ],
- "e1061d3424153808de4cb59c16544ab7dc153c460554803423d3ec90921ac445": [
+ "f77f2305138a7abd156f7312f55c3d2db8430a54ff72dab87c9a4ad48cb5f6de": [
   {
    "fact": "kidney_length_right",
    "value": 92.0,
@@ -813,9 +525,9 @@
     "9.2 cm → 92 mm",
     "OCR confidence 88%"
    ],
-   "excerpt": "OCR line: \"Nierre 9.2cm\"\n\n(0010,0020) PatientID      1269773\n(0010,0010) PatientName    van der Dekker^Elin\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "excerpt": "OCR line: \"Nierre 9.2cm\"\n\n(0010,0020) PatientID      2724228\n(0010,0010) PatientName    Claesdr^Bibi\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
-    "png": "raw_radiology_US00188.jpg",
+    "png": "raw_radiology_US00102.jpg",
     "box": [
      72.56,
      21.33,
@@ -826,19 +538,259 @@
   },
   {
    "fact": "kidney_length",
+   "value": 89.0,
+   "unit": "mm",
+   "source": "radiology",
+   "status": "PICTURE",
+   "steps": [
+    "OCR on pixels burned into a DICOM Secondary Capture",
+    "OCR read: \"Nier li 8.9 cm\"",
+    "8.9 cm → 89 mm",
+    "OCR confidence 26%"
+   ],
+   "excerpt": "OCR line: \"Nier li 8.9 cm\"\n\n(0010,0020) PatientID      2724228\n(0010,0010) PatientName    Claesdr^Bibi\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "media": {
+    "png": "raw_radiology_US00102.jpg",
+    "box": [
+     72.56,
+     28.83,
+     20.22,
+     5.5
+    ]
+   }
+  }
+ ],
+ "87148d456813f9ae2a823361b850fa5fc2e95ebe1530ff7da26005848bfdc1bf": [
+  {
+   "fact": "kidney_length_right",
+   "value": 98.0,
+   "unit": "mm",
+   "source": "radiology",
+   "status": "PICTURE",
+   "steps": [
+    "OCR on pixels burned into a DICOM Secondary Capture",
+    "OCR read: \"Nierre 9.8cm\"",
+    "9.8 cm → 98 mm",
+    "OCR confidence 83%"
+   ],
+   "excerpt": "OCR line: \"Nierre 9.8cm\"\n\n(0010,0020) PatientID      5513686\n(0010,0010) PatientName    Vegt^Kevin\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "media": {
+    "png": "raw_radiology_US00180.jpg",
+    "box": [
+     72.56,
+     21.33,
+     21.67,
+     5.33
+    ]
+   }
+  },
+  {
+   "fact": "kidney_length",
+   "value": 95.0,
+   "unit": "mm",
+   "source": "radiology",
+   "status": "PICTURE",
+   "steps": [
+    "OCR on pixels burned into a DICOM Secondary Capture",
+    "OCR read: \"Nier li 9.5 cm\"",
+    "9.5 cm → 95 mm",
+    "OCR confidence 17%"
+   ],
+   "excerpt": "OCR line: \"Nier li 9.5 cm\"\n\n(0010,0020) PatientID      5513686\n(0010,0010) PatientName    Vegt^Kevin\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "media": {
+    "png": "raw_radiology_US00180.jpg",
+    "box": [
+     72.56,
+     28.83,
+     20.22,
+     5.5
+    ]
+   }
+  }
+ ],
+ "bf319002d8dd29f75a50fbc153f77f5993e1dd8010ea65d00921b501572f5f67": [
+  {
+   "fact": "kidney_length_right",
+   "value": 109.0,
+   "unit": "mm",
+   "source": "radiology",
+   "status": "PICTURE",
+   "steps": [
+    "OCR on pixels burned into a DICOM Secondary Capture",
+    "OCR read: \"Nierre 10.9cm\"",
+    "10.9 cm → 109 mm",
+    "OCR confidence 79%"
+   ],
+   "excerpt": "OCR line: \"Nierre 10.9cm\"\n\n(0010,0020) PatientID      7402632\n(0010,0010) PatientName    den Ligtvoet^Isa\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "media": {
+    "png": "raw_radiology_US00187.jpg",
+    "box": [
+     72.56,
+     21.33,
+     23.56,
+     5.33
+    ]
+   }
+  },
+  {
+   "fact": "kidney_length",
+   "value": 104.0,
+   "unit": "mm",
+   "source": "radiology",
+   "status": "PICTURE",
+   "steps": [
+    "OCR on pixels burned into a DICOM Secondary Capture",
+    "OCR read: \"Nier li 10.4cm\"",
+    "10.4 cm → 104 mm",
+    "OCR confidence 68%"
+   ],
+   "excerpt": "OCR line: \"Nier li 10.4cm\"\n\n(0010,0020) PatientID      7402632\n(0010,0010) PatientName    den Ligtvoet^Isa\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "media": {
+    "png": "raw_radiology_US00187.jpg",
+    "box": [
+     72.56,
+     28.83,
+     22.11,
+     5.5
+    ]
+   }
+  }
+ ],
+ "aa82713fac3014adb933e92e48054273a3971d1056a57f8d2296a8bba3f14f0c": [
+  {
+   "fact": "kidney_length_right",
+   "value": 105.6,
+   "unit": "mm",
+   "source": "radiology",
+   "status": "PICTURE",
+   "steps": [
+    "OCR on pixels burned into a DICOM Secondary Capture",
+    "OCR read: \"Nierre 10.56cm\"",
+    "10.56 cm → 105.6 mm",
+    "OCR confidence 29%"
+   ],
+   "excerpt": "OCR line: \"Nierre 10.56cm\"\n\n(0010,0020) PatientID      1699055\n(0010,0010) PatientName    Lemmens^Jason\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "media": {
+    "png": "raw_radiology_US00195.jpg",
+    "box": [
+     72.56,
+     21.33,
+     23.56,
+     5.33
+    ]
+   }
+  },
+  {
+   "fact": "kidney_length",
+   "value": 104.0,
+   "unit": "mm",
+   "source": "radiology",
+   "status": "PICTURE",
+   "steps": [
+    "OCR on pixels burned into a DICOM Secondary Capture",
+    "OCR read: \"Nier li 10.4cm\"",
+    "10.4 cm → 104 mm",
+    "OCR confidence 68%"
+   ],
+   "excerpt": "OCR line: \"Nier li 10.4cm\"\n\n(0010,0020) PatientID      1699055\n(0010,0010) PatientName    Lemmens^Jason\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "media": {
+    "png": "raw_radiology_US00195.jpg",
+    "box": [
+     72.56,
+     28.83,
+     22.11,
+     5.5
+    ]
+   }
+  }
+ ],
+ "1084e5b53e1da556e326c1eeb21e33249c05c48494bdffb8809674ce413b0b53": [
+  {
+   "fact": "kidney_length_right",
    "value": 97.0,
    "unit": "mm",
    "source": "radiology",
    "status": "PICTURE",
    "steps": [
     "OCR on pixels burned into a DICOM Secondary Capture",
-    "OCR read: \"Nier li 9.7 cm\"",
+    "OCR read: \"Nierre 9.7 cm\"",
     "9.7 cm → 97 mm",
-    "OCR confidence 78%"
+    "OCR confidence 43%"
    ],
-   "excerpt": "OCR line: \"Nier li 9.7 cm\"\n\n(0010,0020) PatientID      1269773\n(0010,0010) PatientName    van der Dekker^Elin\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "excerpt": "OCR line: \"Nierre 9.7 cm\"\n\n(0010,0020) PatientID      1269773\n(0010,0010) PatientName    van der Dekker^Elin\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
    "media": {
-    "png": "raw_radiology_US00188.jpg",
+    "png": "raw_radiology_US00206.jpg",
+    "box": [
+     72.56,
+     21.33,
+     21.67,
+     5.33
+    ]
+   }
+  },
+  {
+   "fact": "kidney_length",
+   "value": 100.0,
+   "unit": "mm",
+   "source": "radiology",
+   "status": "PICTURE",
+   "steps": [
+    "OCR on pixels burned into a DICOM Secondary Capture",
+    "OCR read: \"Nier li 10.0 cm\"",
+    "10.0 cm → 100 mm",
+    "OCR confidence 24%"
+   ],
+   "excerpt": "OCR line: \"Nier li 10.0 cm\"\n\n(0010,0020) PatientID      1269773\n(0010,0010) PatientName    van der Dekker^Elin\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "media": {
+    "png": "raw_radiology_US00206.jpg",
+    "box": [
+     72.56,
+     28.83,
+     22.11,
+     5.5
+    ]
+   }
+  }
+ ],
+ "cd6c8b3f99a854c467eb187cea47773522d04b67f187ac4045b36f7cc340c5ff": [
+  {
+   "fact": "kidney_length_right",
+   "value": 101.0,
+   "unit": "mm",
+   "source": "radiology",
+   "status": "PICTURE",
+   "steps": [
+    "OCR on pixels burned into a DICOM Secondary Capture",
+    "OCR read: \"Nierre 10.1cm\"",
+    "10.1 cm → 101 mm",
+    "OCR confidence 76%"
+   ],
+   "excerpt": "OCR line: \"Nierre 10.1cm\"\n\n(0010,0020) PatientID      9916148\n(0010,0010) PatientName    van den Bergh^Stan\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "media": {
+    "png": "raw_radiology_US00212.jpg",
+    "box": [
+     72.56,
+     21.33,
+     23.56,
+     5.33
+    ]
+   }
+  },
+  {
+   "fact": "kidney_length",
+   "value": 99.0,
+   "unit": "mm",
+   "source": "radiology",
+   "status": "PICTURE",
+   "steps": [
+    "OCR on pixels burned into a DICOM Secondary Capture",
+    "OCR read: \"Nier li 9.9m\"",
+    "9.9 cm → 99 mm",
+    "OCR confidence 0%"
+   ],
+   "excerpt": "OCR line: \"Nier li 9.9m\"\n\n(0010,0020) PatientID      9916148\n(0010,0010) PatientName    van den Bergh^Stan\n(0008,1030) StudyDescr     Echo nieren\n(0008,0060) Modality       US\n(0008,0016) SOPClassUID    Secondary Capture Image Storage",
+   "media": {
+    "png": "raw_radiology_US00212.jpg",
     "box": [
      72.56,
      28.83,
