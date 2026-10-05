@@ -73,6 +73,7 @@ FACTS = {
     "ggt":            {"label": "Gamma-GT",               "unit": "U/L",           "loinc": "2324-2",  "kind": "lab"},
     "bilirubin":      {"label": "Bilirubin, total",       "unit": "umol/L",        "loinc": "14631-6", "kind": "lab"},
     "albumin":        {"label": "Albumin",                "unit": "g/L",           "loinc": "1751-7",  "kind": "lab"},
+    "aptt":           {"label": "aPTT",                   "unit": "s",             "loinc": "14979-9", "kind": "lab"},
     "ldh":            {"label": "LDH",                    "unit": "U/L",           "loinc": "14804-9", "kind": "lab"},
     "cea":            {"label": "CEA",                    "unit": "ug/L",          "loinc": "2039-6",  "kind": "lab"},
     "urea":           {"label": "Urea",                   "unit": "mmol/L",        "loinc": "22664-7", "kind": "lab"},
@@ -82,6 +83,18 @@ FACTS = {
     "lvpwd":          {"label": "LV posterior wall (diastole)", "unit": "mm",      "loinc": "18152-9", "kind": "measurement"},
     "av_vmax":        {"label": "Aortic valve peak velocity", "unit": "cm/s",      "loinc": "79964-3", "kind": "measurement"},
     "av_meangrad":    {"label": "Aortic valve mean gradient", "unit": "mm[Hg]",    "loinc": "79962-7", "kind": "measurement"},
+    "cag_result":     {"label": "Coronary angiography, conclusion", "unit": None,    "loinc": None,      "kind": "text"},
+    # third batch, after clinical review
+    "pr":             {"label": "PR interval",            "unit": "ms",            "loinc": "8625-6",  "kind": "measurement"},
+    "qrs":            {"label": "QRS duration",           "unit": "ms",            "loinc": "8633-0",  "kind": "measurement"},
+    "qtc":            {"label": "QTc interval",           "unit": "ms",            "loinc": "8636-3",  "kind": "measurement"},
+    "ecg_conclusion": {"label": "ECG, conclusion",        "unit": None,            "loinc": None,      "kind": "text"},
+    "tsat":           {"label": "Transferrin saturation", "unit": "%",             "loinc": "2502-3",  "kind": "lab"},
+    "b12":            {"label": "Vitamin B12",            "unit": "pmol/L",        "loinc": "14685-2", "kind": "lab"},
+    "urine_hb":       {"label": "Blood in urine (dipstick)", "unit": None,         "loinc": "5794-3",  "kind": "text"},
+    "kidney_length_right": {"label": "Kidney length (right)", "unit": "mm",        "loinc": "15291-8", "kind": "measurement"},
+    "pet_result":     {"label": "PET-CT, conclusion",     "unit": None,            "loinc": None,      "kind": "text"},
+    "mdo_advice":     {"label": "MDT meeting, advice",    "unit": None,            "loinc": None,      "kind": "text"},
 }
 
 NHG_TO_FACT = {f["nhg"]: k for k, f in FACTS.items() if f.get("nhg")}
@@ -107,6 +120,9 @@ EXT_LAB_CODES = {
     "calcium":    {"code": "CA",    "name": "Calcium",        "unit": "mg/dL", "factor": 0.25,    "decimals": 1},
     "phosphate":  {"code": "FOSF",  "name": "Fosfaat",        "unit": "mg/dL", "factor": 0.323,   "decimals": 1},
     "lithium":    {"code": "LITH",  "name": "Lithium",        "unit": "meq/L", "factor": 1.0,     "decimals": 2},
+    "sodium":     {"code": "NA",    "name": "Natrium",        "unit": "mmol/l", "factor": 1.0,    "decimals": 0},
+    "tsh":        {"code": "TSH",   "name": "TSH",            "unit": "mU/l",  "factor": 1.0,     "decimals": 2},
+    "ft4":        {"code": "FT4",   "name": "Vrij T4",        "unit": "ng/dL", "factor": 12.871,  "decimals": 2},
     "urea":       {"code": "BUN",   "name": "Ureumstikstof",  "unit": "mg/dL", "factor": 0.357,   "decimals": 0},
 }
 
@@ -117,6 +133,8 @@ UNIT_CONVERSIONS = {
     ("digoxin", "nmol/L"): ("÷", 1.281),
     ("tapse", "cm"): ("×", 10),
     ("lvpwd", "cm"): ("×", 10),
+    ("ivs_thickness", "cm"): ("×", 10),
+    ("lv_diameter", "cm"): ("×", 10),
     ("av_vmax", "m/s"): ("×", 100),
     ("ddimer", "ug{FEU}/L"): ("×", 0.001),  # SI prefix within FEU; never FEU to DDU
 }
@@ -162,6 +180,9 @@ SOURCES = {
     "gp":        {"label": "General practice",    "system": "GP information system (HIS)",       "format": "HIS export, NHG Tabel 45"},
     "nb_lab":    {"label": "Referring hospital lab", "system": "Neighbour hospital LIS",          "format": "HL7v2 ORU^R01"},
     "pft":       {"label": "Lung function",       "system": "Pulmonary function lab",            "format": "PDF report"},
+    "cathlab":   {"label": "Catheterisation lab", "system": "Cardiology reporting system",       "format": "PDF report"},
+    "ecg":       {"label": "ECG",                 "system": "ECG management system",             "format": "PDF report"},
+    "mdo":       {"label": "MDT meeting",         "system": "Oncology MDT reporting",            "format": "PDF report"},
 }
 
 # Fictional organisations. Modelled on a typical Dutch academic hospital; none are real.
@@ -169,6 +190,8 @@ HOSPITAL = "Academisch Ziekenhuis Zuid"
 HOSPITAL_CODE = "AZZUID"
 NEIGHBOUR = "Heuvelland Ziekenhuis"
 NEIGHBOUR_CODE = "HEUVELLAND"
+NEIGHBOUR2 = "Maasland Ziekenhuis"  # a second referring hospital with its own laboratory and troponin I assay
+NEIGHBOUR2_CODE = "MAASLAND"
 EXT_LAB = "Regiolab Zuid"
 EXT_LAB_CODE = "REGIOLABZUID"
 PATH_LAB = "Pathologie Limburg Samenwerking"

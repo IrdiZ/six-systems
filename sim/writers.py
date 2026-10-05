@@ -41,7 +41,8 @@ def write_hl7_rows(path: Path, p: Patient, when: datetime, rows: list[tuple[str,
         f"OBR|1|{msg_id}||LAB^Laboratory panel^L|||{ts}",
     ]
     for i, (loinc, label, value, unit) in enumerate(rows, 1):
-        segs.append(f"OBX|{i}|NM|{loinc}^{label}^LN||{_fmt(value, 1)}|{unit}|||||F|||{ts}")
+        kind, v = ("ST", value) if isinstance(value, str) else ("NM", _fmt(value, 1))
+        segs.append(f"OBX|{i}|{kind}|{loinc}^{label}^LN||{v}|{unit or ''}|||||F|||{ts}")
     path.write_text("\r".join(segs) + "\r")
 
 
@@ -75,6 +76,7 @@ def write_edi(
     omit_bsn: bool = False,
     dob_typo: bool = False,
     decimal_comma: bool = True,
+    requester: str = NEIGHBOUR,
 ) -> None:
     dob = p.dob
     if dob_typo:  # day and month swapped by hand at the counter
@@ -86,7 +88,7 @@ def write_edi(
         "UNH+1+MEDLAB:1:1:NL'",
         f"BGM+LRP+{batch_id}'",
         f"NAD+SND+++{EXT_LAB}'",
-        f"NAD+REQ+++{NEIGHBOUR}'",
+        f"NAD+REQ+++{requester}'",
         f"PNA+PAT+{bsn}+++SU:{p.surname}:VV:{p.prefix}+FO:{p.given}'",
         f"DTM+329:{dob:%Y%m%d}:102'",
         f"DTM+119:{when:%Y%m%d%H%M}:203'",
@@ -172,8 +174,9 @@ def _font(size: int) -> ImageFont.ImageFont:
 
 
 def write_secondary_capture(path: Path, p: Patient, when: datetime, accession: str, description: str,
-                            lines: list[str], rng: random.Random, device: str) -> None:
-    """An ultrasound screen grab: a speckle sector plus the measurements burned into the pixels."""
+                            lines: list[str], rng: random.Random, device: str, faint: set[int] = frozenset()) -> None:
+    """An ultrasound screen grab: a speckle sector plus the measurements burned into the pixels.
+    faint: lines whose value the sonographer's caliper overlay left low-contrast (the label stays readable)."""
     w, h = 900, 600
     nrng = np.random.default_rng(rng.randint(0, 2**31))
     yy, xx = np.mgrid[0:h, 0:w]
@@ -193,7 +196,12 @@ def write_secondary_capture(path: Path, p: Patient, when: datetime, accession: s
     d.text((20, 36), f"{p.family.upper()}, {p.given}   {p.mrn}", fill=(150, 150, 150), font=_font(16))
     d.rectangle((640, 110, 880, 130 + 46 * len(lines)), outline=(90, 90, 90))
     for i, line in enumerate(lines):
-        d.text((656, 124 + 46 * i), line, fill=(255, 255, 255), font=_font(30))
+        if i in faint:
+            label, _, rest = line.partition(" ")
+            d.text((656, 124 + 46 * i), label, fill=(255, 255, 255), font=_font(30))
+            d.text((656 + d.textlength(label + " ", font=_font(30)), 124 + 46 * i), rest, fill=(120, 120, 120), font=_font(30))
+        else:
+            d.text((656, 124 + 46 * i), line, fill=(255, 255, 255), font=_font(30))
     ds = _dicom_base(p, when, SECONDARY_CAPTURE, accession, description, "US")
     ds.ConversionType = "WSD"
     ds.Rows, ds.Columns = h, w
@@ -282,9 +290,10 @@ def _pdf_paragraph(c: canvas.Canvas, y: float, heading: str, text: str) -> float
 
 
 def write_radiology_pdf(path: Path, p: Patient, when: datetime, accession: str, title: str,
-                        findings: str, conclusion: str) -> None:
+                        findings: str, conclusion: str, dept: str = "Radiologie", kind: str = "Radiologieverslag",
+                        heading: str = "Conclusie") -> None:
     c = canvas.Canvas(str(path), pagesize=A4)
-    y = _pdf_header(c, HOSPITAL + " · Radiologie", "Radiologieverslag")
+    y = _pdf_header(c, HOSPITAL + " · " + dept, kind)
     y = _pdf_lines(c, y, [
         ("Patiënt", f"{p.family}, {p.given}"),
         ("Geboortedatum", p.dob.strftime("%d-%m-%Y")),
@@ -295,12 +304,13 @@ def write_radiology_pdf(path: Path, p: Patient, when: datetime, accession: str, 
     ])
     y -= 4 * mm
     y = _pdf_paragraph(c, y, "Bevindingen", findings)
-    _pdf_paragraph(c, y, "Conclusie", conclusion)
+    _pdf_paragraph(c, y, heading, conclusion)
     c.save()
 
 
-def write_pathology_pdf(path: Path, p: Patient, when: datetime, case_id: str, diagnosis: str,
-                        tumour_mm: float) -> None:
+def write_pathology_pdf(path: Path, p: Patient, when: datetime, case_id: str, material: str, microscopy: str,
+                        conclusion: str) -> None:
+    """A biopsy report: diagnosis and immunohistochemistry, no tumour size (that comes from CT or a resection specimen)."""
     c = canvas.Canvas(str(path), pagesize=A4)
     y = _pdf_header(c, PATH_LAB, "Pathologieverslag")
     y = _pdf_lines(c, y, [
@@ -308,36 +318,40 @@ def write_pathology_pdf(path: Path, p: Patient, when: datetime, case_id: str, di
         ("Geboortedatum", p.dob.strftime("%d-%m-%Y")),
         ("BSN", p.bsn),
         ("Aanvrager", HOSPITAL),
-        ("Materiaal", "Longbiopt, rechter bovenkwab"),
+        ("Materiaal", material),
         ("Datum", when.strftime("%d-%m-%Y")),
         ("T-nummer", case_id),
     ])
     y -= 4 * mm
-    y = _pdf_paragraph(c, y, "Microscopie",
-                       "Weefselfragmenten met infiltratieve groei van atypische epitheliale cellen. "
-                       f"Maximale doorsnede van de tumor in het preparaat {_fmt(tumour_mm, 0)} mm.")
-    _pdf_paragraph(c, y, "Conclusie", f"{diagnosis}. Tumorgrootte: {_fmt(tumour_mm, 0)} mm.")
+    y = _pdf_paragraph(c, y, "Microscopie", microscopy)
+    _pdf_paragraph(c, y, "Conclusie", conclusion + ".")
     c.save()
 
 
-def write_pft_pdf(path: Path, p: Patient, when: datetime, exam_id: str, rows: list[tuple[str, str]], conclusion: str) -> None:
-    """Pulmonary function report: values printed in a table, no structured export. rows: (label, value text)."""
+def write_table_report(path: Path, p: Patient, when: datetime, dept: str, kind: str, exam: str, exam_id: str,
+                       heading: str, rows: list[tuple[str, str]], conclusion: str) -> None:
+    """A measurement report printed as a table (lung function, ECG): no structured export behind it."""
     c = canvas.Canvas(str(path), pagesize=A4)
-    y = _pdf_header(c, HOSPITAL + " · Longfunctie", "Longfunctieverslag")
+    y = _pdf_header(c, HOSPITAL + " · " + dept, kind)
     y = _pdf_lines(c, y, [
         ("Patiënt", f"{p.family}, {p.given}"),
         ("Geboortedatum", p.dob.strftime("%d-%m-%Y")),
         ("Patiëntnummer", p.mrn),
-        ("Onderzoek", "Spirometrie en diffusiecapaciteit"),
+        ("Onderzoek", exam),
         ("Datum", when.strftime("%d-%m-%Y %H:%M")),
         ("Onderzoeksnummer", exam_id),
     ])
     y -= 4 * mm
     c.setFont("Helvetica-Bold", 11)
-    c.drawString(18 * mm, y, "Meetwaarden (na bronchodilatatie)")
+    c.drawString(18 * mm, y, heading)
     y = _pdf_lines(c, y - 7 * mm, rows)
     _pdf_paragraph(c, y - 3 * mm, "Conclusie", conclusion)
     c.save()
+
+
+def write_pft_pdf(path: Path, p: Patient, when: datetime, exam_id: str, rows: list[tuple[str, str]], conclusion: str) -> None:
+    write_table_report(path, p, when, "Longfunctie", "Longfunctieverslag", "Spirometrie en diffusiecapaciteit", exam_id,
+                       "Meetwaarden (na bronchodilatatie)", rows, conclusion)
 
 
 def write_slide_stub(path: Path, rng: random.Random) -> None:

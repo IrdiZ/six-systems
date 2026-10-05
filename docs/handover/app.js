@@ -24,7 +24,7 @@ const DEPTS = {
 // Fictional organisations, as named in six-systems/sim/model.py.
 const HOSPITAL = "Academisch Ziekenhuis Zuid";
 const TARGETS = [
-  { group: "Institution", items: ["Heuvelland Ziekenhuis", "Regiolab Zuid", "Pathologie Limburg Samenwerking", "General practitioner"] },
+  { group: "Institution", items: ["Heuvelland Ziekenhuis", "Maasland Ziekenhuis", "Regiolab Zuid", "Pathologie Limburg Samenwerking", "General practitioner"] },
   { group: "Department, " + HOSPITAL, items: ["Cardiology", "Pulmonology", "Nephrology", "Radiology", "Oncology", "Cardiothoracic surgery"] },
 ];
 const SOURCE = {
@@ -34,8 +34,11 @@ const SOURCE = {
   echo: { label: "Echocardiography", sender: "AZ Zuid, echocardiography", system: "Ultrasound modality, PACS", format: "DICOM Secondary Capture" },
   pathology: { label: "Pathology", sender: "Pathologie Limburg Samenwerking", system: "External pathology information system", format: "PDF report, whole-slide image" },
   offline: { label: "Point-of-care testing", sender: "Heuvelland Ziekenhuis, emergency department", system: "Point-of-care analyser", format: "Fax" },
-  nb_lab: { label: "Referring hospital laboratory", sender: "Heuvelland Ziekenhuis, clinical chemistry", system: "Laboratory information system", format: "HL7 v2 ORU^R01" },
+  nb_lab: { label: "Referring hospital laboratory", sender: "Maasland Ziekenhuis, clinical chemistry", system: "Laboratory information system", format: "HL7 v2 ORU^R01" },
   gp: { label: "General practice", sender: "Huisartsenpraktijk Molenveld", system: "GP information system", format: "HIS export, NHG Tabel 45" },
+  ecg: { label: "ECG", sender: "AZ Zuid, cardiology (ECG)", system: "ECG management system", format: "PDF report" },
+  mdo: { label: "Multidisciplinary meeting", sender: "AZ Zuid, thoracic oncology MDT", system: "MDT reporting", format: "PDF report" },
+  cathlab: { label: "Catheterisation laboratory", sender: "AZ Zuid, catheterisation laboratory", system: "Cardiology reporting system", format: "PDF report" },
   pft: { label: "Pulmonary function", sender: "AZ Zuid, pulmonary function laboratory", system: "Spirometry workstation", format: "PDF report" },
 };
 const LABEL = {
@@ -54,13 +57,44 @@ const LABEL = {
   egfr_2021: "eGFR (CKD-EPI 2021)", ddimer: "D-dimer (FEU)", mcv: "MCV", tsh: "TSH", ft4: "Free T4", alt: "ALT", ast: "AST",
   alp: "Alkaline phosphatase", ggt: "Gamma-GT", bilirubin: "Bilirubin, total", albumin: "Albumin", ldh: "LDH", cea: "CEA", urea: "Urea",
   pth: "Parathyroid hormone (PTH)", bicarbonate: "Bicarbonate", ferritin: "Ferritin", lvpwd: "LV posterior wall, diastole (LVPWd)",
-  av_vmax: "Aortic valve peak velocity", av_meangrad: "Aortic valve mean gradient",
+  av_vmax: "Aortic valve peak velocity", av_meangrad: "Aortic valve mean gradient", cag_result: "Coronary angiography, conclusion",
+  pr: "PR interval", qrs: "QRS duration", qtc: "QTc interval", ecg_conclusion: "ECG, conclusion", tsat: "Transferrin saturation",
+  b12: "Vitamin B12", urine_hb: "Blood in urine (dipstick)", kidney_length_right: "Renal length, right", pet_result: "PET-CT, conclusion",
+  mdo_advice: "Multidisciplinary meeting, advice", aptt: "aPTT",
 };
 // six-sys stores report text in Dutch; shown translated.
 const TR = {
   "CT coronair angiografie": "CT coronary angiography", "CT thorax met contrast": "CT thorax with contrast", "CT thorax follow-up": "CT thorax, follow-up",
   "Plaveiselcelcarcinoom van de long": "Squamous cell carcinoma of the lung", "Carcinoïd tumor, typisch": "Typical carcinoid tumour",
+  "Adenocarcinoom van de long": "Adenocarcinoma of the lung",
+  "Eentakslijden; PCI van de RCA met stentplaatsing": "Single-vessel disease; PCI of the RCA with stent",
+  "Eentakslijden; PCI van de LAD met stentplaatsing": "Single-vessel disease; PCI of the LAD with stent",
+  "Tweetakslijden; PCI van de RCX, aanvullende revascularisatie gepland": "Two-vessel disease; PCI of the RCx, further revascularisation planned",
+  "Drietakslijden; bespreking hartteam voor CABG": "Three-vessel disease; heart team discussion for CABG",
+  "Geen significante coronairstenosen": "No significant coronary stenoses",
 };
+const TR_PART = {
+  "Sinusritme": "Sinus rhythm", "Atriumfibrilleren met wisselende ventrikelrespons": "Atrial fibrillation with variable ventricular response",
+  "geen ischemische afwijkingen": "no ischaemic changes", "ST-depressie in V4-V6": "ST depression in V4–V6",
+  "negatieve T-toppen in II, III en aVF": "T-wave inversion in II, III and aVF", "ST-depressie in I, aVL en V5-V6": "ST depression in I, aVL and V5–V6",
+  "Eenvatslijden": "Single-vessel disease", "Tweevatslijden": "Two-vessel disease", "Drievatslijden": "Three-vessel disease",
+  "PCI van de RCA met stentplaatsing": "PCI of the RCA with stent", "PCI van de LAD met stentplaatsing": "PCI of the LAD with stent",
+  "PCI van de RCX, aanvullende revascularisatie gepland": "PCI of the RCx, further revascularisation planned",
+  "bespreking hartteam voor CABG": "heart team discussion for CABG", "Geen significante coronairstenosen": "No significant coronary stenoses",
+  "MINOCA, cardiale MRI geadviseerd": "MINOCA, cardiac MRI advised",
+  "Adenocarcinoom van de long, TTF-1 positief": "Adenocarcinoma of the lung, TTF-1 positive",
+  "PD-L1 TPS en moleculaire diagnostiek (NGS) aangevraagd": "PD-L1 TPS and molecular testing (NGS) requested",
+  "Plaveiselcelcarcinoom van de long, p40 positief": "Squamous cell carcinoma of the lung, p40 positive", "PD-L1 TPS aangevraagd": "PD-L1 TPS requested",
+  "Carcinoïd/neuro-endocriene tumor, nadere typering op het resectiepreparaat": "Carcinoid/neuroendocrine tumour, typing on the resection specimen",
+  "Ga-68-DOTATATE-avide nodus rechter bovenkwab": "Ga-68 DOTATATE-avid nodule, right upper lobe",
+  "geen klier- of afstandsmetastasen": "no nodal or distant metastases", "typering op het resectiepreparaat": "typing on the resection specimen",
+  "CTA longembolie": "CT pulmonary angiography", "CT thorax low-dose, zonder contrast": "CT thorax, low-dose, without contrast",
+  "negatief": "negative",
+};
+const TR_RE = [[/^FDG-avide nodus rechter bovenkwab, SUVmax ([\d,]+)$/, "FDG-avid nodule, right upper lobe, SUVmax $1"],
+  [/^Lobectomie rechter bovenkwab bij (.+)$/, "Right upper lobectomy, $1"],
+  [/^Stereotactische radiotherapie \(SBRT\), medisch inoperabel bij (.+)$/, "Stereotactic radiotherapy (SBRT), medically inoperable, $1"]];
+const tr = (v) => TR[v] ?? (typeof v === "string" ? v.split("; ").map((x) => TR_PART[x] ?? TR_RE.reduce((y, [re, to]) => y.replace(re, to), x)).join("; ") : v);
 const unit = (u) => String(u || "").replace(/\bu(mol|g)\b/g, "µ$1").replace("1.73m2", "1.73 m²").replace("mm[Hg]", "mmHg").replace("10*9/L", "× 10⁹/L")
   .replace("{INR}", "").replace("mL/m2", "mL/m²").replace("m[IU]/L", "mU/L").replace("mg{FEU}/L", "mg/L FEU").replace("ug{FEU}/L", "µg/L FEU");
 const label = (f) => LABEL[f.fact] || f.fact;
@@ -71,7 +105,7 @@ const EXT_LAB_CODES = Object.fromEntries(Object.entries(CM_.ext_lab).map(([k, c]
 const NOT_CONVERTIBLE = CM_.not_convertible;
 const TABS = [
   ["all", "All results"], ["gp", "General practice"], ["lab", "Laboratory"], ["imaging", "Radiology"], ["echo", "Echocardiography"],
-  ["function", "Pulmonary function"], ["pathology", "Pathology"], ["missing", "Not received"], ["transfers", "Audit trail"],
+  ["function", "Pulmonary function"], ["cath", "ECG and catheterisation"], ["pathology", "Pathology"], ["missing", "Not received"], ["transfers", "Audit trail"],
 ];
 const RANK = { LOST: 4, PICTURE: 3, CONFIRMED: 2, CONFLICT: 1, DATA: 0 };
 // The six-sys codes stay in the data; these are the words on screen.
@@ -87,7 +121,7 @@ const CLOCK = (Q.get("t") || SC.now || (DEMO ? C.generated : "")).replace("T", "
 let SEED = 7; // six-sys's own seed; mulberry32
 const rand = DEMO ? () => { let t = (SEED += 0x6d2b79f5); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; } : Math.random;
 C.unlinked ||= [];
-const ABBR = { lvef: "LVEF", ivs_thickness: "IVSd", lv_diameter: "LVIDd", kidney_length: "Nier li" }; // labels burned into the screen captures
+const ABBR = { lvef: "LVEF", ivs_thickness: "IVSd", lv_diameter: "LVIDd", kidney_length: "Nier li", kidney_length_right: "Nier re" }; // labels burned into the screen captures
 const CM = ["ivs_thickness", "lv_diameter", "kidney_length"]; // shown in cm on the image, stored in mm
 const PDF_PREFIX = { calcium_score: "Agatston calciumscore: ", nodule_size: "diameter ", tumour_size: "Tumorgrootte: " }; // text before the value in the report
 const PATCH = {}; // image file → { name, values }: text to redraw on it (paintMedia)
@@ -230,19 +264,25 @@ function category(f) {
   if (f.source === "radiology") return "imaging";
   if (f.source === "echo" || f.source === "pathology" || f.source === "gp") return f.source;
   if (f.source === "pft") return "function";
+  if (f.source === "cathlab" || f.source === "ecg") return "cath";
+  if (f.source === "mdo") return "pathology";
   return "lab";
 }
 function docTitle(file, f) {
-  if (!file) return "Troponin, point-of-care";
+  if (!file) return f.fact === "ecg_conclusion" ? "ECG, referring hospital" : "Troponin, point-of-care";
   if (f.source === "epic_lab") return "Laboratory report";
   if (f.source === "ext_lab") return "External laboratory report";
   if (f.source === "nb_lab") return "Referring hospital laboratory report";
   if (f.source === "gp") return "GP referral, measurements";
   if (f.source === "pft") return "Pulmonary function test";
+  if (f.source === "cathlab") return "Coronary angiography report";
+  if (f.source === "ecg") return "Electrocardiogram";
+  if (f.source === "mdo") return "Multidisciplinary meeting report";
+  if (f.fact === "pet_result") return "PET-CT report";
   if (f.source === "echo") return file.endsWith("_sr.dcm") ? "Echocardiogram, structured report" : "Transthoracic echocardiogram";
   if (f.source === "pathology") return file.endsWith(".pdf") ? "Pathology report" : "Whole-slide image";
   if (file.endsWith(".pdf")) return "Radiology report";
-  return f.fact === "ct_exam" ? TR[f.truth_value] || f.truth_value : "Renal ultrasound";
+  return f.fact === "ct_exam" ? tr(f.truth_value) : "Renal ultrasound";
 }
 const docRef = (file) => (file ? file.split("/").pop().replace(/(_report|_sr)?\.\w+$/, "") : "");
 const full = (i) => (i.ref ? `${i.title} ${i.ref}` : i.title);
@@ -263,7 +303,7 @@ function identifiedBy(it) {
   if (f.status === "LOST" && f.source === "ext_lab") return "Unmatched: no BSN, no match on name and date of birth";
   if (f.source === "epic_lab" || f.source === "gp") return "BSN";
   if (f.source === "nb_lab") return "BSN (the sender's own patient number is not used)";
-  if (f.source === "pft") return "Patient number, cross-referenced to BSN";
+  if (["pft", "cathlab", "ecg", "mdo"].includes(f.source)) return "Patient number, cross-referenced to BSN";
   if (f.source === "ext_lab") return (f.steps || []).some((s) => s.startsWith("no BSN")) ? "Name and date of birth (BSN absent)" : "BSN";
   if (f.source === "radiology" || f.source === "echo") return "Patient number, cross-referenced to BSN";
   return "Name and date of birth on the report";
@@ -294,7 +334,7 @@ const unverifiedOf = (p) => p.facts.filter((f) => verdict(f) === "PICTURE");
 // P001 and P004 answered by fax, P003 link opened, P004 fax, P005 chat, P007 GP letter, P014 no consent, P016 rejected.
 const cohort = (path) => C.patients.filter((p) => p.path === path).map((p) => p.pid);
 const CP = cohort("chest_pain"), KID = cohort("kidney");
-const ROLE = { answered: [CP[0], CP[3]], opened: [CP[2]], gp: CP[CP.length - 1], noConsent: [KID[0]], rejected: [KID[2]], ...SC.roles };
+const ROLE = { answered: [CP[0], CP[3]], opened: [CP[2]], gp: [...CP].reverse().find((pid) => patient(pid).facts.some((f) => f.source === "gp")) || CP[CP.length - 1], noConsent: [KID[0]], rejected: [KID[2]], ...SC.roles };
 ROLE.fax ??= [...ROLE.answered].reverse().find((pid) => patient(pid)?.facts.some((f) => f.fact === "troponin_poc"));
 ROLE.chat ??= CP.filter((pid) => patient(pid).facts.some((f) => f.source === "echo" && f.status === "LOST")).pop();
 
@@ -316,7 +356,7 @@ const st = (v, word = WORD[v]) => `<span class="st ${v}">${esc(word)}</span>`;
 function value(f) {
   if (f.status === "LOST" || f.got == null) return `<span class="dim">–</span>`;
   const u = unit(C.fact_defs[f.fact]?.unit);
-  return `${esc(TR[f.got] || f.got)}${u ? ` <span class="dim">${esc(u)}</span>` : ""}`;
+  return `${esc(tr(f.got))}${u ? ` <span class="dim">${esc(u)}</span>` : ""}`;
 }
 // The value as the sender reported it, for converted results.
 const convStep = (f) => (f.steps || []).find((x) => x.includes("→") && /[×÷]|formula/.test(x));
@@ -347,6 +387,7 @@ function remark(f) {
     ? "Value extracted from the report text. No structured result available. Verification required."
     : `No structured report (DICOM SR). Value extracted from the image by optical character recognition. Verification required.`;
   if (f.fact === "troponin_poc") return "Point-of-care result reported by fax. No electronic result received.";
+  if (f.fact === "ecg_conclusion") return "ECG from the referring hospital came with the transfer on paper or by fax. Not archived.";
   if (f.fact === "wsi_slide") return "Proprietary whole-slide format. No DICOM WSI conversion available.";
   if (f.source === "ext_lab") return "Result received without BSN. No patient match on name and date of birth.";
   return "Image received; the measurement is not legible on the exported screen capture.";
@@ -461,6 +502,9 @@ const DIR = [
   { name: SOURCE.offline.sender, type: "Hospital", dept: "Emergency department", agb: "06011235", ura: "90001234", channel: "ZorgMail", status: "Verified", verified: "URA matched in ZORG-AB", region: true,
     fax: FAX_NO, remark: "Point-of-care results are not in their laboratory system; this sender still falls back to fax. Requests go through ZorgMail; the upload link is the fallback.",
     points: [["ZorgMail", "ZorgMail address book: Heuvelland Ziekenhuis, emergency department"], ["Twiin", "ZORG-AB: Heuvelland Ziekenhuis, emergency department"], ["Upload link", "Fallback: one-time link, sign-in with UZI pass"], ["Fax number", "For recognising incoming faxes; fax is not used to send"]] },
+  { name: SOURCE.nb_lab.sender, type: "Hospital", dept: "Clinical chemistry", agb: "06012418", ura: "90002871", channel: "ZorgMail", status: "Verified", verified: "URA matched in ZORG-AB",
+    remark: "Sends HL7 v2 results with LOINC codes; its own troponin I assay and NT-proBNP in pmol/L are mapped on receipt.",
+    points: [["ZorgMail", "ZorgMail address book: Maasland Ziekenhuis, clinical chemistry"], ["Twiin", "ZORG-AB: Maasland Ziekenhuis"]] },
   { name: "Regiolab Zuid", type: "Laboratory", dept: "", agb: "25010987", ura: "90004567", channel: "ZorgMail", status: "Verified", verified: "AGB checked against the Vektis register",
     points: [["ZorgMail", "EDIFACT MEDLAB, ZorgMail address book: Regiolab Zuid"]] },
   { name: "Pathologie Limburg Samenwerking", type: "Pathology laboratory", dept: "", agb: "25020456", ura: "90007890", channel: "ZorgMail", status: "Verified", verified: "AGB checked against the Vektis register",
@@ -780,7 +824,7 @@ function docStatus(i) {
 function docDetail(it, admin = false) {
   const fsel = it.facts.find((f) => factKey(f) === S.sel.fact) || it.facts[0];
   const rows = it.facts.map((f) => `<tr class="row ${f === fsel ? "sel" : ""}" data-fact="${esc(factKey(f))}">
-    ${tdt(label(f))}${td(value(f), typeof f.got === "number" || f.got == null || f.status === "LOST" ? "num" : "", TR[f.got] || "")}${td(st(verdict(f), verdict(f) === "LOST" && illegible(f) ? "Not legible" : WORD[verdict(f)]))}</tr>`);
+    ${tdt(label(f))}${td(value(f), typeof f.got === "number" || f.got == null || f.status === "LOST" ? "num" : "", typeof f.got === "string" ? tr(f.got) : "")}${td(st(verdict(f), verdict(f) === "LOST" && illegible(f) ? "Not legible" : WORD[verdict(f)]))}</tr>`);
   const src = SOURCE[it.source] || { system: it.via || "Manual upload" };
   const cap = it.facts.find((f) => f.captured)?.captured;
   return `
@@ -1191,7 +1235,9 @@ function renalRows() {
 }
 const LOCAL_LAB = { TROP: "troponin", KREA: "creatinine", EGFR: "egfr", GLUC: "glucose", HB: "hb", K: "potassium", NA: "sodium", NTPRO: "nt_probnp",
   CRP: "crp", LEUK: "wbc", TROM: "platelets", INR: "inr", PCO2: "pco2", PO2: "po2", MCV: "mcv", TSH: "tsh", FT4: "ft4", ALAT: "alt",
-  ASAT: "ast", AF: "alp", GGT: "ggt", BILI: "bilirubin", ALB: "albumin", LD: "ldh", CEA: "cea", PTH: "pth", BIC: "bicarbonate", FERR: "ferritin" };
+  ASAT: "ast", AF: "alp", GGT: "ggt", BILI: "bilirubin", ALB: "albumin", LD: "ldh", CEA: "cea", PTH: "pth", BIC: "bicarbonate", FERR: "ferritin",
+  UREUM: "urea", CHOL: "cholesterol", LDL: "ldl", HDL: "hdl", TRIG: "triglycerides", HBA1C: "hba1c", CA: "calcium", FOSF: "phosphate", ACR: "uacr",
+  LITH: "lithium", TSAT: "tsat", B12: "b12", APTT: "aptt", UHB: "urine_hb" };
 function labRows() {
   return C.patients.flatMap((p) => p.facts.filter((f) => f.source === "epic_lab").map((f) => ({
     PATID: p.mrn, BEPALING: Object.keys(LOCAL_LAB).find((k) => LOCAL_LAB[k] === f.fact), UITSLAG: comma(f.truth_value),
@@ -1650,14 +1696,15 @@ const SPECIMEN = { troponin: "Serum or plasma", creatinine: "Serum", egfr: "Seru
   potassium: "Serum or plasma", sodium: "Serum or plasma", nt_probnp: "Serum or plasma", crp: "Serum or plasma", wbc: "Whole blood", platelets: "Whole blood",
   inr: "Platelet-poor plasma", pco2: "Arterial blood", po2: "Arterial blood", uacr: "Urine", hba1c: "Whole blood", calcium: "Serum or plasma",
   phosphate: "Serum or plasma", lithium: "Serum or plasma", digoxin: "Serum or plasma", troponin_i: "Serum or plasma", ck: "Serum or plasma",
+  tsat: "Serum or plasma", b12: "Serum or plasma", aptt: "Platelet-poor plasma", urine_hb: "Urine",
   urea: "Serum or plasma", ddimer: "Platelet-poor plasma", mcv: "Whole blood", tsh: "Serum or plasma", ft4: "Serum or plasma", ferritin: "Serum or plasma" };
 const EGFR_NOTE = "The sender does not state the eGFR equation. CKD-EPI 2009 and 2021 can differ by more than 10%, so values from two laboratories may not belong on one trend line.";
-const NB_LOINC = { nt_probnp: "33763-4" }; // the molar sibling code Heuvelland sends
+const NB_LOINC = { nt_probnp: "33763-4" }; // the molar sibling code Maasland sends
 const MAPS = [
   ...Object.entries(EXT_LAB_CODES).map(([fact, [code, u, factor]]) => ({ src: "ext_lab", sender: "Regiolab Zuid", format: "EDIFACT MEDLAB", code, localUnit: u, fact, factor: String(factor),
     equation: fact === "egfr" ? "Not stated by sender" : "", range: "Sender's reference range, shown as received", status: fact === "egfr" ? "Flagged" : "Approved",
     by: fact === "egfr" ? "" : "Clinical chemist, AZ Zuid", on: fact === "egfr" ? "" : "2026-03-02", version: fact === "egfr" ? 1 : 2, note: fact === "egfr" ? EGFR_NOTE : "" })),
-  ...CM_.units.filter((u) => C.fact_defs[u.fact].kind === "lab").map((u) => ({ src: "nb_lab", sender: "Heuvelland Ziekenhuis", format: "HL7 v2 ORU^R01", code: NB_LOINC[u.fact] || C.fact_defs[u.fact].loinc,
+  ...CM_.units.filter((u) => C.fact_defs[u.fact].kind === "lab").map((u) => ({ src: "nb_lab", sender: "Maasland Ziekenhuis", format: "HL7 v2 ORU^R01", code: NB_LOINC[u.fact] || C.fact_defs[u.fact].loinc,
     localUnit: u.unit, fact: u.fact, factor: u.op === "÷" ? `1/${u.k}` : String(u.k), equation: "", range: "Sender's reference range, shown as received", status: "Approved",
     by: "Clinical chemist, AZ Zuid", on: "2026-04-14", version: 1, note: "" })),
   ...Object.entries(CM_.nhg).map(([code, fact]) => ({ src: "gp", sender: "General practitioner", format: "HIS export, NHG Tabel 45", code, localUnit: C.fact_defs[fact].unit, fact, factor: "1",
@@ -1768,7 +1815,7 @@ function reads(t) {
   return C.patients.flatMap((p) => p.facts.filter(t.match).map((f) => {
     const it = ITEMS[p.pid].find((x) => x.facts.includes(f)), v = verdict(f), conf = ocrConfidence(f);
     return { key: factKey(f), time: fmtTime(f.time), who: p.name, doc: full(it), field: label(f), line: lineRead(f), conf: conf == null ? null : Number(conf),
-      value: f.got == null ? "" : `${TR[f.got] || f.got} ${unit(C.fact_defs[f.fact]?.unit)}`.trim(), status: v === "LOST" ? "Not legible" : v === "DATA" ? "Replaced by structured value" : WORD[v],
+      value: f.got == null ? "" : `${tr(f.got)} ${unit(C.fact_defs[f.fact]?.unit)}`.trim(), status: v === "LOST" ? "Not legible" : v === "DATA" ? "Replaced by structured value" : WORD[v],
       href: `#/clinic/${deptOf(p)}/${p.pid}/all/${it.id}`, f };
   })).sort((a, b) => b.time.localeCompare(a.time));
 }

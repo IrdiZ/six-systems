@@ -98,6 +98,17 @@ def main() -> None:
         _link_mrn(ids, person, r, d)
         recs += r
         docs.append(d)
+    for sub in ("ecg", "mdo"):
+        for f in sorted((RAW / sub).glob("*.pdf")):
+            person, r, d = parse_pdf(f, rel(f), sub, media)
+            _link_mrn(ids, person, r, d)
+            recs += r
+            docs.append(d)
+    for f in sorted((RAW / "cathlab").glob("*.pdf")):
+        person, r, d = parse_pdf(f, rel(f), "cathlab", media)
+        _link_mrn(ids, person, r, d)
+        recs += r
+        docs.append(d)
     for f in sorted((RAW / "pft").glob("*.pdf")):
         person, r, d = parse_pdf(f, rel(f), "pft", media)
         _link_mrn(ids, person, r, d)

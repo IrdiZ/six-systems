@@ -66,6 +66,11 @@ def parse_hl7(path: Path, rel: str, source: str = "epic_lab") -> tuple[dict, lis
         fact = LOINC_TO_FACT.get(loinc)
         if not fact:
             continue
+        if str(obx[2]) == "ST":  # coded text result, e.g. a dipstick
+            recs.append(Rec(fact=fact, value=str(obx[5]), unit=None, time=_hl7_time(str(obx[14])), source=source, file=rel,
+                            status="DATA", bsn=bsn, steps=[f"LOINC {loinc} already on the message", "text result", "BSN in PID-3"],
+                            excerpt=f"{pid}\n{obx}"))
+            continue
         sent, unit, canon = float(str(obx[5])), str(obx[6]), FACTS[fact]["unit"]
         value, status, steps = sent, "DATA", [f"LOINC {loinc} already on the message"]
         if loinc != FACTS[fact]["loinc"]:
@@ -260,6 +265,7 @@ SC_PATTERNS = {
     "ivs_thickness": (r"IVSd\S*\s*(\d+(?:[.,]\d+)?)\s*[c¢]?m", 10),
     "lv_diameter": (r"LVIDd\S*\s*(\d+(?:[.,]\d+)?)\s*[c¢]?m", 10),
     "kidney_length": (r"Nier\s*li\S*\s*(\d+(?:[.,]\d+)?)\s*[c¢]?m", 10),
+    "kidney_length_right": (r"Nier\s*re\S*\s*(\d+(?:[.,]\d+)?)\s*[c¢]?m", 10),
 }
 
 
@@ -281,7 +287,7 @@ def _ocr_measurements(img: Image.Image, rel: str, t: str, header: str, png: str)
         text = " ".join(data["text"][i] for i in idxs)
         for fact, (pattern, scale) in SC_PATTERNS.items():
             m = re.search(pattern, text)
-            label = pattern.split("\\")[0]
+            label = pattern.split(r"\S")[0].replace(r"\s*", " ")
             if not m and text.startswith(label):
                 conf = min(float(data["conf"][i]) for i in idxs)
                 recs.append(Rec(
@@ -328,7 +334,15 @@ PDF_PATTERNS = {
     "calcium_score": (r"Agatston calciumscore:\s*(\d+)", "Agatston calciumscore"),
     "nodule_size": (r"diameter (\d+(?:[.,]\d+)?) mm", "diameter"),
     "tumour_size": (r"Tumorgrootte:\s*(\d+(?:[.,]\d+)?)\s*mm", "Tumorgrootte"),
-    "path_diagnosis": (r"Conclusie\s+(.+?)\.\s*Tumorgrootte", None),
+    "path_diagnosis": (r"Conclusie\s+(.+?)\.(?:\s|$)", None, "pathology"),
+    "pet_result": (r"PET-conclusie\s+(.+?)\.(?:\s|$)", None, "radiology"),
+    "mdo_advice": (r"Advies\s+(.+?)\.(?:\s|$)", None, "mdo"),
+    "heart_rate": (r"Ventrikelfrequentie\s+(\d+)", "Ventrikelfrequentie", "ecg"),
+    "pr": (r"PR-interval\s+(\d+)", "PR-interval", "ecg"),
+    "qrs": (r"QRS-duur\s+(\d+)", "QRS-duur", "ecg"),
+    "qtc": (r"QT/QTc\s+\d+/(\d+)", "QT/QTc", "ecg"),
+    "ecg_conclusion": (r"Conclusie\s+(.+?)\.(?:\s|$)", None, "ecg"),
+    "cag_result": (r"Conclusie\s+(.+?)\.", None, "cathlab"),
     "fev1": (r"FEV1\s+(\d+[.,]\d+)\s*L", "FEV1"),
     "fvc": (r"(?<!/)FVC\s+(\d+[.,]\d+)\s*L", "FVC"),
     "fev1_fvc": (r"FEV1/FVC\s+(\d+)\s*%", "FEV1/FVC"),
@@ -352,12 +366,14 @@ def parse_pdf(path: Path, rel: str, source: str, media_dir: Path) -> tuple[dict,
         t = f"{m.group(3)}-{m.group(2)}-{m.group(1)}T{m.group(4) or '00:00'}"
         title = re.search(r"Onderzoek\s+(.+)", text)
         recs = []
-        for fact, (pattern, anchor) in PDF_PATTERNS.items():
+        for fact, (pattern, anchor, *only) in PDF_PATTERNS.items():
+            if only and only[0] != source:
+                continue
             m = re.search(pattern, text, re.S)
             if not m:
                 continue
             raw = " ".join(m.group(1).split())
-            value = raw if fact == "path_diagnosis" else float(raw.replace(",", "."))
+            value = raw if FACTS[fact]["kind"] == "text" else float(raw.replace(",", "."))
             hits = page.search(anchor or raw, regex=False)
             box = None
             if hits:
@@ -369,7 +385,7 @@ def parse_pdf(path: Path, rel: str, source: str, media_dir: Path) -> tuple[dict,
                 status="PICTURE", steps=["text pulled out of a PDF with a pattern match", "no structured field behind it"],
                 excerpt=f"PDF text: \"{sentence.strip()}\"", media={"png": png.name, "box": box},
             ))
-    kind = "Pathology report" if source == "pathology" else "Pulmonary function report" if source == "pft" else f"Radiology report · {title.group(1).strip()}" if title else "Radiology report"
+    kind = "Pathology report" if source == "pathology" else "Pulmonary function report" if source == "pft" else "Coronary angiography report" if source == "cathlab" else "ECG" if source == "ecg" else "MDT meeting report" if source == "mdo" else "PET-CT report" if source == "pet" else f"Radiology report · {title.group(1).strip()}" if title else "Radiology report"
     return person, recs, Doc(rel, source, t, kind, "pdf", media=png.name)
 
 
