@@ -1281,7 +1281,20 @@ function intakeDetail(i) {
         ${!i.pid ? `<button data-q-act="ask" data-key="${i.key}">Request again</button>` : ""}
         <button data-q-act="i-reject" data-key="${i.key}">Reject</button></div>${S.asked[i.key] ? `<p class="note dim">${esc(S.asked[i.key])}</p>` : ""}` : `<div>${esc(i.status)}</div>`}</div>
     ${scanFile(i) ? uploadView(scanFile(i)) : chatImage(i) ? viewer(chatImage(i)) : ""}
-    <div class="block"><h4>${i.channel === "fax" ? "Text read from the fax (OCR)" : "Source message"}</h4><pre class="raw">${esc(i.text)}</pre></div>`;
+    ${originOf(i)}
+    ${["fax", "chat"].includes(i.channel) ? `<div class="block"><h4>${i.channel === "fax" ? "Text read from the fax (OCR)" : "Message"}</h4><pre class="raw">${esc(i.text)}</pre></div>` : ""}`;
+}
+// Where a captured document came from, stated the way a patient record states it.
+function originOf(i) {
+  const c = CHANNELS.find((x) => x.id === i.channel), lines = i.text.split("\n");
+  const sender = i.channel === "fax" ? (faxOf(i.calling)?.name || "Unknown fax number") : i.channel === "folder" ? i.from.replace(/^Scanner, (.)/, (m, x) => x.toUpperCase()) : i.from;
+  const doc = { fax: "Fax, 1 page", folder: `${lines[0].split("\\").pop()}, ${lines[1]?.split(".")[0] || ""}`, mail: lines.find((l) => l.startsWith("Attachments:")) || "", chat: "Chat message" }[i.channel];
+  const ident = i.channel === "folder" ? "None: no BSN, patient number or date of birth found on the scan" : i.match;
+  return `<div class="block"><h4>Origin</h4><dl class="kv">
+    <dt>Sender</dt><dd>${esc(sender)}${i.email ? ` <span class="dim">· ${esc(i.email)}</span>` : ""}</dd>
+    <dt>Received through</dt><dd>${esc(c.name)} <span class="dim">· ${esc(c.type)}</span></dd>
+    ${doc ? `<dt>Document</dt><dd>${esc(doc)}</dd>` : ""}
+    <dt>Patient identification</dt><dd>${esc(ident)}</dd></dl></div>`;
 }
 // A chat message about a measurement: the exported capture it refers to, from the patient's own record.
 const chatImage = (i) => i.channel === "chat" && i.pid && patient(i.pid).facts.find((f) => f.fact === i.fact && f.media);
