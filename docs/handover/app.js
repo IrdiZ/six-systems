@@ -522,7 +522,7 @@ const DIR = [
 ];
 const dirOf = (name) => DIR.find((d) => d.name === name);
 // The connection each source arrives through (Management > Connections).
-const SOURCE_CHAN = { epic_lab: "lis", echo: "dicom", radiology: "dicom", ext_lab: "medlab", pathology: "path", nb_lab: "twiin", gp: "zd", offline: "fax" };
+const SOURCE_CHAN = { epic_lab: "lis", echo: "dicom", radiology: "dicom", ext_lab: "medlab", pathology: "path", nb_lab: "twiin", gp: "zd", offline: "fax", ecg: "mdm", cathlab: "mdm", mdo: "mdm", pft: "mdm" };
 const chanOf = (it) => !it.via && !it.added && CHANNELS.find((c) => c.id === SOURCE_CHAN[it.source]);
 const faxOf = (no) => DIR.find((d) => d.fax === no);
 const INTERNAL = TARGETS[1].items;
@@ -559,6 +559,7 @@ const ACK_HL7 = "Original mode. AA: filed. AE: to the error queue, no automatic 
 
 const CHANNELS = [
   { id: "lis", name: "Clinical chemistry results", type: "HL7 v2 listener (MLLP)", dir: "Inbound", scope: "Internal", source: "Laboratory information system, interface engine port 6661", route: "By care pathway", ack: ACK_HL7, msgs: fromSrc("epic_lab") },
+  { id: "mdm", name: "Department reports", type: "HL7 v2 listener (MDM^T02, PDF attached)", dir: "Inbound", scope: "Internal", source: "ECG management, catheterisation laboratory, MDT reporting and spirometry, interface engine port 6663", route: "By care pathway", ack: ACK_HL7, msgs: fromSrc("ecg", "cathlab", "mdo", "pft") },
   { id: "dicom", name: "Imaging and echocardiography", type: "DICOM receiver (C-STORE)", dir: "Inbound", scope: "Internal", source: "PACS, AE title AZZ_HANDOVER", route: "By care pathway", ack: "DICOM C-STORE response status; failures retried by the sender", msgs: fromSrc("radiology", "echo") },
   { id: "adt", name: "Patient administration", type: "HL7 v2 listener (ADT A04, A08, A40)", dir: "Internal", scope: "Internal", source: "Patient administration, interface engine port 6662", route: "Patient master index: matching on BSN, name and date of birth", ack: ACK_HL7 },
   { id: "twiin", name: "Twiin: BgZ and correspondence", type: "Twiin Notified Pull (FHIR STU3), through the EHR supplier's validated Twiin node", dir: "Outbound and inbound", scope: "National",
@@ -864,7 +865,7 @@ function viewer(f, it) {
   if (!f?.media) return "";
   const b = f.media.box;
   return `<div class="viewer"><div class="bar"><b>${esc(f.media.png.replace(/^raw_\w+?_/, "").replace(/\.(pdf\.png|jpg|png)$/, ""))}</b><span>${esc(label(f))}</span>${expandBtn}</div>
-    <div class="stage" title="Click to expand"><div class="frame"><img src="${mediaSrc(f.media.png)}" alt="">${b ? `<div class="box" style="left:${b[0]}%;top:${b[1]}%;width:${b[2]}%;height:${b[3]}%"></div>` : ""}</div></div></div>`;
+    <div class="stage"><div class="frame"><img src="${mediaSrc(f.media.png)}" alt="">${b ? `<div class="box" style="left:${b[0]}%;top:${b[1]}%;width:${b[2]}%;height:${b[3]}%"></div>` : ""}</div></div></div>`;
 }
 
 // A file that came in through an upload link, intake or manual attachment; the viewer stays the only dark surface.
