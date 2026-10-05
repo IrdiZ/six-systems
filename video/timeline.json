@@ -116,7 +116,7 @@
     {
      "caption": {
       "title": "Read from the image",
-      "sub": "Text recognition on an exported image."
+      "sub": "Not in the structured report. Read from the screen capture."
      },
      "ring": ".pane.detail .viewer",
      "hold": 3.4
