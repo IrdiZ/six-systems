@@ -150,8 +150,11 @@ class Rec:
                 if live:
                     self.frames(1 / st.get("cps", 18))
             self.settle()
-        if live and st.get("hold"):
-            self.frames(st["hold"])
+        if st.get("rest") and live:  # the cursor glides back to its resting place
+            ov("move", *self.rest, self.t, 0.8, "inOut")
+            self.frames(0.8)
+        if st.get("hold"):
+            self.frames(st["hold"]) if live else pg.clock.run_for(round(st["hold"] * 1000))  # off camera the app's timers still run
 
 
 def render_scene(scene, g, port, preview, fdir, out):
@@ -195,6 +198,7 @@ def render_scene(scene, g, port, preview, fdir, out):
             for st in setup:
                 r.step(st, live=False)
             r.settle()
+            r.rest = g["cursor"]
             page.evaluate("([x, y]) => __ov.cursor(x, y)", scene.get("cursor", g["cursor"]))
             for st in scene["steps"]:
                 r.step(st)
@@ -219,7 +223,12 @@ def main():
 
     tl = json.loads((HERE / "timeline.json").read_text(encoding="utf-8"))
     g = {k: v for k, v in tl.items() if k != "scenes"}
-    scenes = tl["scenes"]
+    scenes, done = [], {}
+    for s in tl["scenes"]:  # "from": start where that scene ends, by replaying its setup and steps off camera
+        if s.get("from"):
+            f = done[s["from"]]
+            s = {**s, "setup": f["setup"] + f["steps"] + s.get("setup", [])}
+        scenes.append(done.setdefault(s["id"], s))
     if a.only and a.only not in [s["id"] for s in scenes]:
         raise SystemExit(f"no scene {a.only!r}; scenes: {', '.join(s['id'] for s in scenes)}")
     CACHE.mkdir(exist_ok=True)

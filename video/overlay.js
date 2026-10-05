@@ -1,7 +1,7 @@
 // Demo overlay, injected by render.py: cursor, click ripple, highlight ring, callout, key chip, zoom, scroll.
 // Nothing here reads the clock: render.py starts tweens at a time t, then calls __ov.frame(t) once per video frame.
 // frame(t) returns true when the picture may have changed (a tween is running or the app's DOM mutated).
-// The callout sits next to the ring (below, above, right, left: the first side that fits), so the eye stays put.
+// The callout sits next to the ring, on the side that fits and covers the least text, so the eye stays put.
 (() => {
   const E = { linear: (p) => p, out: (p) => 1 - (1 - p) ** 3, inOut: (p) => (p < 0.5 ? 4 * p ** 3 : 1 - (-2 * p + 2) ** 3 / 2) };
   const lerp = (a, b, p) => a + (b - a) * p;
@@ -51,18 +51,30 @@
     return [x0, y0, clamp(b.right + PAD, 3, W - 3) - x0, clamp(b.bottom + PAD, 3, H - 3) - y0];
   }
 
-  function place(r, w, h, prefer) { // the callout's [x, y, side] next to rect r; null r = lower left
+  // how much is under a box: a 6x3 grid of probes, each counting when it lands on text, an image or a control
+  const INK = /^(IMG|CANVAS|SVG|INPUT|SELECT|TEXTAREA|BUTTON|KBD)$/;
+  function covered(x, y, w, h) {
+    let n = 0;
+    for (let i = 0; i < 6; i++) for (let j = 0; j < 3; j++) {
+      const e = document.elementFromPoint(x + (w * (i + 0.5)) / 6, y + (h * (j + 0.5)) / 3);
+      if (e && (INK.test(e.tagName) || [...e.childNodes].some((c) => c.nodeType === 3 && c.textContent.trim()))) n++;
+    }
+    return n;
+  }
+
+  // the callout's [x, y, side] next to rect r: of the spots that fit, the one covering least (keep: stay on that spot if it fits)
+  function place(r, w, h, keep) {
     const W = innerWidth, H = innerHeight;
     if (!r) return [SAFE + 4, H - SAFE - 4 - h, "none"];
-    const [x, y, rw, rh] = r, fx = clamp(x, SAFE, W - SAFE - w), fy = clamp(y, SAFE, H - SAFE - h);
-    const sides = {
-      below: y + rh + GAP + h <= H - SAFE && [fx, y + rh + GAP],
-      above: y - GAP - h >= SAFE && [fx, y - GAP - h],
-      right: x + rw + GAP + w <= W - SAFE && [x + rw + GAP, fy],
-      left: x - GAP - w >= SAFE && [x - GAP - w, fy],
-    };
-    for (const s of [prefer, "below", "above", "right", "left"]) if (s && sides[s]) return [...sides[s], s];
-    return [clamp(x + 12, SAFE, W - SAFE - w), clamp(y + rh - h - 12, SAFE, H - SAFE - h), "inside"]; // target fills the screen
+    const [x, y, rw, rh] = r, cx = (v) => clamp(v, SAFE, W - SAFE - w), cy = (v) => clamp(v, SAFE, H - SAFE - h);
+    const spots = [["below", cx(x), y + rh + GAP], ["below-end", cx(x + rw - w), y + rh + GAP], ["above", cx(x), y - GAP - h],
+      ["above-end", cx(x + rw - w), y - GAP - h], ["right", x + rw + GAP, cy(y)], ["left", x - GAP - w, cy(y)]]
+      .filter(([, px, py]) => px >= SAFE && py >= SAFE && px + w <= W - SAFE && py + h <= H - SAFE);
+    const kept = spots.find((s) => s[0] === keep);
+    if (kept) return kept.slice(1).concat(kept[0]);
+    if (!spots.length) return [cx(x + 12), cy(y + rh - h - 12), "inside"]; // the target fills the screen
+    const best = spots.map((s, i) => [covered(s[1], s[2], w, h) + i * 0.01, s]).sort((a, b) => a[0] - b[0])[0][1];
+    return [best[1], best[2], best[0]];
   }
 
   window.__ov = {
@@ -129,12 +141,13 @@
         const k = o || c;
         if (el.t.textContent !== (k.title || "")) { el.t.textContent = k.title || ""; el.s.textContent = k.sub || ""; }
         if (!o) {
-          const [px, py, side] = place(rr, el.cap.offsetWidth, el.cap.offsetHeight, c.side || capG.side);
-          if (capG.key !== c || capG.side !== side) Object.assign(capG, { t0: t, from: capG.key === c && capG.last ? capG.last : null, key: c, side }), busy(t + MOVE);
+          const fresh = capG.key !== c || capG.node !== ringG.node; // a new caption or a new target: choose the spot again
+          const [px, py, side] = place(rr, el.cap.offsetWidth, el.cap.offsetHeight, c.side || (fresh ? null : capG.side));
+          if (fresh || capG.side !== side) Object.assign(capG, { t0: t, from: capG.key === c && capG.last ? capG.last : null, key: c, side, node: ringG.node }), busy(t + MOVE);
           capG.last = glide(capG, [px, py], t);
         }
         const [px, py] = capG.last, side = capG.side, d = o ? 0 : 6 * (1 - op);
-        const [dx, dy] = { below: [0, -d], above: [0, d], right: [-d, 0], left: [d, 0] }[side] || [0, d];
+        const [dx, dy] = { below: [0, -d], above: [0, d], right: [-d, 0], left: [d, 0] }[side.split("-")[0]] || [0, d];
         el.cap.style.opacity = op;
         el.cap.style.transform = `translate(${px + dx}px, ${py + dy}px)`;
       }
