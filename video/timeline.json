@@ -63,10 +63,7 @@
    ],
    "steps": [
     {
-     "click": [
-      ".pane.list tr[data-doc='2']",
-      ".pane.list tr:has-text('External laboratory report')"
-     ],
+     "click": ".pane.list tr:has-text('External laboratory report')",
      "hold": 0.8
     },
     {
@@ -107,10 +104,7 @@
    ],
    "steps": [
     {
-     "click": [
-      ".pane.list tr[data-doc='4']",
-      ".pane.list tr:has-text('Transthoracic echocardiogram')"
-     ],
+     "click": ".pane.list tr:has-text('Transthoracic echocardiogram')",
      "hold": 0.6
     },
     {
@@ -122,7 +116,7 @@
     {
      "caption": {
       "title": "Read from the image",
-      "sub": "An echo export, no structured report."
+      "sub": "Text recognition on an exported image."
      },
      "ring": ".pane.detail .viewer",
      "hold": 3.4
@@ -201,7 +195,10 @@
   {
    "id": "request",
    "setup": [
-    "#/clinic/cardiology/P006/all/1"
+    "#/clinic/cardiology/P006",
+    {
+     "click": ".pane.list tr:has-text('Troponin, point-of-care')"
+    }
    ],
    "steps": [
     {
@@ -250,7 +247,10 @@
       "title": "The regional platform has it",
       "sub": "Found by BSN, in one query."
      },
-     "ring": [".dlg dd:has-text('found')", ".dlg .block:has(dt:text('Found'))"],
+     "ring": [
+      ".dlg dd:has-text('found')",
+      ".dlg .block:has(dt:text('Found'))"
+     ],
      "hold": 3.4
     },
     {
