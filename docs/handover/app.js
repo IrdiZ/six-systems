@@ -1254,7 +1254,7 @@ function intakeDetail(i) {
       <label class="field"><span>Patient</span><select id="i-pid"><option value="">Select patient</option>${pts}</select></label>
       <div class="field"><span></span><div class="dim">${esc(i.match)}</div></div>
       ${i.fact ? `<div class="field"><span>${esc(LABEL[i.fact])}</span><div class="inline" style="margin:0"><input id="i-val" value="${esc(comma(i.value))}">
-        <span class="dim">${esc(unit(C.fact_defs[i.fact].unit))} · ${i.channel === "fax" ? "read from the fax by text recognition (profile T5)" : "read from the message"}, filed as unverified</span></div></div>` : ""}
+        <span class="dim">${esc(unit(C.fact_defs[i.fact].unit))} · ${i.channel === "fax" ? "read from the fax by text recognition" : "read from the message"}, filed as unverified</span></div></div>` : ""}
       <div class="inline">${ok ? "" : `<button data-q-act="i-dir" data-key="${i.key}">Register sender as institution</button>`}
         <button class="primary" data-q-act="i-file" data-key="${i.key}" ${ok ? "" : "disabled"}>File to patient</button>
         <button data-q-act="i-reject" data-key="${i.key}">Reject</button></div>` : `<div>${esc(i.status)}</div>`}</div>
@@ -1766,7 +1766,7 @@ const lowCount = (t) => reads(t).filter((r) => below(t, r)).length;
 function recogDetail(t) {
   const rs = reads(t), conf = (r) => (r.conf == null ? `<span class="dim">–</span>` : below(t, r) ? st("FAIL", r.conf + "%") : r.conf + "%");
   const hooks = [...CHANNELS.map((c) => ["channel", c.id, `Connection: ${c.name}`]), ...DIR.map((d) => ["institution", d.name, `Institution: ${d.name}`])];
-  return `<div class="block"><dl class="kv"><dt>Profile</dt><dd>${t.id} · ${esc(t.name)}</dd>
+  return `<div class="block"><dl class="kv"><dt>Profile</dt><dd>${esc(t.name)}</dd>
       <dt>Attached to</dt><dd><select data-recog-hook="${t.id}">${hooks.map(([k, id, l]) => `<option value="${k}|${esc(id)}" ${t.hook.kind === k && t.hook.id === id ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></dd>
       <dt>Method</dt><dd>${METHODS[t.method]}</dd><dt>Document type</dt><dd>${esc(t.doc)}</dd>
       <dt>Values read</dt><dd>${esc(t.ids ? "BSN, patient number and date of birth, to find the patient" : t.facts.map((k) => LABEL[k]).join(", "))}</dd>
@@ -1776,8 +1776,8 @@ function recogDetail(t) {
       <dt>Not legible</dt><dd>Shown as Not legible in the patient record</dd>
       <dt>Every read</dt><dd>Stays unverified until a person verifies it against the image</dd>
       <dt>Active</dt><dd><label><input type="checkbox" data-recog-on="${t.id}" ${t.on ? "checked" : ""}> ${t.on ? "Reading new documents" : "Off: new documents are filed as images, nothing is read"}</label></dd></dl></div>
-    <div class="block"><h4>Reads</h4>${table([["Patient", "32%"], ["Line read → value"], ["Confidence", "84px", "num"], ["Status", "96px"]],
-      rs.map((r) => `<tr class="row" data-href="${r.href}">${td(`${esc(r.who)}<br><span class="dim">${esc(r.time)}</span>`)}${td(`${r.line ? `<code>${esc(r.line)}</code>` : `<span class="dim">–</span>`}${r.value ? ` → ${esc(r.value)}` : ""}`)}${td(conf(r), "num")}${tdt(r.status)}</tr>`))}</div>`;
+    <div class="block"><h4>Reads</h4>${table([["Patient"], ["Read", "28%"], ["Value", "18%", "num"], ["Confidence", "92px", "num"]],
+      rs.map((r) => `<tr class="row" data-href="${r.href}">${td(`${esc(r.who)}<br><span class="dim">${esc(r.time)}</span>`)}${td(r.line ? `<code>${esc(r.line)}</code>` : `<span class="dim">–</span>`, "nowrap")}${td(r.value ? esc(r.value) : `<span class="dim">–</span>`, "num nowrap", r.status)}${td(conf(r), "num nowrap")}</tr>`))}</div>`;
 }
 function recogDialog() {
   const hooks = [...CHANNELS.map((c) => ["channel", c.id, `Connection: ${c.name}`]), ...DIR.map((d) => ["institution", d.name, `Institution: ${d.name}`])];
@@ -1879,7 +1879,7 @@ function renderAdmin(tab, key) {
     line = (t) => [t.id, t.name, hookText(t.hook), METHODS[t.method], t.doc, t.ids ? "Patient identifiers" : t.facts.map((k) => LABEL[k]).join(", "), t.min ?? "", t.on ? "Yes" : "No", reads(t).length, lowCount(t)];
     list = table([["Active", "70px"], ["Profile"], ["Attached to", "230px", "", 2], ["Method", "110px", "", 3], ["Reads", "70px", "num"], ["Below threshold", "130px", "num"]],
       rows.map((t) => { const lo = lowCount(t);
-        return row(t, cur, t.id, `${td(`<input type="checkbox" data-recog-on="${t.id}" ${t.on ? "checked" : ""}>`)}${tdt(`${t.id} · ${t.name}`)}${tdt(hookText(t.hook))}${td(t.method === "ocr" ? "Image (OCR)" : "PDF text")}${td(reads(t).length, "num")}${td(lo ? st("FAIL", lo) : "", "num")}`); }));
+        return row(t, cur, t.id, `${td(`<input type="checkbox" data-recog-on="${t.id}" ${t.on ? "checked" : ""}>`)}${tdt(t.name)}${tdt(hookText(t.hook))}${td(t.method === "ocr" ? "Image (OCR)" : "PDF text")}${td(reads(t).length, "num")}${td(lo ? st("FAIL", lo) : "", "num")}`); }));
     detail = cur && recogDetail(cur);
   } else if (tab === "access") {
     rows = [...S.access].sort((a, b) => b.time.localeCompare(a.time)); cur = sel(rows);
@@ -2018,12 +2018,12 @@ document.addEventListener("click", (e) => {
 document.addEventListener("change", (e) => {
   const t = RECOG.find((x) => [e.target.dataset?.recogOn, e.target.dataset?.recogMin, e.target.dataset?.recogHook].includes(x.id));
   if (!t) return;
-  if (e.target.dataset.recogOn) { t.on = e.target.checked; return flash(`${t.id} ${t.name}: ${t.on ? "on" : "off"}`); }
-  if (e.target.dataset.recogMin) { t.min = Number(e.target.value); return flash(`${t.id}: minimum confidence ${t.min}%, ${plural(lowCount(t), "read")} below it`); }
+  if (e.target.dataset.recogOn) { t.on = e.target.checked; return flash(`${t.name}: ${t.on ? "on" : "off"}`); }
+  if (e.target.dataset.recogMin) { t.min = Number(e.target.value); return flash(`${t.name}: minimum confidence ${t.min}%, ${plural(lowCount(t), "read")} below it`); }
   const [kind, ...rest] = e.target.value.split("|");
   t.hook = { kind, id: rest.join("|") };
-  logAccess({ action: "Attached text recognition profile", object: `${t.id} to ${hookText(t.hook)}`, basis: "Data management" });
-  flash(`${t.id} attached to ${hookText(t.hook)}`);
+  logAccess({ action: "Attached text recognition profile", object: `${t.name} to ${hookText(t.hook)}`, basis: "Data management" });
+  flash(`${t.name} attached to ${hookText(t.hook)}`);
 });
 $("#dialog").addEventListener("click", (e) => { if (e.target.id === "dialog") closeDialog(); });
 

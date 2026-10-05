@@ -240,3 +240,5 @@ button.primary kbd { border-color: rgba(255,255,255,.35); color: #dfe3e7; backgr
 #top .who { display: flex; align-items: center; gap: 16px; }
 #top .user { display: flex; align-items: center; gap: 8px; color: #fff; height: 20px; }
 #top .user svg { color: #aab2ba; }
+.grid td.nowrap { white-space: nowrap; }
+dl.kv dd select { max-width: 100%; }
