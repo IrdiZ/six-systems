@@ -1,5 +1,7 @@
 """One parser per source. Each returns plain records; linking and status happen in run.py."""
 
+import hashlib
+import json
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -12,9 +14,10 @@ import pydicom
 import pytesseract
 from PIL import Image
 
-from sim.model import EXT_LAB_CODES, FACTS
+from sim.model import (EXT_LAB_CODES, FACTS, LOINC_ALIASES, NHG_MEMO, NHG_TO_FACT, NOT_CONVERTIBLE, UNIT_CONVERSIONS,
+                       convert, to_canonical)
 
-LOINC_TO_FACT = {f["loinc"]: k for k, f in FACTS.items() if f["loinc"]}
+LOINC_TO_FACT = {f["loinc"]: k for k, f in FACTS.items() if f["loinc"]} | LOINC_ALIASES
 EXT_CODE_TO_FACT = {c["code"]: k for k, c in EXT_LAB_CODES.items()}
 
 
@@ -48,7 +51,7 @@ class Doc:
 
 # ---------------------------------------------------------------- HL7v2
 
-def parse_hl7(path: Path, rel: str) -> tuple[dict, list[Rec], Doc]:
+def parse_hl7(path: Path, rel: str, source: str = "epic_lab") -> tuple[dict, list[Rec], Doc]:
     msg = hl7.parse(path.read_bytes().decode())  # read_text() would turn \r into \n
     pid = msg.segment("PID")
     ids = str(pid[3]).split("~")
@@ -63,14 +66,32 @@ def parse_hl7(path: Path, rel: str) -> tuple[dict, list[Rec], Doc]:
         fact = LOINC_TO_FACT.get(loinc)
         if not fact:
             continue
+        if str(obx[2]) == "ST":  # coded text result, e.g. a dipstick
+            recs.append(Rec(fact=fact, value=str(obx[5]), unit=None, time=_hl7_time(str(obx[14])), source=source, file=rel,
+                            status="DATA", bsn=bsn, steps=[f"LOINC {loinc} already on the message", "text result", "BSN in PID-3"],
+                            excerpt=f"{pid}\n{obx}"))
+            continue
+        sent, unit, canon = float(str(obx[5])), str(obx[6]), FACTS[fact]["unit"]
+        value, status, steps = sent, "DATA", [f"LOINC {loinc} already on the message"]
+        if loinc != FACTS[fact]["loinc"]:
+            steps = [f"LOINC {loinc} (sibling code, other property) → {FACTS[fact]['loinc']}"]
+            status = "CONFLICT"
+        if unit != canon and (fact, unit) in UNIT_CONVERSIONS:
+            op = UNIT_CONVERSIONS[(fact, unit)]
+            value = round(convert(op, sent), 0 if canon == "ng/L" else 2)
+            steps.append(f"{sent:g} {unit} → {value:g} {canon} ({op[0]}{op[1]:g})")
+            status = "CONFLICT"
+        else:
+            steps.append(f"unit {unit} already canonical")
+        if fact in NOT_CONVERTIBLE:
+            steps.append(NOT_CONVERTIBLE[fact])
+        steps.append("BSN in PID-3")
         recs.append(Rec(
-            fact=fact, value=float(str(obx[5])), unit=str(obx[6]), time=_hl7_time(str(obx[14])),
-            source="epic_lab", file=rel, status="DATA", bsn=bsn,
-            steps=[f"LOINC {loinc} already on the message", f"unit {obx[6]} already canonical", "BSN in PID-3"],
-            excerpt=f"{pid}\n{obx}",
+            fact=fact, value=value, unit=canon, time=_hl7_time(str(obx[14])),
+            source=source, file=rel, status=status, bsn=bsn, steps=steps, excerpt=f"{pid}\n{obx}",
         ))
     t = _hl7_time(str(msg.segment("MSH")[7]))
-    doc = Doc(rel, "epic_lab", t, f"Lab results · {len(recs)} values", "hl7", bsn=bsn, link="BSN on the message")
+    doc = Doc(rel, source, t, f"Lab results · {len(recs)} values", "hl7", bsn=bsn, link="BSN on the message")
     return person, recs, doc
 
 
@@ -112,25 +133,68 @@ def parse_edi(path: Path, rel: str) -> tuple[dict, list[Rec], Doc]:
         v = float(raw_value.replace(",", "."))
         if "," in raw_value:
             steps.append(f"decimal comma '{raw_value}' although the header declares '.'")
-        canon = FACTS[fact]["unit"]
-        if unit != canon and c["factor"] != 1.0:
-            steps.append(f"{raw_value} {unit} → {v * c['factor']:.1f} {canon} (×{c['factor']:.4g})")
+        canon, value = FACTS[fact]["unit"], to_canonical(fact, v)
+        if "formula" in c:
+            a, b = c["formula"]
+            steps.append(f"{raw_value} {unit} → {value:.1f} {canon} (formula: IFCC = {a:g} × NGSP − {-b:.2f}; a plain factor would be wrong)")
+        elif unit != canon and c["factor"] != 1.0:
+            steps.append(f"{raw_value} {unit} → {value:.1f} {canon} (×{c['factor']:.4g})")
         elif unit != canon:
             steps.append(f"unit label '{unit}' → '{canon}'")
         recs.append(Rec(
-            fact=fact, value=round(v * c["factor"], 2), unit=canon, time=t, source="ext_lab", file=rel,
+            fact=fact, value=round(value) if "formula" in c else round(value, 2), unit=canon, time=t, source="ext_lab", file=rel,
             status="CONFLICT", steps=steps, excerpt="\n".join([pna_line, lines[i], lines[i + 1]]),
         ))
     doc = Doc(rel, "ext_lab", t, f"Regional lab batch · {len(recs)} values", "edi")
     return person, recs, doc
 
 
+# ---------------------------------------------------------------- GP information system export (NHG Tabel 45)
+
+def parse_gp(path: Path, rel: str) -> tuple[dict, list[Rec], Doc]:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    head = lines.index("BSN;Achternaam;Voorvoegsel;Voornaam;Geboortedatum;Geslacht")
+    bsn, surname, prefix, given, dob, _ = lines[head + 1].split(";")
+    d, m, y = dob.split("-")
+    person = {"bsn": bsn, "family": f"{prefix} {surname}".strip(), "given": given, "dob": f"{y}-{m}-{d}"}
+    start = lines.index("NHG-nr;Memo;Datum;Uitslag;Eenheid") + 1
+    recs, times = [], []
+    for ln in lines[start:]:
+        if not ln.strip():
+            continue
+        nhg, memo, date, raw, unit = ln.split(";")
+        fact = NHG_TO_FACT.get(nhg)
+        if not fact:
+            continue
+        d, m, y = date.split("-")
+        t = f"{y}-{m}-{d}T00:00"
+        times.append(t)
+        loinc, canon = FACTS[fact]["loinc"], FACTS[fact]["unit"]
+        steps = [f"NHG Tabel 45 {nhg} {memo} → LOINC {loinc}" if loinc else f"NHG Tabel 45 {nhg} {memo}: point-of-care test, no LOINC; NHG code kept"]
+        if unit != canon:
+            steps.append(f"unit label '{unit}' → '{canon}'")
+        steps.append("measurement date only, no time")
+        recs.append(Rec(fact=fact, value=float(raw.replace(",", ".")), unit=canon, time=t, source="gp", file=rel,
+                        status="CONFLICT", steps=steps, excerpt=f"{lines[head]}\n{lines[head + 1]}\n{lines[start - 1]}\n{ln}", bsn=bsn))
+    reason = next((ln.split(":", 1)[1].strip() for ln in lines if ln.startswith("# reden")), "")
+    doc = Doc(rel, "gp", max(times) if times else "", f"GP referral · {reason}", "his", bsn=bsn, link="BSN on the export")
+    return person, recs, doc
+
+
 # ---------------------------------------------------------------- DICOM
+
+# Tesseract versions read the same pixels differently. The readings of the reference build are pinned per image
+# (SHA-256 of the pixel data), so every machine assembles the same case. Delete the file to read with your own Tesseract.
+OCR_REFERENCE = Path(__file__).with_name("ocr_reference.json")
+_OCR_PINNED = json.loads(OCR_REFERENCE.read_text(encoding="utf-8")) if OCR_REFERENCE.exists() else {}
+
 
 def parse_dicom(path: Path, rel: str, media_dir: Path) -> tuple[dict, list[Rec], Doc]:
     ds = pydicom.dcmread(path)
     t = datetime.strptime(ds.StudyDate + ds.StudyTime[:4], "%Y%m%d%H%M").isoformat(timespec="minutes")
     person = {"mrn": str(ds.PatientID)}
+    if ds.SOPClassUID == "1.2.840.10008.5.1.4.1.1.88.33":
+        return person, *_parse_sr(ds, rel, t)
     header = (f"(0010,0020) PatientID      {ds.PatientID}\n"
               f"(0010,0010) PatientName    {ds.PatientName}\n"
               f"(0008,1030) StudyDescr     {ds.StudyDescription}\n"
@@ -140,11 +204,40 @@ def parse_dicom(path: Path, rel: str, media_dir: Path) -> tuple[dict, list[Rec],
     if ds.SOPClassUID == "1.2.840.10008.5.1.4.1.1.7":
         img = Image.fromarray(ds.pixel_array)
         img.save(png, quality=82)
-        recs = _ocr_measurements(img, rel, t, header, png.name)
+        key = hashlib.sha256(ds.PixelData).hexdigest()
+        if key in _OCR_PINNED:
+            recs = [Rec(**{**r, "time": t, "file": rel}) for r in _OCR_PINNED[key]]
+        else:
+            recs = _ocr_measurements(img, rel, t, header, png.name)
         source = "echo" if rel.startswith("raw/echo") else "radiology"
         doc = Doc(rel, source, t, f"{ds.StudyDescription} · screen capture", "sc", media=png.name)
         return person, recs, doc
     raise ValueError(f"not a secondary capture: {rel}")
+
+
+def _parse_sr(ds, rel: str, t: str) -> tuple[list[Rec], Doc]:
+    """DICOM Structured Report: every measurement already carries a code and a unit. The clean path for echo."""
+    recs = []
+    for it in ds.ContentSequence:
+        if it.ValueType != "NUM":
+            continue
+        code = it.ConceptNameCodeSequence[0]
+        fact = LOINC_TO_FACT.get(code.CodeValue)
+        if not fact:
+            continue
+        mv = it.MeasuredValueSequence[0]
+        sent, unit, canon = float(mv.NumericValue), mv.MeasurementUnitsCodeSequence[0].CodeValue, FACTS[fact]["unit"]
+        steps = [f"DICOM SR NUM item: LOINC {code.CodeValue} ({code.CodeMeaning}), UCUM unit {unit}"]
+        value = sent
+        if unit != canon and (fact, unit) in UNIT_CONVERSIONS:
+            op = UNIT_CONVERSIONS[(fact, unit)]
+            value = round(convert(op, sent), 1)
+            steps.append(f"{sent:g} {unit} → {value:g} {canon} ({op[0]}{op[1]:g}, UCUM prefix)")
+        recs.append(Rec(fact=fact, value=value, unit=canon, time=t, source="echo", file=rel, status="DATA", steps=steps,
+                        excerpt=f"(0040,A043) ConceptName  {code.CodeValue}^LN^{code.CodeMeaning}\n"
+                                f"(0040,A30A) NumericValue {mv.NumericValue}\n(0040,08EA) Units        {unit}^UCUM"))
+    doc = Doc(rel, "echo", t, f"{ds.StudyDescription} · structured report", "sr")
+    return recs, doc
 
 
 def parse_ct_series(folder: Path, rel: str, media_dir: Path) -> tuple[dict, list[Rec], Doc]:
@@ -172,6 +265,7 @@ SC_PATTERNS = {
     "ivs_thickness": (r"IVSd\S*\s*(\d+(?:[.,]\d+)?)\s*[c¢]?m", 10),
     "lv_diameter": (r"LVIDd\S*\s*(\d+(?:[.,]\d+)?)\s*[c¢]?m", 10),
     "kidney_length": (r"Nier\s*li\S*\s*(\d+(?:[.,]\d+)?)\s*[c¢]?m", 10),
+    "kidney_length_right": (r"Nier\s*re\S*\s*(\d+(?:[.,]\d+)?)\s*[c¢]?m", 10),
 }
 
 
@@ -193,7 +287,7 @@ def _ocr_measurements(img: Image.Image, rel: str, t: str, header: str, png: str)
         text = " ".join(data["text"][i] for i in idxs)
         for fact, (pattern, scale) in SC_PATTERNS.items():
             m = re.search(pattern, text)
-            label = pattern.split("\\")[0]
+            label = pattern.split(r"\S")[0].replace(r"\s*", " ")
             if not m and text.startswith(label):
                 conf = min(float(data["conf"][i]) for i in idxs)
                 recs.append(Rec(
@@ -240,7 +334,20 @@ PDF_PATTERNS = {
     "calcium_score": (r"Agatston calciumscore:\s*(\d+)", "Agatston calciumscore"),
     "nodule_size": (r"diameter (\d+(?:[.,]\d+)?) mm", "diameter"),
     "tumour_size": (r"Tumorgrootte:\s*(\d+(?:[.,]\d+)?)\s*mm", "Tumorgrootte"),
-    "path_diagnosis": (r"Conclusie\s+(.+?)\.\s*Tumorgrootte", None),
+    "path_diagnosis": (r"Conclusie\s+(.+?)\.(?:\s|$)", None, "pathology"),
+    "pet_result": (r"PET-conclusie\s+(.+?)\.(?:\s|$)", None, "radiology"),
+    "cad_rads": (r"CAD-RADS (\w+)\.", "CAD-RADS", "radiology"),
+    "mdo_advice": (r"Advies\s+(.+?)\.(?:\s|$)", None, "mdo"),
+    "heart_rate": (r"Ventrikelfrequentie\s+(\d+)", "Ventrikelfrequentie", "ecg"),
+    "pr": (r"PR-interval\s+(\d+)", "PR-interval", "ecg"),
+    "qrs": (r"QRS-duur\s+(\d+)", "QRS-duur", "ecg"),
+    "qtc": (r"QT/QTc\s+\d+/(\d+)", "QT/QTc", "ecg"),
+    "ecg_conclusion": (r"Conclusie\s+(.+?)\.(?:\s|$)", None, "ecg"),
+    "cag_result": (r"Conclusie\s+(.+?)\.", None, "cathlab"),
+    "fev1": (r"FEV1\s+(\d+[.,]\d+)\s*L", "FEV1"),
+    "fvc": (r"(?<!/)FVC\s+(\d+[.,]\d+)\s*L", "FVC"),
+    "fev1_fvc": (r"FEV1/FVC\s+(\d+)\s*%", "FEV1/FVC"),
+    "dlco": (r"DLCO\s+(\d+[.,]\d+)\s*mmol", "DLCO"),
 }
 
 
@@ -260,12 +367,14 @@ def parse_pdf(path: Path, rel: str, source: str, media_dir: Path) -> tuple[dict,
         t = f"{m.group(3)}-{m.group(2)}-{m.group(1)}T{m.group(4) or '00:00'}"
         title = re.search(r"Onderzoek\s+(.+)", text)
         recs = []
-        for fact, (pattern, anchor) in PDF_PATTERNS.items():
+        for fact, (pattern, anchor, *only) in PDF_PATTERNS.items():
+            if only and only[0] != source:
+                continue
             m = re.search(pattern, text, re.S)
             if not m:
                 continue
             raw = " ".join(m.group(1).split())
-            value = raw if fact == "path_diagnosis" else float(raw.replace(",", "."))
+            value = raw if FACTS[fact]["kind"] == "text" else float(raw.replace(",", "."))
             hits = page.search(anchor or raw, regex=False)
             box = None
             if hits:
@@ -277,7 +386,7 @@ def parse_pdf(path: Path, rel: str, source: str, media_dir: Path) -> tuple[dict,
                 status="PICTURE", steps=["text pulled out of a PDF with a pattern match", "no structured field behind it"],
                 excerpt=f"PDF text: \"{sentence.strip()}\"", media={"png": png.name, "box": box},
             ))
-    kind = "Pathology report" if source == "pathology" else f"Radiology report · {title.group(1).strip()}" if title else "Radiology report"
+    kind = "Pathology report" if source == "pathology" else "Pulmonary function report" if source == "pft" else "Coronary angiography report" if source == "cathlab" else "ECG" if source == "ecg" else "MDT meeting report" if source == "mdo" else "PET-CT report" if source == "pet" else f"Radiology report · {title.group(1).strip()}" if title else "Radiology report"
     return person, recs, Doc(rel, source, t, kind, "pdf", media=png.name)
 
 
