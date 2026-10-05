@@ -223,7 +223,7 @@ function paintMedia() {
 
 // ------------------------------------------------------------ session state
 
-const S = { q: {}, access: [], viewed: null, log: [], confirmed: {}, resolved: {}, added: {}, sel: {}, pick: {}, intake: [], off: {}, draft: null };
+const S = { asked: {}, q: {}, access: [], viewed: null, log: [], confirmed: {}, resolved: {}, added: {}, sel: {}, pick: {}, intake: [], off: {}, draft: null };
 const factKey = (f) => `${f.pid}|${f.fact}|${f.time}|${f.source}`;
 const verdict = (f) => (f.status === "PICTURE" && S.confirmed[factKey(f)] ? "CONFIRMED" : f.status);
 
@@ -678,7 +678,7 @@ function renderClinic(dept, pid, tab, itemId) {
   const p = patient(pid);
   if (p && S.viewed !== p.pid) { S.viewed = p.pid; logAccess({ pid: p.pid, role: `Clinician, ${DEPTS[dept].label}`, basis: "Treatment relationship", action: "Viewed record", object: "Patient record" }); }
   if (pid === "recon") pid = "intake"; // the old Results to Resolve address
-  const toFile = queues(dept).filter((r) => r.status === "Open").length;
+  const toFile = queues(dept).filter((r) => ["Open", "Resend requested"].includes(r.status)).length;
   const side = `<aside class="side"><h3 class="inbox">Inbox</h3>
     <a href="#/clinic/${dept}/intake" class="${pid === "intake" ? "on" : ""}"><span>To file</span><span class="marks">${toFile || ""}</span></a>
     <h3>${DEPTS[dept].label} worklist</h3><div class="sfilter">${filterBox("side")}</div>${pts.map((x) =>
@@ -715,7 +715,7 @@ function queues(dept) {
   // Unmatched reports go to Nephrology because Regiolab Zuid serves the renal path.
   const docs = S.intake.filter((i) => (i.pid ? deptOf(patient(i.pid)) : "cardiology") === dept);
   const reports = dept === "nephrology" ? reconRows().filter((x) => x.u).map((x) => ({ key: x.key, time: x.time, from: SOURCE[x.src].sender, subject: x.what, who: x.who,
-    status: S.resolved[x.key] || "Open", recon: x })) : [];
+    status: S.resolved[x.key] || (S.asked[x.key] ? "Resend requested" : "Open"), recon: x })) : [];
   return [...docs, ...reports].sort((a, b) => b.time.localeCompare(a.time));
 }
 function renderQueue(dept, key, side, pts) {
@@ -724,7 +724,7 @@ function renderQueue(dept, key, side, pts) {
   const who = (r) => (r.recon ? st("LOST", "No patient match") : r.pid ? esc(patient(r.pid).name) : "–");
   const list = phead("To file", "", filterBox("intake")) +
     table([["Date and time", "150px", "", 2], ["Sender", "25%", "", 3], ["Subject"], ["Patient", "200px"], ["Status", "100px"]],
-      rows.map((r) => tr(r, `${td(r.time)}${td(r.recon || known(r) ? esc(r.from) : st("PICTURE", r.from), "", r.from)}${tdt(r.subject)}${td(who(r), "", r.recon ? r.who : "")}${td(r.status === "Open" ? st("PICTURE", "Open") : esc(r.status), "", r.status)}`)));
+      rows.map((r) => tr(r, `${td(r.time)}${td(r.recon || known(r) ? esc(r.from) : st("PICTURE", r.from), "", r.from)}${tdt(r.subject)}${td(who(r), "", r.recon ? r.who : "")}${td(r.status === "Open" ? st("PICTURE", r.asked ? "Rescan requested" : "Open") : r.status === "Resend requested" ? st("PICTURE", r.status) : esc(r.status), "", r.status)}`)));
   const detail = cur ? (cur.recon ? reconDetail(cur.recon) : intakeDetail(cur)) : `<p class="empty">Nothing to file for ${DEPTS[dept].label}.</p>`;
   CTX = { dept, pts, queue: "intake" };
   $("#app").innerHTML = side + `<section class="work queue"><div class="split"><div class="pane list">${list}</div><div class="pane detail">${detail}</div></div>${actionBar(false)}</section>`;
@@ -1257,7 +1257,8 @@ function intakeDetail(i) {
         <span class="dim">${esc(unit(C.fact_defs[i.fact].unit))} · ${i.channel === "fax" ? "read from the fax by text recognition" : "read from the message"}, filed as unverified</span></div></div>` : ""}
       <div class="inline">${ok ? "" : `<button data-q-act="i-dir" data-key="${i.key}">Register sender as institution</button>`}
         <button class="primary" data-q-act="i-file" data-key="${i.key}" ${ok ? "" : "disabled"}>File to patient</button>
-        <button data-q-act="i-reject" data-key="${i.key}">Reject</button></div>` : `<div>${esc(i.status)}</div>`}</div>
+        ${i.channel === "folder" && !i.pid ? `<button data-q-act="i-rescan" data-key="${i.key}" ${i.asked ? "disabled" : ""}>Ask for a rescan with patient label</button>` : ""}
+        <button data-q-act="i-reject" data-key="${i.key}">Reject</button></div>${i.asked ? `<p class="note dim">${esc(i.asked)}</p>` : ""}` : `<div>${esc(i.status)}</div>`}</div>
     ${scanFile(i) ? uploadView(scanFile(i)) : chatImage(i) ? viewer(chatImage(i)) : ""}
     <div class="block"><h4>${i.channel === "fax" ? "Text read from the fax (OCR)" : "Source message"}</h4><pre class="raw">${esc(i.text)}</pre></div>`;
 }
@@ -1963,7 +1964,9 @@ function reconDetail(r) {
   const action = done ? `<div>${esc(done)}</div><div class="inline"><button data-q-act="reopen" data-key="${esc(r.key)}">Reopen</button></div>`
     : r.u ? `${likely ? `<div class="field"><span>Probable match</span><div>${esc(likely.name)} · ${fmtDate(likely.dob)} · ${likely.mrn}<br><span class="dim">Same name; the date of birth on the report differs (${esc(r.who.split("born ")[1] || "")}).</span></div></div>` : ""}
         <label class="field"><span>Match to patient</span><select id="q-link">${C.patients.filter((p) => p.path === "kidney").map((p) => `<option value="${p.pid}" ${p === likely ? "selected" : ""}>${esc(p.family)}, ${esc(p.given)} · ${fmtDate(p.dob)}</option>`).join("")}</select></label>
-        <div class="inline"><button class="primary" data-q-act="link" data-key="${esc(r.key)}">Match</button><button data-q-act="reject" data-key="${esc(r.key)}">Reject message</button></div>`
+        <div class="inline"><button class="primary" data-q-act="link" data-key="${esc(r.key)}">Match</button>
+          <button data-q-act="r-resend" data-key="${esc(r.key)}" ${S.asked[r.key] ? "disabled" : ""}>Ask ${esc(SOURCE[r.src].sender)} to resend with BSN</button>
+          <button data-q-act="reject" data-key="${esc(r.key)}">Reject message</button></div>${S.asked[r.key] ? `<p class="note dim">${esc(S.asked[r.key])}</p>` : ""}`
     : `<div class="inline" style="margin-top:0">Manual entry <input id="q-val"> ${esc(unit(C.fact_defs[r.f.fact].unit))} <button class="primary" data-q-act="enter" data-key="${esc(r.key)}">Save</button></div>`;
   return `
     <div class="block"><dl class="kv"><dt>Sender</dt><dd>${esc(SOURCE[r.src].sender)}</dd><dt>Message format</dt><dd>${esc(SOURCE[r.src].format)}</dd>
@@ -2058,6 +2061,20 @@ function reconAct(a, key) {
     return flash(`Filed to ${patient(pid).name}; routed to the ${DEPTS[deptOf(patient(pid))].label} worklist`);
   }
   if (a === "i-reject") { i.status = "Rejected"; return route(); }
+  if (a === "i-rescan") {
+    const clinic = i.from.replace(/^Scanner, (.)/, (m, c) => c.toUpperCase());
+    i.asked = `Rescan requested ${now()} from ${clinic}`;
+    logOut({ kind: "request", from: "Cardiology", to: clinic, pid: null, who: i.subject, what: [i.subject], format: "Message", channel: "Worklist (internal)",
+      q: "Scanned document without patient label. Please rescan with the patient label." });
+    flash("Rescan requested"); return route();
+  }
+  if (a === "r-resend") {
+    const x = reconRows().find((y) => y.key === key);
+    S.asked[key] = `Resend requested ${now()} from ${SOURCE[x.src].sender}`;
+    logOut({ kind: "request", from: "Data management", to: SOURCE[x.src].sender, pid: null, who: x.who, what: [x.what], format: "Result request", channel: "ZorgMail",
+      q: "Report received without BSN; date of birth does not match. Please resend including BSN." });
+    flash(`Resend requested from ${SOURCE[x.src].sender}`); return route();
+  }
   if (a === "i-dir") return contactDialog({ name: i.from, email: i.email, type: "GP practice" });
   if (a === "db-test") return flash(`Connection to ${db.name} succeeded. Account has read rights only.`);
   if (a === "db-sync") { if (db.rows) db.synced = "Today " + now().slice(11); return flash(db.rows ? `${db.name} synchronised: ${plural(db.rows().length, "row")} read` : "First sync scheduled"); }
