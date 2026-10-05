@@ -338,7 +338,7 @@ function remark(f) {
   if (f.captured && v === "PICTURE") return `Received via ${f.captured.via.replace(/^Upload link$/, "upload link")}${f.captured.by ? `, entered by ${f.captured.by}` : ""}. ${f.got == null ? "Value not entered." : "Verification required."}`;
   if (v === "DATA" && f.db) return `Structured value from ${f.db} (data source bridge), ${f.dbAt}.`;
   if (v === "DATA" && NOT_CONVERTIBLE[f.fact]) return NOT_CONVERTIBLE[f.fact];
-  if (v === "DATA" && (f.file || "").endsWith("_sr.dcm")) return "Structured report (DICOM SR): LOINC-coded measurement with a UCUM unit. No image reading needed.";
+  if (v === "DATA" && (f.file || "").endsWith("_sr.dcm")) return "Structured report (DICOM SR): LOINC-coded measurement with a UCUM unit.";
   if (v === "DATA") return f.source === "radiology" ? "DICOM header attribute." : f.source === "nb_lab" ? "LOINC-coded result from the referring hospital's laboratory." : "LOINC-coded result in SI units.";
   if (v === "CONFLICT" && f.source === "gp") return f.fact === "crp_poc" ? "Point-of-care test coded in NHG Tabel 45; there is no LOINC code for it. Value as recorded by the GP."
     : "NHG Tabel 45 code mapped to LOINC on receipt. Value and unit as recorded by the GP; date only, no time.";
