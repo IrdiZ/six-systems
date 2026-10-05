@@ -514,7 +514,7 @@ const CHANNELS = [
   { id: "dicom", name: "Imaging and echocardiography", type: "DICOM receiver (C-STORE)", dir: "Inbound", scope: "Internal", source: "PACS, AE title AZZ_HANDOVER", route: "By care pathway", ack: "DICOM C-STORE response status; failures retried by the sender", msgs: fromSrc("radiology", "echo") },
   { id: "adt", name: "Patient administration", type: "HL7 v2 listener (ADT A04, A08, A40)", dir: "Internal", scope: "Internal", source: "Patient administration, interface engine port 6662", route: "Patient master index: matching on BSN, name and date of birth", ack: ACK_HL7 },
   { id: "twiin", name: "Twiin: BgZ and correspondence", type: "Twiin Notified Pull (FHIR STU3), through the EHR supplier's validated Twiin node", dir: "Outbound and inbound", scope: "National",
-    source: "ZORG-AB address book; mutual TLS with the UZI server certificate", route: "Rule R9", cert: "xchg", env: "Production",
+    source: "ZORG-AB address book; mutual TLS with the UZI server certificate", route: "Referrals and result requests to providers in ZORG-AB", cert: "xchg", env: "Production",
     onboard: steps(["2025-03-10", "2025-04-02", "2025-04-20", "2025-05-14", "2025-03-01", "2025-06-18", "2025-09-02", "2025-10-06", "2026-01-12"]),
     ack: "The sender notifies; the recipient fetches. A fetch counts as receipt.", msgs: fromLog((l) => l.channel === "Twiin") },
   { id: "portaal", name: "Twiin Portaal: images", type: "Image and report send and receive portal", dir: "Outbound and inbound", scope: "National", source: "Radiology; received studies imported into PACS",
@@ -527,13 +527,13 @@ const CHANNELS = [
     errors: () => C.unlinked.filter((u) => !S.resolved["U|" + u.file]).map((u) => ({ time: fmtTime(u.time), who: u.who, what: "External laboratory report " + docRef(u.file), status: "No patient match" })) },
   { id: "path", name: "Pathologie Limburg Samenwerking", type: "ZorgMail mailbox (PDF)", dir: "Inbound", scope: "Regional", source: "ZorgMail, pathology mailbox AZ Zuid", route: "Pulmonology; copy to MDT meeting list", ack: "ZorgMail delivery receipt", msgs: fromSrc("pathology") },
   { id: "region", name: "Regional data platform", type: "openEHR and FHIR, joined through Twiin; the regional cooperation organisation is the Twiin service provider", dir: "Outbound and inbound", scope: "Regional",
-    source: REGION, route: "Rule R12; the platform checks consent in Mitz", cert: "xchg", env: "Production, Nephrology only",
+    source: REGION, route: "Shared results; the platform checks consent in Mitz", cert: "xchg", env: "Production, Nephrology only",
     onboard: steps(["2026-02-02", "2026-02-20", "2026-03-11", "2026-04-08", "2025-03-01", "2026-06-15", "2026-08-24"], true),
     ack: "FHIR response; HTTP 201 counts as accepted", msgs: fromLog((l) => l.channel === "Regional platform"),
     remark: "The regional platform is being built for the whole region. This connection is ready for it: Nephrology is attached first, the other departments follow one at a time, each publishing and reading through its own worklist without a project of its own." },
-  { id: "out-zm", name: "Referrals and requests, ZorgMail", type: "ZorgMail (HL7 v2, EDIFACT, PDF)", dir: "Outbound", scope: "National", source: "ZorgMail address book", route: "Rule R10",
+  { id: "out-zm", name: "Referrals and requests, ZorgMail", type: "ZorgMail (HL7 v2, EDIFACT, PDF)", dir: "Outbound", scope: "National", source: "ZorgMail address book", route: "Referrals and requests to the ZorgMail address book",
     ack: "HL7 v2: AA or AE from the recipient; otherwise delivery receipt", msgs: fromLog((l) => l.channel === "ZorgMail") },
-  { id: "out-link", name: "Upload links and secure e-mail", type: "Secure e-mail gateway; links signed in with UZI pass", dir: "Outbound", scope: "Own", source: "Recipients without an electronic link", route: "Rule R11",
+  { id: "out-link", name: "Upload links and secure e-mail", type: "Secure e-mail gateway; links signed in with UZI pass", dir: "Outbound", scope: "Own", source: "Recipients without an electronic link", route: "Recipients without an electronic link",
     ack: "None: the recipient's upload or reply is the answer", msgs: fromLog((l) => l.channel === "Upload link" || l.channel === "Secure e-mail with access code") },
   { id: "portal", name: "Upload links", type: "Upload portal (HTTPS)", dir: "Inbound", scope: "Own", source: "One-time links for senders without an electronic link", route: "Answer to a result request: requesting department",
     msgs: () => docs().filter((i) => i.via === "Upload link").map(docMsg) },
@@ -545,24 +545,6 @@ const CHANNELS = [
 const onboarding = (c) => !!c.onboard?.some((x) => x.state !== "Done");
 const chanState = (c) => (S.off[c.id] ? "Paused" : onboarding(c) ? "Onboarding" : "Started");
 
-const ptsOn = (path) => () => docs().filter((i) => patient(i.pid).path === path && !i.via).length;
-const ROUTES = [
-  { id: "R1", when: "Answer to an open result request (upload link, To file)", to: "Worklist of the requesting department; requester notified", action: "File, unverified", n: () => docs().filter((i) => i.via).length },
-  { id: "R2", when: "Patient on the chest pain pathway", to: "Cardiology worklist", action: "File", n: ptsOn("chest_pain") },
-  { id: "R3", when: "Patient on the pulmonary nodule pathway", to: "Pulmonology worklist", action: "File", n: ptsOn("lung_nodule") },
-  { id: "R4", when: "Patient on the renal function pathway", to: "Nephrology worklist", action: "File", n: ptsOn("kidney") },
-  { id: "R5", when: "Pathology report", to: "Pulmonology worklist; copy to MDT meeting list", action: "File", n: () => docs().filter((i) => i.source === "pathology").length },
-  { id: "R6", when: "No patient match on BSN, or on name and date of birth", to: "To file", action: "Hold for review", n: () => C.unlinked.length },
-  { id: "R7", when: "Captured from fax, mailbox, shared folder or chat", to: "To file", action: "Hold for review", n: () => S.intake.length },
-  { id: "R8", when: "Sender not a registered institution", to: "To file", action: "Hold until the sender is registered", n: () => S.intake.filter((i) => !dirOf(i.from)).length },
-  { id: "R9", when: "Outbound: recipient reachable through Twiin (ZORG-AB entry)", to: "Twiin: notification; the recipient fetches BgZ and letter", action: "Send", n: () => S.log.filter((l) => l.channel === "Twiin").length },
-  { id: "R10", when: "Outbound: recipient in the ZorgMail address book", to: "ZorgMail: HL7 v2, EDIFACT or PDF", action: "Send", n: () => S.log.filter((l) => l.channel === "ZorgMail").length },
-  { id: "R11", when: "Outbound: recipient without an electronic link", to: "Result request by upload link; referral by secure e-mail with access code", action: "Send",
-    n: () => S.log.filter((l) => l.channel === "Upload link" || l.channel === "Secure e-mail with access code").length },
-  { id: "R12", when: "Outbound: results made available to the regional data platform", to: "Regional platform; consent checked in Mitz by the platform", action: "Make available",
-    n: () => S.log.filter((l) => l.channel === "Regional platform").length },
-];
-const ruleFor = (channel) => ({ Twiin: "R9", "Regional platform": "R12", ZorgMail: "R10", "Secure e-mail with access code": "R11", "Upload link": "R11" }[channel] || "");
 
 // ------------------------------------------------------------ central intake: results that arrive outside the interfaces (seeded from the patients' own not-received results)
 
@@ -902,12 +884,12 @@ function logOut(o) {
   return l;
 }
 const opt = (v, sel, text = v) => `<option value="${esc(v)}" ${v === sel ? "selected" : ""}>${esc(text)}</option>`;
-// One line under the recipient: who they are in the directory and which routing rule picks the channel.
+// One line under the recipient: who they are in the directory.
 function dirLine(name, channel) {
-  const d = dirOf(name), r = ruleFor(channel);
+  const d = dirOf(name);
   const who = INTERNAL.includes(name) ? `Department of ${HOSPITAL}` : !d ? "Not a registered institution"
     : d.status === "Temporary" ? `Temporary contact, expires ${d.expires}` : `${d.status}: ${d.verified}`;
-  return `${who}${r ? ` · Rule ${r}: ${ROUTES.find((x) => x.id === r).when.replace("Outbound: ", "")}` : ""}`;
+  return who;
 }
 
 function sendDialog(preTo) {
@@ -1396,9 +1378,6 @@ function onboardBlock(c) {
     ${next ? `<div class="inline"><button data-q-act="ch-step" data-key="${c.id}">Step done: ${esc(next.step)}</button></div>` : ""}</div>`;
 }
 
-const routeDetail = (r) => `<div class="block"><dl class="kv"><dt>Rule</dt><dd>${r.id}</dd><dt>Condition</dt><dd>${esc(r.when)}</dd><dt>Destination</dt><dd>${esc(r.to)}</dd>
-  <dt>Action</dt><dd>${esc(r.action)}</dd><dt>Matches</dt><dd>${r.n()}</dd><dt>Active</dt><dd>${S.off[r.id] ? "No" : "Yes"}</dd>
-  <dt>Order</dt><dd>Rules are evaluated top to bottom and the first match applies. Inbound R1 to R8, outbound R9 to R12. Every change is logged.</dd></dl></div>`;
 
 const dirStatus = (d) => d.status === "Verified" ? st("DATA", "Verified") : d.status === "Temporary" ? st("CONFLICT", "Temporary") : st("PICTURE", d.status);
 function dirDetail(d) {
@@ -1832,7 +1811,6 @@ const ADMIN = {
   recog: { label: "Text Recognition" },
   sources: { label: "Department Databases" },
   channels: { label: "Connections" },
-  routing: { label: "Delivery Rules" },
   directory: { label: "Institutions" },
   access: { label: "Access Log" },
 };
@@ -1873,13 +1851,6 @@ function renderAdmin(tab, key) {
       rows.map((c) => { const x = stat(c), s0 = chanState(c);
         return row(c, cur, c.id, `${td(s0 === "Started" ? st("DATA", s0) : st("PICTURE", s0))}${tdt(c.name)}${td(c.scope || "")}${certCell(c)}${td(x.n, "num")}${td(x.q || "", "num")}${td(x.e ? st("LOST", x.e) : "", "num")}${td(x.last)}`); }));
     detail = cur && channelDetail(cur);
-  } else if (tab === "routing") {
-    rows = ROUTES; cur = sel(rows);
-    cols = ["Rule", "Condition", "Destination", "Action", "Matches", "Active"];
-    line = (r) => [r.id, r.when, r.to, r.action, r.n(), S.off[r.id] ? "No" : "Yes"];
-    list = table([["Rule", "56px"], ["Condition"], ["Destination", "30%", "", 2], ["Action", "15%", "", 3], ["Matches", "76px", "num", 3], ["Active", "62px"]],
-      rows.map((r) => row(r, cur, r.id, `${td(r.id)}${tdt(r.when)}${tdt(r.to)}${tdt(r.action)}${td(r.n(), "num")}${td(`<input type="checkbox" data-route="${r.id}" ${S.off[r.id] ? "" : "checked"}>`)}`)));
-    detail = cur && routeDetail(cur);
   } else if (tab === "directory") {
     rows = DIR.map((d) => ({ key: d.name, d })); cur = sel(rows);
     cols = ["Name", "Type", "Department", "AGB code", "URA number", "Preferred channel", "Status", "Verification", "Expires"];
@@ -2016,7 +1987,7 @@ function outboundDetail(l) {
   const p = l.pid && patient(l.pid);
   return `
     <div class="block"><dl class="kv"><dt>Patient</dt><dd>${esc(p ? `${p.name} · ${fmtDate(p.dob)} · ${p.mrn}` : l.who)}</dd><dt>Sender</dt><dd>${esc(l.from)}</dd><dt>Recipient</dt><dd>${esc(l.to)}</dd>
-      <dt>Message format</dt><dd>${esc(l.format)}</dd>${l.channel ? `<dt>Channel</dt><dd>${esc(l.channel)}${ruleFor(l.channel) ? ` · rule ${ruleFor(l.channel)}` : ""}</dd>` : ""}
+      <dt>Message format</dt><dd>${esc(l.format)}</dd>${l.channel ? `<dt>Channel</dt><dd>${esc(l.channel)}</dd>` : ""}
       <dt>${l.kind === "send" ? "Clinical question" : "Message"}</dt><dd>${esc(l.q || "")}</dd>
       <dt>Legal basis</dt><dd>${esc(basisOf(l))}<br><span class="dim">${esc(BASIS_WHY[basisOf(l)])}</span></dd>
       <dt>Acknowledgement</dt><dd>${esc(ackOf(l))}</dd></dl></div>
@@ -2045,8 +2016,6 @@ document.addEventListener("click", (e) => {
   if (t.dataset.qAct) return reconAct(t.dataset.qAct, t.dataset.key);
 });
 document.addEventListener("change", (e) => {
-  const r = e.target.dataset?.route;
-  if (r) { S.off[r] = !e.target.checked; flash(`Rule ${r} ${S.off[r] ? "deactivated" : "activated"}`); }
   const t = RECOG.find((x) => [e.target.dataset?.recogOn, e.target.dataset?.recogMin, e.target.dataset?.recogHook].includes(x.id));
   if (!t) return;
   if (e.target.dataset.recogOn) { t.on = e.target.checked; return flash(`${t.id} ${t.name}: ${t.on ? "on" : "off"}`); }
