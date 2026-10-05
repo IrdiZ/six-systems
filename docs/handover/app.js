@@ -476,6 +476,9 @@ const DIR = [
     remark: "Temporary contact for one exchange. Removed when it expires.", points: [["Secure e-mail with access code", "triage@hapzuid.example"]] },
 ];
 const dirOf = (name) => DIR.find((d) => d.name === name);
+// The connection each source arrives through (Management > Connections).
+const SOURCE_CHAN = { epic_lab: "lis", echo: "dicom", radiology: "dicom", ext_lab: "medlab", pathology: "path", nb_lab: "twiin", gp: "zd", offline: "fax" };
+const chanOf = (it) => !it.via && !it.added && CHANNELS.find((c) => c.id === SOURCE_CHAN[it.source]);
 const faxOf = (no) => DIR.find((d) => d.fax === no);
 const INTERNAL = TARGETS[1].items;
 const FORMATS = { Twiin: [TWIIN_FORMAT], ZorgMail: ["HL7 v2 ORU^R01", "PDF summary"], "Secure e-mail with access code": ["PDF summary"], Fax: ["PDF summary"], "Worklist (internal)": ["FHIR R4 bundle", "PDF summary"] };
@@ -516,12 +519,12 @@ const CHANNELS = [
   { id: "twiin", name: "Twiin: BgZ and correspondence", type: "Twiin Notified Pull (FHIR STU3), through the EHR supplier's validated Twiin node", dir: "Outbound and inbound", scope: "National",
     source: "ZORG-AB address book; mutual TLS with the UZI server certificate", route: "Referrals and result requests to providers in ZORG-AB", cert: "xchg", env: "Production",
     onboard: steps(["2025-03-10", "2025-04-02", "2025-04-20", "2025-05-14", "2025-03-01", "2025-06-18", "2025-09-02", "2025-10-06", "2026-01-12"]),
-    ack: "The sender notifies; the recipient fetches. A fetch counts as receipt.", msgs: fromLog((l) => l.channel === "Twiin") },
+    ack: "The sender notifies; the recipient fetches. A fetch counts as receipt.", msgs: () => [...fromLog((l) => l.channel === "Twiin")(), ...fromSrc("nb_lab")()] },
   { id: "portaal", name: "Twiin Portaal: images", type: "Image and report send and receive portal", dir: "Outbound and inbound", scope: "National", source: "Radiology; received studies imported into PACS",
     route: "Radiology worklist", env: "Production", ack: "Download by the recipient is shown to the sender", msgs: () => [] },
   { id: "lsp", name: "National switch point (LSP)", type: "AORTA (HL7 v3): medication history query by BSN", dir: "Query", scope: "National", source: "Pharmacy and GP data; the data stays at the source",
     route: "Look-up from the patient record", cert: "lsp", env: "Production", ack: "Synchronous answer" },
-  { id: "zd", name: "ZorgDomein: GP referrals", type: "ZorgDomein EHR link (HL7 v2)", dir: "Inbound", scope: "National", source: "Referral catalogue of AZ Zuid, products per specialty", route: "By specialty", ack: ACK_HL7, msgs: () => [] },
+  { id: "zd", name: "ZorgDomein: GP referrals", type: "ZorgDomein EHR link (HL7 v2)", dir: "Inbound", scope: "National", source: "Referral catalogue of AZ Zuid, products per specialty", route: "By specialty", ack: ACK_HL7, msgs: fromSrc("gp") },
   { id: "medlab", name: "Regiolab Zuid", type: "ZorgMail mailbox (EDIFACT MEDLAB)", dir: "Inbound", scope: "Regional", source: "ZorgMail, laboratory mailbox AZ Zuid", route: "By care pathway; no patient match to To file",
     ack: "ZorgMail delivery receipt", msgs: fromSrc("ext_lab"),
     errors: () => C.unlinked.filter((u) => !S.resolved["U|" + u.file]).map((u) => ({ time: fmtTime(u.time), who: u.who, what: "External laboratory report " + docRef(u.file), status: "No patient match" })) },
@@ -786,7 +789,8 @@ function docDetail(it, admin = false) {
       ${it.facts.flatMap(repairsOf).length ? `<dt>Repairs applied</dt><dd>${esc([...new Set(it.facts.flatMap(repairsOf))].join("; "))}</dd>` : ""}
       ${it.upload?.sha ? `<dt>Integrity (SHA-256)</dt><dd class="wrap">${esc(it.upload.sha)}</dd>` : ""}</dl></div>`
     : `<div class="block"><h4>Origin</h4><dl class="kv">
-      <dt>Performing organisation</dt><dd>${esc(it.origin)}</dd>
+      <dt>Performing organisation</dt><dd>${dirOf(it.origin.split(",")[0]) ? `<a class="link" href="#/admin/directory/${encodeURIComponent(it.origin.split(",")[0])}">${esc(it.origin)}</a>` : esc(it.origin)}</dd>
+      ${chanOf(it) ? `<dt>Received through</dt><dd><a class="link" href="#/admin/channels/${chanOf(it).id}">${esc(chanOf(it).name)}</a> <span class="dim">· ${esc(it.format)}</span></dd>` : ""}
       ${it.receivedAt ? `<dt>Received</dt><dd>${esc(it.receivedAt)}${it.via ? `, ${esc(it.via)}` : ""}</dd>` : ""}
       ${cap?.by ? `<dt>Entered by</dt><dd>${esc(cap.by)}</dd>` : ""}
       ${S.confirmed[factKey(fsel)] ? `<dt>Verified by</dt><dd>${esc(S.confirmed[factKey(fsel)])}</dd>` : ""}
@@ -809,8 +813,8 @@ function resultBlock(f, admin = false) {
     <dt>Remark</dt><dd>${esc(remark(f))}</dd></dl>${action}</div>`;
 }
 function viewer(f, it) {
-  // a laboratory message without an image is printed as a page; with nothing to show there is no viewer (the remark says why)
-  if (!f?.media && it && !it.added && !it.via && ["epic_lab", "ext_lab", "nb_lab", "gp"].includes(it.source) && !it.facts.every((x) => x.status === "LOST"))
+  // a structured message without an image is printed as it was sent; with nothing to show there is no viewer (the remark says why)
+  if (!f?.media && it && !it.added && !it.via && it.file && !it.facts.every((x) => x.status === "LOST"))
     return uploadView({ name: it.ref || it.title, type: "image/svg+xml", url: printPage(it), note: "Page 1" });
   if (!f?.media) return "";
   const b = f.media.box;
@@ -1343,12 +1347,13 @@ const sheet = (body, font, scan) => "data:image/svg+xml;charset=utf-8," + encode
 // A document with no image of its own, printed from the data: a laboratory report as the sender reported it, or a page
 // that says what was expected and did not arrive. Rows are [label, value] or, in the table, [test, result, unit].
 function printPage(it) {
-  const p = patient(it.pid), lost = it.facts.every((f) => f.status === "LOST"), lab = !lost && ["epic_lab", "ext_lab", "nb_lab", "gp"].includes(it.source);
+  const p = patient(it.pid), lost = it.facts.every((f) => f.status === "LOST"), lab = !lost;
   const kv = [["Patient", `${p.family}, ${p.given}`], ["Date of birth", fmtDate(p.dob)], ["Patient no.", p.mrn], ["Date and time", fmtTime(it.time)]];
   // the test name and value as the message carries them (OBX for HL7, INV and RSL for EDIFACT), else ours
   const row = (f) => {
     const x = f.excerpt || "", obx = /OBX\|\d+\|\w+\|[^^]*\^([^^]+)\^LN\|\|([^|]*)\|([^|]*)\|/.exec(x), inv = /INV\+(\w+):([^:']+)/.exec(x), rsl = /RSL\+NV\+([^+]+)\+([^']+)'/.exec(x);
-    return obx ? [obx[1], obx[2], unit(obx[3])] : inv && rsl ? [`${inv[2]} (${inv[1]})`, rsl[1], unit(rsl[2])] : [label(f), f.got ?? "", unit(C.fact_defs[f.fact]?.unit)];
+    const sent = (f.steps || []).map((s) => /^([\d.,]+)\s*([^\s→]+) → /.exec(s)).find(Boolean); // e.g. "1.9 cm → 19 mm": the value as the sender wrote it
+    return obx ? [obx[1], obx[2], unit(obx[3])] : inv && rsl ? [`${inv[2]} (${inv[1]})`, rsl[1], unit(rsl[2])] : sent ? [label(f), sent[1], unit(sent[2])] : [label(f), TR[f.got] || f.got || "", unit(C.fact_defs[f.fact]?.unit)];
   };
   const head = lab ? [T(60, 70, it.origin, `font-size="15" ${B}`), T(60, 88, `${it.title} ${it.ref}`, 'font-size="11"')]
     : [T(60, 70, it.file ? "No preview available" : "Document not received", `font-size="15" ${B}`), T(60, 88, full(it), 'font-size="11"')];

@@ -242,3 +242,4 @@ button.primary kbd { border-color: rgba(255,255,255,.35); color: #dfe3e7; backgr
 #top .user svg { color: #aab2ba; }
 .grid td.nowrap { white-space: nowrap; }
 dl.kv dd select { max-width: 100%; }
+a.link { color: var(--accent); } a.link:hover { text-decoration: underline; }
