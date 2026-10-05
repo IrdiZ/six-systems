@@ -7,9 +7,9 @@
 
 | | |
 |---|---|
-| **91%** | of all true facts have a file in the archive: the case *looks* complete |
-| **26%** | arrive usable as data: coded, right unit, right patient |
-| **87%** | recovered by this pipeline after code maps, unit maths, identity matching, OCR and PDF reading (0 wrong values) |
+| **97%** | of all true facts have a file in the archive: the case *looks* complete |
+| **41%** | arrive usable as data: coded, right unit, right patient |
+| **95%** | recovered by this pipeline after code maps, unit maths, identity matching, OCR and PDF reading (0 wrong values) |
 
 ## What this is, in plain words
 
@@ -21,7 +21,7 @@ We can't use real patient data, so we made up a hospital:
 2. **Assembler.** Tries to turn all those files into clean data: works out which patient each file belongs to, translates codes and units, and reads numbers off images and PDFs.
 3. **Scoring.** Compares the result against the answer key the assembler never saw.
 
-The result: the archive **looks** 91% complete, but only 26% of it arrives as usable data. With a lot of repair work the assembler gets that to 87%, with zero wrong values. The gap is the problem, and the repair work is the part nobody currently owns.
+The result: the archive **looks** 97% complete, but only 41% of it arrives as usable data. With a lot of repair work the assembler gets that to 95%, with zero wrong values. The gap is the problem, and the repair work is the part nobody currently owns.
 
 **Follow one patient.** The [explainer page](https://irdiz.github.io/six-systems/explained.html) walks through one invented patient's heart scare, using their actual files:
 
@@ -43,7 +43,7 @@ The result: the archive **looks** 91% complete, but only 26% of it arrives as us
 
 ## What it does
 
-Twenty synthetic patients move through three care paths (chest pain, lung nodule, kidney follow-up) across a fictional Dutch academic hospital, a neighbouring hospital, a regional lab and a shared pathology lab. Six sources, six formats:
+Twenty synthetic patients move through three care paths (chest pain, lung nodule, kidney follow-up) across a fictional Dutch academic hospital, a neighbouring hospital, a regional lab, a GP practice and a shared pathology lab. Nine sources, each in its own format:
 
 | Source | Format | What goes wrong, on purpose |
 |---|---|---|
@@ -53,6 +53,11 @@ Twenty synthetic patients move through three care paths (chest pain, lung nodule
 | Echo | DICOM Secondary Capture | measurements burned into pixels |
 | Pathology | PDF + proprietary slide | diagnosis in PDF only; slide format unreadable |
 | Never archived | fax, scanner memory | never reaches any system |
+| GP practice | HIS export, NHG Tabel 45 codes | GP codes instead of LOINC, date without time, a point-of-care test with no LOINC at all |
+| Referring hospital lab | HL7v2 ORU^R01, LOINC-coded | its own assays (troponin I, BNP: never converted to troponin T or NT-proBNP), a molar sibling code, nmol/L instead of µg/L |
+| Lung function | PDF report | values only in a printed table |
+
+The echo lab's newer machine also writes a DICOM Structured Report (LOINC + UCUM), the clean path next to the screen capture. Conversion factors come from published tables (AMA SI conversion table, NGSP for HbA1c, KDIGO for albumin/creatinine); HbA1c uses the IFCC formula, not a factor.
 
 Every true fact ends up as one of four outcomes: **DATA** (usable on arrival), **CONFLICT** (usable after code, unit or identity repair), **PICTURE** (only recoverable by reading an image or PDF), **LOST** (never archived, unlinkable, or unreadable).
 
@@ -84,5 +89,6 @@ open docs/index.html
 - **All data is synthetic.** Every person, value and organisation is invented. BSNs pass the 11-proof check but belong to no one.
 - **Not a medical device and not a product.** It is a question in the form of software.
 - **Formats are simplified.** Realistic in shape, not certified in detail.
+- **OCR readings are pinned.** Tesseract versions read the same pixels differently; `assemble/ocr_reference.json` keeps the reference build's readings per image so every machine assembles the same case. Delete it to read with your own Tesseract.
 - **OCR has it easy here.** The screen captures are drawn with clean fonts; real ones are messier. Even so, Tesseract misreads "cm" as "¢m" and fails outright on two values, which the demo shows rather than hides.
 - **It shows the shape of the problem**, modelled on public information about a typical Dutch academic hospital, not any hospital's real data flows.

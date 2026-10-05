@@ -16,7 +16,8 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
-from .model import EXT_LAB, EXT_LAB_CODE, EXT_LAB_CODES, FACTS, HOSPITAL, HOSPITAL_CODE, NEIGHBOUR, PATH_LAB
+from .model import (EXT_LAB, EXT_LAB_CODE, EXT_LAB_CODES, FACTS, GP_PRACTICE, HOSPITAL, HOSPITAL_CODE, NEIGHBOUR,
+                    NHG_MEMO, PATH_LAB, to_local)
 from .patients import Patient
 
 CT_IMAGE = "1.2.840.10008.5.1.4.1.1.2"
@@ -26,16 +27,41 @@ SECONDARY_CAPTURE = "1.2.840.10008.5.1.4.1.1.7"
 # ---------------------------------------------------------------- HL7v2 (internal lab)
 
 def write_hl7(path: Path, p: Patient, when: datetime, results: list[tuple[str, float]], msg_id: str) -> None:
+    rows = [(FACTS[f]["loinc"], FACTS[f]["label"], value, FACTS[f]["unit"]) for f, value in results]
+    write_hl7_rows(path, p, when, rows, msg_id, "BEAKER", HOSPITAL_CODE, p.mrn)
+
+
+def write_hl7_rows(path: Path, p: Patient, when: datetime, rows: list[tuple[str, str, float, str]], msg_id: str,
+                   app: str, facility: str, mrn: str) -> None:
+    """rows: (LOINC, label, value, unit as sent). PID-3 carries the sending facility's own record number."""
     ts = when.strftime("%Y%m%d%H%M")
     segs = [
-        f"MSH|^~\\&|BEAKER|{HOSPITAL_CODE}|RESULTS|{HOSPITAL_CODE}|{ts}||ORU^R01^ORU_R01|{msg_id}|P|2.5.1",
-        f"PID|1||{p.mrn}^^^{HOSPITAL_CODE}^PI~{p.bsn}^^^NLMINBIZA^NNNLD||{p.family}^{p.given}||{p.dob:%Y%m%d}|{p.sex}",
+        f"MSH|^~\\&|{app}|{facility}|RESULTS|{HOSPITAL_CODE}|{ts}||ORU^R01^ORU_R01|{msg_id}|P|2.5.1",
+        f"PID|1||{mrn}^^^{facility}^PI~{p.bsn}^^^NLMINBIZA^NNNLD||{p.family}^{p.given}||{p.dob:%Y%m%d}|{p.sex}",
         f"OBR|1|{msg_id}||LAB^Laboratory panel^L|||{ts}",
     ]
-    for i, (fact, value) in enumerate(results, 1):
-        f = FACTS[fact]
-        segs.append(f"OBX|{i}|NM|{f['loinc']}^{f['label']}^LN||{_fmt(value, 1)}|{f['unit']}|||||F|||{ts}")
+    for i, (loinc, label, value, unit) in enumerate(rows, 1):
+        segs.append(f"OBX|{i}|NM|{loinc}^{label}^LN||{_fmt(value, 1)}|{unit}|||||F|||{ts}")
     path.write_text("\r".join(segs) + "\r")
+
+
+# ---------------------------------------------------------------- GP information system export (NHG Tabel 45)
+
+def write_gp_export(path: Path, p: Patient, rows: list[tuple[str, datetime, float, str]], reason: str) -> None:
+    """A referral's measurement section as a GP system exports it: NHG numbers, Dutch dates, decimal commas.
+    rows: (NHG number, date, value, unit as the GP system writes it)."""
+    lines = [
+        f"# {GP_PRACTICE} · verwijzing · export huisartsinformatiesysteem",
+        f"# reden: {reason}",
+        "BSN;Achternaam;Voorvoegsel;Voornaam;Geboortedatum;Geslacht",
+        f"{p.bsn};{p.surname};{p.prefix};{p.given};{p.dob:%d-%m-%Y};{p.sex}",
+        "",
+        "NHG-nr;Memo;Datum;Uitslag;Eenheid",
+    ]
+    for nhg, when, value, unit in rows:
+        v = _fmt(value, 0 if float(value).is_integer() else 1).replace(".", ",")
+        lines.append(f"{nhg};{NHG_MEMO.get(nhg, '')};{when:%d-%m-%Y};{v};{unit}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 # ---------------------------------------------------------------- EDIFACT-style (regional lab)
@@ -67,7 +93,7 @@ def write_edi(
     ]
     for fact, value in results:
         c = EXT_LAB_CODES[fact]
-        v = _fmt(value / c["factor"], c["decimals"])
+        v = _fmt(to_local(fact, value), c["decimals"])
         if decimal_comma:
             v = v.replace(".", ",")
         lines += [f"INV+{c['code']}:{c['name']}:L'", f"RSL+NV+{v}+{c['unit']}'"]
@@ -181,6 +207,39 @@ def write_secondary_capture(path: Path, p: Patient, when: datetime, accession: s
     ds.save_as(path, enforce_file_format=True)
 
 
+COMPREHENSIVE_SR = "1.2.840.10008.5.1.4.1.1.88.33"
+
+
+def write_sr(path: Path, p: Patient, when: datetime, accession: str, description: str,
+             items: list[tuple[str, str, float, str]], device: str) -> None:
+    """A structured echo report (DICOM SR): each measurement a NUM item with a LOINC concept and a UCUM unit.
+    Flat for brevity; a real TID 5200 report nests these in containers. items: (LOINC, meaning, value, UCUM)."""
+    ds = _dicom_base(p, when, COMPREHENSIVE_SR, accession, description, "SR")
+    ds.ManufacturerModelName = device
+    ds.ValueType = "CONTAINER"
+    ds.ContinuityOfContent = "SEPARATE"
+    ds.ConceptNameCodeSequence = [_code("125200", "DCM", "Adult Echocardiography Procedure Report")]
+    content = []
+    for loinc, meaning, value, ucum in items:
+        it = Dataset()
+        it.RelationshipType = "CONTAINS"
+        it.ValueType = "NUM"
+        it.ConceptNameCodeSequence = [_code(loinc, "LN", meaning)]
+        mv = Dataset()
+        mv.NumericValue = _fmt(value, 1)
+        mv.MeasurementUnitsCodeSequence = [_code(ucum, "UCUM", ucum)]
+        it.MeasuredValueSequence = [mv]
+        content.append(it)
+    ds.ContentSequence = content
+    ds.save_as(path, enforce_file_format=True)
+
+
+def _code(value: str, scheme: str, meaning: str) -> Dataset:
+    c = Dataset()
+    c.CodeValue, c.CodingSchemeDesignator, c.CodeMeaning = value, scheme, meaning
+    return c
+
+
 # ---------------------------------------------------------------- PDF reports
 
 def _pdf_header(c: canvas.Canvas, org: str, title: str) -> float:
@@ -258,6 +317,26 @@ def write_pathology_pdf(path: Path, p: Patient, when: datetime, case_id: str, di
                        "Weefselfragmenten met infiltratieve groei van atypische epitheliale cellen. "
                        f"Maximale doorsnede van de tumor in het preparaat {_fmt(tumour_mm, 0)} mm.")
     _pdf_paragraph(c, y, "Conclusie", f"{diagnosis}. Tumorgrootte: {_fmt(tumour_mm, 0)} mm.")
+    c.save()
+
+
+def write_pft_pdf(path: Path, p: Patient, when: datetime, exam_id: str, rows: list[tuple[str, str]], conclusion: str) -> None:
+    """Pulmonary function report: values printed in a table, no structured export. rows: (label, value text)."""
+    c = canvas.Canvas(str(path), pagesize=A4)
+    y = _pdf_header(c, HOSPITAL + " · Longfunctie", "Longfunctieverslag")
+    y = _pdf_lines(c, y, [
+        ("Patiënt", f"{p.family}, {p.given}"),
+        ("Geboortedatum", p.dob.strftime("%d-%m-%Y")),
+        ("Patiëntnummer", p.mrn),
+        ("Onderzoek", "Spirometrie en diffusiecapaciteit"),
+        ("Datum", when.strftime("%d-%m-%Y %H:%M")),
+        ("Onderzoeksnummer", exam_id),
+    ])
+    y -= 4 * mm
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(18 * mm, y, "Meetwaarden (na bronchodilatatie)")
+    y = _pdf_lines(c, y - 7 * mm, rows)
+    _pdf_paragraph(c, y - 3 * mm, "Conclusie", conclusion)
     c.save()
 
 
