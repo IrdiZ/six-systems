@@ -217,7 +217,7 @@
    "from": "refer",
    "steps": [
     {
-     "click": ".side a:has-text('Bolkesteijn')",
+     "click": ".pane.list tr:has-text('Troponin, point-of-care')",
      "hold": 0.8
     },
     {
