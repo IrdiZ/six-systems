@@ -128,7 +128,9 @@ const PDF_PREFIX = { calcium_score: "Agatston calciumscore: ", nodule_size: "dia
 const PATCH = {}; // image file → { name, values }: text to redraw on it (paintMedia)
 // Converted means a unit conversion took place; a code mapping alone leaves value and unit as sent.
 const unitConverted = (f) => (f.steps || []).some((x) => /[×÷]/.test(x));
-const wordOf = (f) => { const v = verdict(f); return v === "LOST" && illegible(f) ? "Not legible" : v === "CONFLICT" && !unitConverted(f) ? "Code mapped" : WORD[v]; };
+// Reported on paper or by fax but not in the record as a result: it exists, it is just not stored.
+const notStored = (f) => f.status === "LOST" && f.source === "offline";
+const wordOf = (f) => { const v = verdict(f); return v === "LOST" && illegible(f) ? "Not legible" : notStored(f) ? "Not stored" : v === "CONFLICT" && !unitConverted(f) ? "Code mapped" : WORD[v]; };
 const patchOf = (png) => (PATCH[png] ||= { values: [] });
 // A measurement whose screen capture arrived but cannot be read: the image is there, the value is not.
 const illegible = (f) => f.status === "LOST" && !!f.media?.box && !f.media.png.endsWith(".pdf.png");
@@ -392,7 +394,7 @@ function remark(f) {
     : (C.patients.find((p) => p.pid === f.pid)?.facts.some((x) => x.file === (f.file || "").replace(/\.dcm$/, "_sr.dcm"))
       ? "Not in the structured report (DICOM SR) of this examination; only on the exported screen capture. Value extracted from the image by optical character recognition. Verification required."
       : "No structured report (DICOM SR). Value extracted from the image by optical character recognition. Verification required.");
-  if (f.fact === "troponin_poc") return "Point-of-care result reported by fax. No electronic result received.";
+  if (f.fact === "troponin_poc") return "Point-of-care result reported by fax. Not stored as an electronic result.";
   if (f.fact === "ecg_conclusion") return "ECG from the referring hospital came with the transfer on paper or by fax. Not archived.";
   if (f.fact === "wsi_slide") return "Proprietary whole-slide format. No DICOM WSI conversion available.";
   if (f.source === "ext_lab") return "Result received without BSN. No patient match on name and date of birth.";
@@ -408,6 +410,7 @@ function table(cols, rows) {
   return `${css ? `<style>${css}</style>` : ""}<table class="grid" id="${id}"><colgroup>${cols.map((c) => `<col${c[1] ? ` style="width:${c[1]}"` : ""}>`).join("")}</colgroup>
     <tr>${cols.map((c) => `<th class="${c[2] || ""}">${c[0]}</th>`).join("")}</tr>${rows.join("") || `<tr><td colspan="${cols.length}" class="dim">None</td></tr>`}</table>`;
 }
+const list = (rows) => rows.length ? `<table class="grid list2">${rows.map(([main, meta, status]) => `<tr><td>${esc(main)}<div class="dim">${esc(meta)}</div></td><td class="st-cell">${status}</td></tr>`).join("")}</table>` : `<p class="dim" style="margin:0">None</p>`;
 const td = (html, cls = "", title = "") => `<td class="${cls}"${title ? ` title="${esc(title)}"` : ""}>${html}</td>`;
 const tdt = (text, cls = "") => td(esc(text), cls, text);
 // One search box per list: hides rows whose text (or data-q, which also holds columns not shown) lacks every word typed.
@@ -792,12 +795,12 @@ function worklist(dept, pts) {
 }
 
 function banner(p, dept) {
-  const ill = lostOf(p).filter(illegible).length, lost = lostOf(p).length - ill, pic = unverifiedOf(p).length;
+  const ill = lostOf(p).filter(illegible).length, ns = lostOf(p).filter(notStored).length, lost = lostOf(p).length - ill - ns, pic = unverifiedOf(p).length;
   const field = (l, v) => `<div><label>${l}</label>${v}</div>`;
   return `<div class="banner">
     <div class="name"><b>${esc(p.family.toUpperCase())}, ${esc(p.given)}</b><span>${p.sex === "M" ? "Male" : "Female"}, ${age(p.dob)} y</span></div>
     <div class="fields">${field("Date of birth", fmtDate(p.dob))}${field("Patient no.", p.mrn)}${field("BSN", p.bsn)}</div>
-    <div class="alerts">${[["Not received", lost, "LOST"], ["Not legible", ill, "LOST"], ["Unverified", pic, "PICTURE"]].filter(([, n]) => n).map(([l, n, v]) => field(l, st(v, n))).join("")
+    <div class="alerts">${[["Not received", lost, "LOST"], ["Not stored", ns, "LOST"], ["Not legible", ill, "LOST"], ["Unverified", pic, "PICTURE"]].filter(([, n]) => n).map(([l, n, v]) => field(l, st(v, n))).join("")
       || field("Results", `<span class="dim">All received</span>`)}</div></div>`;
 }
 
@@ -810,7 +813,8 @@ function docGrid(items, sel, dept, p, tab) {
 // A document can hold several results: say how many still need attention, so the counts add up to the worklist's.
 function docStatus(i) {
   const n = (v) => i.facts.filter((f) => verdict(f) === v).length, unv = n("PICTURE"), ill = i.facts.filter(illegible).length, lost = n("LOST") - ill;
-  if (i.added || unv + lost + ill < 2) return ill ? st("LOST", "Not legible") : worst(i) === "CONFLICT" && !i.facts.some(unitConverted) ? st("CONFLICT", "Code mapped") : st(worst(i));
+  const ns = i.facts.filter(notStored).length;
+  if (i.added || unv + lost + ill < 2) return ill ? st("LOST", "Not legible") : ns ? st("LOST", "Not stored") : worst(i) === "CONFLICT" && !i.facts.some(unitConverted) ? st("CONFLICT", "Code mapped") : st(worst(i));
   return `<span class="stack">${unv ? st("PICTURE", `${unv} unverified`) : ""}${ill ? st("LOST", `${ill} not legible`) : ""}${lost ? st("LOST", `${lost} not received`) : ""}</span>`;
 }
 function docDetail(it, admin = false) {
@@ -836,7 +840,7 @@ function docDetail(it, admin = false) {
       ${it.upload?.sha ? `<dt>Integrity (SHA-256)</dt><dd class="wrap">${esc(it.upload.sha)}</dd>` : ""}</dl></div>`
     : `<div class="block"><h4>Origin</h4><dl class="kv">
       <dt>Performing organisation</dt><dd>${dirOf(it.origin.split(",")[0]) ? `<a class="link" href="#/admin/directory/${encodeURIComponent(it.origin.split(",")[0])}">${esc(it.origin)}</a>` : esc(it.origin)}</dd>
-      ${chanOf(it) ? `<dt>Received through</dt><dd><a class="link" href="#/admin/channels/${chanOf(it).id}">${esc(chanOf(it).name)}</a> <span class="dim">· ${esc(it.format)}</span></dd>` : ""}
+      ${chanOf(it) ? `<dt>Received through</dt><dd><a class="link" href="#/admin/channels/${chanOf(it).id}">${esc(chanOf(it).name)}</a>${chanOf(it).name.toLowerCase().includes(it.format.toLowerCase()) ? "" : ` <span class="dim">· ${esc(it.format)}</span>`}</dd>` : ""}
       ${it.receivedAt ? `<dt>Received</dt><dd>${esc(it.receivedAt)}${it.via ? `, ${esc(it.via)}` : ""}</dd>` : ""}
       ${cap?.by ? `<dt>Entered by</dt><dd>${esc(cap.by)}</dd>` : ""}
       ${S.confirmed[factKey(fsel)] ? `<dt>Verified by</dt><dd>${esc(S.confirmed[factKey(fsel)])}</dd>` : ""}
@@ -1435,8 +1439,7 @@ function sourceDetail(d, x) {
 
 function channelDetail(c) {
   const ms = (c.msgs ? c.msgs() : []).sort((a, b) => b.time.localeCompare(a.time)), er = c.errors ? c.errors() : [];
-  const grid = (rs) => table([["Date and time", "152px"], ["Patient", "26%"], ["Content"], ["Status", "24%"]],
-    rs.slice(0, 50).map((r) => `<tr>${td(r.time)}${tdt(r.who)}${tdt(r.what)}${td(failed(r.status) || r.status === "No patient match" ? st("LOST", r.status) : esc(r.status), "", r.status)}</tr>`));
+  const grid = (rs) => list(rs.slice(0, 50).map((r) => [r.what, `${r.time} · ${r.who}`, failed(r.status) || r.status === "No patient match" ? st("LOST", r.status) : esc(r.status)]));
   return `
     <div class="block"><dl class="kv"><dt>Type</dt><dd>${esc(c.type)}</dd><dt>Direction</dt><dd>${c.dir}</dd><dt>Scope</dt><dd>${esc(c.scope || "")}</dd><dt>Source</dt><dd>${esc(c.source)}</dd>
       <dt>Default route</dt><dd>${esc(c.route)}</dd><dt>State</dt><dd>${chanState(c)}</dd>${c.env ? `<dt>Environment</dt><dd>${c.env}</dd>` : ""}
@@ -1479,9 +1482,8 @@ function dirDetail(d) {
       <div class="inline">${d.status !== "Verified" ? `<button data-q-act="dir-verify" data-key="${esc(d.name)}">Verified by telephone call-back</button>` : ""}
         ${d.status === "Temporary" ? `<button data-q-act="dir-perm" data-key="${esc(d.name)}">Make permanent</button>` : ""}</div></div>
     <div class="block"><h4>Contact points</h4>${table([["Channel", "36%"], ["Address"]], d.points.map(([c, a]) => `<tr>${tdt(c)}${tdt(a)}</tr>`))}</div>
-    <div class="block"><h4>Exchanges</h4>${table([["Date and time", "152px"], ["Type", "112px"], ["Patient", "26%"], ["Status"]],
-      [...ex.map((l) => `<tr>${td(l.time)}${td(KIND[l.kind])}${tdt(l.pid ? patient(l.pid).name : l.who)}${td(statusCell(lastStatus(l)), "", lastStatus(l))}</tr>`),
-       ...ins.map((i) => `<tr>${td(i.time)}${td("Received")}${tdt(i.pid ? patient(i.pid).name : "–")}${tdt(i.status)}</tr>`)])}</div>`;
+    <div class="block"><h4>Exchanges</h4>${list([...ex.map((l) => [l.what.length > 1 ? `${KIND[l.kind]} · ${l.what.length} documents` : `${KIND[l.kind]}: ${l.what[0] || ""}`, `${l.time} · ${l.pid ? patient(l.pid).name : l.who}`, statusCell(lastStatus(l))]),
+       ...ins.map((i) => [`Received: ${i.subject}`, `${i.time} · ${i.pid ? patient(i.pid).name : "No patient"}`, esc(i.status)])])}</div>`;
 }
 
 // Upload link state, on the request it belongs to.

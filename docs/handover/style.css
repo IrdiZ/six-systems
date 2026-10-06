@@ -243,3 +243,8 @@ button.primary kbd { border-color: rgba(255,255,255,.35); color: #dfe3e7; backgr
 .grid td.nowrap { white-space: nowrap; }
 dl.kv dd select { max-width: 100%; }
 a.link { color: var(--accent); } a.link:hover { text-decoration: underline; }
+/* two-line lists in the detail pane: what it is, then when and who; the status on the right */
+.grid.list2 { table-layout: auto; }
+.grid.list2 td { padding: 6px 12px; line-height: 1.35; vertical-align: top; white-space: normal; }
+.grid.list2 td .dim { font-size: 12px; margin-top: 1px; }
+.grid.list2 td.st-cell { width: 1%; white-space: nowrap; text-align: right; }
