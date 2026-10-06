@@ -248,3 +248,10 @@ a.link { color: var(--accent); } a.link:hover { text-decoration: underline; }
 .grid.list2 td { padding: 6px 12px; line-height: 1.35; vertical-align: top; white-space: normal; }
 .grid.list2 td .dim { font-size: 12px; margin-top: 1px; }
 .grid.list2 td.st-cell { width: 1%; white-space: nowrap; text-align: right; }
+/* pages (reports, letters, faxes, scans): full pane width, scroll inside, zoom with − Fit + */
+.viewer .bar .zoom { display: flex; gap: 4px; margin-left: auto; }
+.viewer .bar .zoom + .vx { margin-left: 8px; }
+.viewer.doc .bar > span:not(.zoom) { flex: 1; }
+.viewer.doc .stage { display: block; max-height: 62vh; overflow: auto; background: #2b3036; padding: 12px; cursor: default; }
+.viewer.doc .frame { width: calc(var(--z, 1) * 100%); margin: 0 auto; }
+.viewer.doc .frame img { width: 100%; max-width: none; max-height: none; box-shadow: 0 1px 4px rgba(0, 0, 0, .4); }

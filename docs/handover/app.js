@@ -540,7 +540,7 @@ function channelsFor(name) {
 const docs = () => C.patients.flatMap((p) => itemsOf(p.pid).filter((i) => i.file || i.added || i.via).map((i) => ({ ...i, who: p.name })));
 const docMsg = (i) => ({ time: i.receivedAt || fmtTime(i.time), who: i.who, what: full(i), status: i.via ? "Filed" : identifiedBy(i).startsWith("Unmatched") ? "No patient match" : "Filed" });
 const fromSrc = (...s) => () => docs().filter((i) => s.includes(i.source) && !i.via).map(docMsg);
-const fromIntake = (id) => () => S.intake.filter((i) => i.channel === id).map((i) => ({ time: i.time, who: i.pid ? patient(i.pid).name : "–", what: i.subject, status: i.status }));
+const fromIntake = (id) => () => S.intake.filter((i) => i.channel === id).map((i) => ({ time: i.time, who: i.pid ? patient(i.pid).name : "–", what: i.subject, status: i.status === "Open" ? "In To file" : i.status }));
 const fromLog = (test) => () => S.log.filter(test).map((l) => ({ time: l.time, who: l.pid ? patient(l.pid).name : l.who, what: `${l.to}: ${l.what.join("; ")}`, status: lastStatus(l) }));
 // Certificates: an UZI server certificate authenticates the hospital on Twiin and the LSP (valid 2 years since Nov 2025).
 // From 12 Nov 2026 the UZI register issues from the PKIoverheid G4 hierarchy; trust stores must hold the G4 CA certificates.
@@ -589,7 +589,7 @@ const CHANNELS = [
     ack: "None: the recipient's upload or reply is the answer", msgs: fromLog((l) => l.channel === "Upload link" || l.channel === "Secure e-mail with access code") },
   { id: "portal", name: "Upload links", type: "Upload portal (HTTPS)", dir: "Inbound", scope: "Own", source: "One-time links for senders without an electronic link", route: "Answer to a result request: requesting department",
     msgs: () => docs().filter((i) => i.via === "Upload link").map(docMsg) },
-  { id: "fax", name: "Fax inbox, cardiology", type: "Fax-to-mail inbox", dir: "Inbound", scope: "Own", source: "Fax server to mailbox, OCR on arrival", route: "To file", msgs: fromIntake("fax"), intake: true },
+  { id: "fax", name: "Fax inbox, cardiology", type: "Fax-to-mail inbox", dir: "Inbound", scope: "Own", source: "Fax server to mailbox", route: "To file", msgs: fromIntake("fax"), intake: true },
   { id: "mail", name: "Cardiology secure mailbox", type: "Secure mail mailbox (ZorgMail, ZIVVER)", dir: "Inbound", scope: "Own", source: "cardiologie@azzuid.example", route: "To file", msgs: fromIntake("mail"), intake: true },
   { id: "folder", name: "Scanning folder, outpatient clinic", type: "Shared folder watch", dir: "Inbound", scope: "Own", source: "\\\\fs01\\scan\\cardiology", route: "To file", msgs: fromIntake("folder"), intake: true },
   { id: "chat", name: "Cardiology department chat", type: "Secure chat (message board)", dir: "Inbound", scope: "Own", source: "Department group; messages that carry a patient number", route: "To file", msgs: fromIntake("chat"), intake: true },
@@ -868,7 +868,8 @@ function viewer(f, it) {
     return uploadView({ name: it.ref || it.title, type: "image/svg+xml", url: printPage(it), note: "Page 1" });
   if (!f?.media) return "";
   const b = f.media.box;
-  return `<div class="viewer"><div class="bar"><b>${esc(f.media.png.replace(/^raw_\w+?_/, "").replace(/\.(pdf\.png|jpg|png)$/, ""))}</b><span>${esc(label(f))}</span>${expandBtn}</div>
+  const doc = f.media.png.endsWith(".pdf.png");
+  return `<div class="viewer${doc ? " doc" : ""}"><div class="bar"><b>${esc(f.media.png.replace(/^raw_\w+?_/, "").replace(/\.(pdf\.png|jpg|png)$/, ""))}</b><span>${esc(label(f))}</span>${doc ? zoomBtns : ""}${expandBtn}</div>
     <div class="stage"><div class="frame"><img src="${mediaSrc(f.media.png)}" alt="">${b ? `<div class="box" style="left:${b[0]}%;top:${b[1]}%;width:${b[2]}%;height:${b[3]}%"></div>` : ""}</div></div></div>`;
 }
 
@@ -878,9 +879,17 @@ function uploadView(u) {
   const body = !u.url ? `<p class="empty">${esc(u.name)} · original kept in the source system</p>`
     : u.type?.startsWith("image/") ? `<div class="frame"><img src="${u.url}" alt="">${u.box ? `<div class="box" style="left:${u.box[0]}%;top:${u.box[1]}%;width:${u.box[2]}%;height:${u.box[3]}%"></div>` : ""}</div>`
     : u.type === "application/pdf" ? `<iframe src="${u.url}" title="${esc(u.name)}"></iframe>` : `<p class="empty">${esc(u.name)} · no preview for this file type</p>`;
-  return `<div class="viewer"><div class="bar"><b>${esc(u.name)}</b><span>${u.size ? kb(u.size) : esc(u.note || "")}</span>${u.url ? expandBtn : ""}</div><div class="stage">${body}</div></div>`;
+  const doc = u.type === "image/svg+xml"; // a page: printed message, letter, fax or scan
+  return `<div class="viewer${doc ? " doc" : ""}"><div class="bar"><b>${esc(u.name)}</b><span>${u.size ? kb(u.size) : esc(u.note || "")}</span>${doc ? zoomBtns : ""}${u.url ? expandBtn : ""}</div><div class="stage">${body}</div></div>`;
 }
 const expandBtn = `<button class="vx" data-expand title="Expand (F)">Expand</button>`;
+const zoomBtns = `<span class="zoom"><button class="vx" data-zoom="-" aria-label="Zoom out">−</button><button class="vx" data-zoom="fit">Fit</button><button class="vx" data-zoom="+" aria-label="Zoom in">+</button></span>`;
+// zoom a page in the pane: Fit is the full pane width; the page scrolls inside the viewer
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-zoom]"); if (!b) return;
+  const v = b.closest(".viewer"), z = parseFloat(v.style.getPropertyValue("--z")) || 1;
+  v.style.setProperty("--z", b.dataset.zoom === "fit" ? 1 : Math.min(3, Math.max(0.5, b.dataset.zoom === "+" ? z * 1.25 : z / 1.25)));
+});
 // Expanded view: the same document, full window; the marking around the value can be switched off (M).
 function expandViewer(v) {
   if (!v) return;
@@ -895,7 +904,7 @@ function expandViewer(v) {
   o.addEventListener("click", (e) => { if (!e.target.closest("label")) o.remove(); }); // anywhere closes it, except the marking switch
 }
 document.addEventListener("click", (e) => { if (e.target.closest("[data-expand]")) expandViewer(e.target.closest(".viewer")); });
-document.addEventListener("click", (e) => { const v = e.target.closest("#app .viewer .stage"); if (v && v.closest(".viewer").querySelector("[data-expand]")) expandViewer(v.closest(".viewer")); });
+document.addEventListener("click", (e) => { const v = e.target.closest("#app .viewer:not(.doc) .stage"); if (v && v.closest(".viewer").querySelector("[data-expand]")) expandViewer(v.closest(".viewer")); });
 const openLink = (f) => [...S.log].reverse().find((l) => l.pid === f.pid && l.facts?.includes(f.fact) && l.portal?.state === "active");
 
 // Every received document, for one patient.
@@ -1892,7 +1901,7 @@ function recogDialog() {
   });
 }
 const recogLine = (kind, id) => { const ts = recogFor(kind, id);
-  return `<dt>Text recognition</dt><dd>${ts.length ? ts.map((t) => `<a href="#/admin/recog/${t.id}">${t.id} ${esc(t.name)}</a>${t.on ? "" : " (off)"}`).join("<br>") : "None"}</dd>`; };
+  return `<dt>Text recognition</dt><dd>${ts.length ? ts.map((t) => `<a class="link" href="#/admin/recog/${t.id}">${esc(t.name)}</a>${t.on ? "" : " (off)"}`).join("<br>") : "None"}</dd>`; };
 
 const ADMIN = {
   overview: { label: "Overview" },
