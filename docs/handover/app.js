@@ -225,10 +225,13 @@ function paintMedia() {
           g.fillStyle = "#fff"; g.fillText(v.to, X + a + m.actualBoundingBoxLeft, Y + bot + 1);
         }
         for (const bx of obscure || []) { // the value only; the label stays readable
-          const [x, y, w, h] = bx.map((n, i) => (n * (i % 2 ? H : W)) / 100), X = Math.round(x), Y = Math.round(y), bw = Math.round(w), bh = Math.round(h);
+          // the OCR box may sit on the label, the value or both: scan the whole row to its right, keep the label, take the value
+          const [x, y, w, h] = bx.map((n, i) => (n * (i % 2 ? H : W)) / 100), X = Math.round(x), Y = Math.round(y), bh = Math.round(h), bw = Math.min(W - X, Math.round(w * 3));
           const d = g.getImageData(X, Y, bw, bh).data, lit = (i) => [...Array(bh).keys()].some((j) => d[(j * bw + i) * 4] > 128), words = [];
           for (let i = 0; i < bw; i++) if (lit(i)) { const l = words[words.length - 1]; if (l && i - l[1] < 7) l[1] = i; else words.push([i, i]); }
-          const a = words.length > 1 ? words[1][0] - 3 : 0, rx = X + a, rw = bw - a;
+          const val = words.slice(1).filter((wd, k, all) => k === 0 || wd[0] - all[k - 1][1] < 25); // the value and its unit, not the panel border beyond
+          const a = val.length ? val[0][0] - 3 : 0, rx = X + a, rw = (val.length ? val[val.length - 1][1] + 4 : bw) - a;
+          bx[0] = ((rx - 4) / W) * 100; bx[2] = ((rw + 8) / W) * 100; // the marking frames the unreadable value, not the label
           let seed = [...png].reduce((s, ch) => (s * 31 + ch.charCodeAt(0)) >>> 0, 7);
           const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
           // smear the digits horizontally (as a dropped-frame capture does), with soft edges, then speckle that fades out
@@ -820,11 +823,11 @@ function docStatus(i) {
 function docDetail(it, admin = false) {
   const fsel = it.facts.find((f) => factKey(f) === S.sel.fact) || it.facts[0];
   const rows = it.facts.map((f) => `<tr class="row ${f === fsel ? "sel" : ""}" data-fact="${esc(factKey(f))}">
-    ${tdt(label(f))}${td(value(f), typeof f.got === "number" || f.got == null || f.status === "LOST" ? "num" : "", typeof f.got === "string" ? tr(f.got) : "")}${td(st(verdict(f), wordOf(f)))}</tr>`);
+    ${tdt(label(f))}${td(value(f), typeof f.got === "number" || f.got == null || f.status === "LOST" ? "num nowrap" : "", typeof f.got === "string" ? tr(f.got) : "")}${td(st(verdict(f), wordOf(f)))}</tr>`);
   const src = SOURCE[it.source] || { system: it.via || "Manual upload" };
   const cap = it.facts.find((f) => f.captured)?.captured;
   return `
-    ${it.facts.length ? table([["Test"], ["Result", "28%", "num"], ["Status", "30%"]], rows) : `<p class="empty">Attached document. No structured results.</p>`}
+    ${it.facts.length ? table([["Test"], ["Result", "34%", "num"], ["Status", "26%"]], rows) : `<p class="empty">Attached document. No structured results.</p>`}
     ${resultBlock(fsel, admin)}
     ${it.upload ? uploadView(it.upload) : viewer(fsel, it)}
     ${admin ? `<div class="block"><h4>Provenance</h4><dl class="kv">
