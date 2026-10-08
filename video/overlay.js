@@ -68,8 +68,9 @@
   const glide = (g, live, t) => (g.from ? live.map((v, i) => lerp(g.from[i], v, prog(t, g.t0, MOVE))) : live);
   const ringG = { node: null }, capG = { side: null };
 
-  function ringRect(n) { // the ring's box on screen, kept inside the screen
-    const b = n.getBoundingClientRect(), W = innerWidth, H = innerHeight;
+  function ringRect(n) { // the ring's box on screen (around one element or several), kept inside the screen
+    const rs = [].concat(n).map((e) => e.getBoundingClientRect()), W = innerWidth, H = innerHeight;
+    const b = { left: Math.min(...rs.map((r) => r.left)), top: Math.min(...rs.map((r) => r.top)), right: Math.max(...rs.map((r) => r.right)), bottom: Math.max(...rs.map((r) => r.bottom)) };
     const x0 = clamp(b.left - PAD, 3, W - 3), y0 = clamp(b.top - PAD, 3, H - 3);
     return [x0, y0, clamp(b.right + PAD, 3, W - 3) - x0, clamp(b.bottom + PAD, 3, H - 3) - y0];
   }
@@ -88,7 +89,7 @@
   // the callout's [x, y, side] next to rect r: of the spots that fit, the one covering least (keep: stay on that spot if it fits)
   function place(r, w, h, keep) {
     const W = innerWidth, H = innerHeight;
-    if (!r) return [SAFE + 4, H - SAFE - 4 - h, "none"];
+    if (!r) return [(W - w) / 2, H - 56 - h, "none"]; // no target: bottom centre, clear of the action bar
     const [x, y, rw, rh] = r, cx = (v) => clamp(v, SAFE, W - SAFE - w), cy = (v) => clamp(v, SAFE, H - SAFE - h);
     const spots = [["below", cx(x), y + rh + GAP], ["below-end", cx(x + rw - w), y + rh + GAP], ["above", cx(x), y - GAP - h],
       ["above-end", cx(x + rw - w), y - GAP - h], ["right", x + rw + GAP, cy(y)], ["left", x - GAP - w, cy(y)],
@@ -114,10 +115,10 @@
     },
     // a select's option list, drawn as the page would (screenshots never show the native popup); the highlight and
     // the cursor run down the options and back to the current one, then it closes and the value is left as it was
-    menu(node, t0, d, pick) { // pick: the option index chosen at the end (none: browse and keep the current one)
+    menu(node, t0, d, pick, walk = true) { // pick: the option index chosen at the end (none: browse and keep the current one)
       const b = node.getBoundingClientRect(), cs = getComputedStyle(node), opts = [...node.options].map((o) => o.text);
       const rowH = Math.round(parseFloat(cs.fontSize) * 1.75), h = opts.length * rowH + 8, below = b.bottom + 2 + h <= innerHeight - 8;
-      const m = { t0, d, opts, sel: node.selectedIndex, pick: pick ?? null, rowH, x: b.left, w: b.width, y: below ? b.bottom + 2 : b.top - 2 - h, font: `${cs.fontSize} ${cs.fontFamily}` };
+      const m = { t0, d, opts, sel: node.selectedIndex, pick: pick ?? null, walk, rowH, x: b.left, w: b.width, y: below ? b.bottom + 2 : b.top - 2 - h, font: `${cs.fontSize} ${cs.fontFamily}` };
       m.rowY = (i) => m.y + 4 + (i + 0.5) * rowH;
       S.menu = m;
       el.menu.innerHTML = opts.map((o) => `<div style="height:${rowH}px;line-height:${rowH}px">${o.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</div>`).join("");
@@ -176,7 +177,7 @@
       show(el.menu, mp >= 0 && mp < 1);
       if (mp >= 0 && mp < 1) { // the highlight steps row by row; the cursor glides with it
         const end = m.opts.length - 1, f = Math.min(1, mp / 0.85); // down to the last option, then back up to the one kept
-        const at = m.pick !== null ? m.sel + E.inOut(f) * (m.pick - m.sel) : f < 0.65 ? m.sel + E.inOut(f / 0.65) * (end - m.sel) : end + E.inOut((f - 0.65) / 0.35) * (m.sel - end), i = Math.round(at);
+        const at = !m.walk && m.pick === null ? m.sel : m.pick !== null ? m.sel + E.inOut(f) * (m.pick - m.sel) : f < 0.65 ? m.sel + E.inOut(f / 0.65) * (end - m.sel) : end + E.inOut((f - 0.65) / 0.35) * (m.sel - end), i = Math.round(at);
         [...el.menu.children].forEach((r, k) => r.classList.toggle("on", k === i));
         el.menu.style.opacity = Math.min(1, mp * m.d / 0.1, (1 - mp) * m.d / 0.12);
         cy = m.rowY(at);
@@ -189,7 +190,7 @@
       if (rp < 1) { const R = 6 + 18 * E.out(rp); Object.assign(el.rip.style, { left: r.x - R + "px", top: r.y - R + "px", width: 2 * R + "px", height: 2 * R + "px", opacity: 0.7 * (1 - rp) }); }
 
       // ring: fades in where it first appears, glides from one target to the next
-      const g = S.ring, n = g?.node?.isConnected ? g.node : null;
+      const g = S.ring, n = g?.node && [].concat(g.node).every((e) => e?.isConnected) ? g.node : null;
       let rr = null;
       if (n) {
         const live = ringRect(n);

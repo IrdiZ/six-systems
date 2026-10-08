@@ -112,7 +112,8 @@ class Rec:
         if "caption" in st:
             ov("caption", st["caption"], self.t)
         if "ring" in st:
-            ov("ring", st["ring"] and self.loc(st["ring"]).element_handle(), self.t)
+            r = st["ring"]  # a selector, a list (first match), or {"all": selector}: one ring around every match
+            ov("ring", isinstance(r, dict) and pg.locator(r["all"]).element_handles() or r and self.loc(r).element_handle(), self.t)
         if "zoom" in st and live:
             z = st["zoom"]
             rect = isinstance(z, list) and all(isinstance(v, (int, float)) for v in z)
@@ -151,7 +152,7 @@ class Rec:
                 self.frames(st.get("move", 0.7))
                 ov("ripple", b["x"] + min(b["width"] / 2, 80), b["y"] + b["height"] / 2, self.t)
                 pick = st.get("pick") and l.evaluate("(n, t) => [...n.options].findIndex((o) => o.text === t)", st["pick"])
-                ov("menu", l.element_handle(), self.t, st.get("dur", 2.5), pick if pick is not None and pick >= 0 else None)
+                ov("menu", l.element_handle(), self.t, st.get("dur", 2.5), pick if pick is not None and pick >= 0 else None, st.get("walk", True))
                 self.frames(st.get("dur", 2.5))
             if st.get("pick"):  # the choice lands when the menu closes
                 l.select_option(label=st["pick"])

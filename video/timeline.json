@@ -37,25 +37,22 @@
      "hold": 0.6
     },
     {
-     "zoom": ".banner",
-     "scale": 1.5,
-     "dur": 0.6,
-     "ease": "out",
-     "hold": 0.1
-    },
-    {
      "caption": {
       "title": "Patient record",
       "sub": "One record per patient, with documents from internal departments, referring hospitals and laboratories."
      },
      "ring": ".banner",
-     "hold": 2.8
+     "hold": 3.0
     },
     {
-     "zoom": null,
-     "dur": 0.5,
-     "ease": "out",
-     "hold": 0.1
+     "caption": {
+      "title": "Cardiology worklist",
+      "sub": "Patients of the department, each with counts of unverified results and results not received."
+     },
+     "ring": {
+      "all": ".side h3:not(.inbox), .side .sfilter, .side a[href*='/clinic/cardiology/P']"
+     },
+     "hold": 3.0
     },
     {
      "caption": {
@@ -90,14 +87,16 @@
     {
      "menu": "#f-send select[name=to]",
      "move": 0.6,
-     "dur": 3.6,
-     "hold": 0.3
+     "dur": 1.2,
+     "hold": 0.1,
+     "walk": false
     },
     {
      "menu": "#f-send select[name=channel]",
      "move": 0.6,
-     "dur": 1.8,
-     "hold": 0.3
+     "dur": 0.9,
+     "hold": 0.1,
+     "walk": false
     },
     {
      "click": "#f-send textarea[name=q]",
@@ -106,19 +105,19 @@
     },
     {
      "type": "Back-referral after chest pain work-up. Please continue follow-up.",
-     "cps": 30,
-     "hold": 0.5
+     "cps": 45,
+     "hold": 0.3
     },
     {
      "click": "#f-send tr:has-text('07:15') input[type=checkbox]",
      "move": 0.6,
-     "hold": 1.0
+     "hold": 0.5
     },
     {
      "scroll": "#f-send .body",
      "by": 600,
-     "dur": 1.1,
-     "hold": 0.2
+     "dur": 0.8,
+     "hold": 1.6
     },
     {
      "hold": 3.0
