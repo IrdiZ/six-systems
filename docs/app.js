@@ -283,9 +283,10 @@
       placed[lane].push(xx);
       // Documents at the same moment fill a 3-row grid (middle, top, bottom), then a new column.
       const yy = laneY(lane) + [0, -14, 14][near % 3], dx = Math.floor(near / 3) * 26;
-      a += `<g class="mk" data-doc="${i}" transform="translate(${xx - 11 + dx},${yy - 11})">
+      // Position on the outer group: the hover scale is a CSS transform and would replace an SVG transform on the same node.
+      a += `<g transform="translate(${xx - 11 + dx},${yy - 11})"><g class="mk" data-doc="${i}">
         <rect width="22" height="22" rx="3" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
-        <path d="M6 11.5l3.2 3.2L16 8" fill="none" stroke="var(--DATA)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+        <path d="M6 11.5l3.2 3.2L16 8" fill="none" stroke="var(--DATA)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g></g>`;
     });
     a += `<text x="${left + 10}" y="${laneY("offline") + 4}" fill="var(--dim)" font-size="12" font-style="italic">nothing here: the archive does not know what it never received</text>`;
 
