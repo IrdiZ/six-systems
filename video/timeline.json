@@ -155,51 +155,48 @@
    "from": "trail",
    "steps": [
     {
+     "mark": "to-file",
      "click": ".side a:has-text('To file')",
      "move": 0.6,
-     "hold": 0.5,
-     "mark": "to-file"
-    },
-    {
-     "click": ".pane.list tr:has-text('Fax, 1 page')",
-     "move": 0.6,
-     "hold": 0.5
+     "hold": 0.3
     },
     {
      "caption": {
       "title": "To file",
-      "sub": "Results received by fax, scan, mailbox or chat. Sender identified from the institution register."
+      "sub": "Results received by fax, scan, mailbox or chat, held here until they are filed."
      },
-     "ring": ".pane.detail dd:has-text('matched by fax number')",
-     "hold": 4.6
+     "hold": 3.0
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "click": ".pane.list tr:has-text('Fax, 1 page')",
+     "move": 0.6,
+     "hold": 0.3
     },
     {
      "caption": {
-      "title": "Filing",
-      "sub": "Patient and value confirmed before filing. Recorded as unverified."
+      "title": "Sender",
+      "sub": "Identified by fax number from the institution register."
      },
-     "ring": ".pane.detail .block:has(h4:has-text('Filing'))",
-     "hold": 3.6
+     "ring": ".pane.detail dd:has-text('matched by fax number')",
+     "hold": 3.2
     },
     {
      "ring": null,
      "caption": null,
      "click": ".pane.detail button:has-text('File to patient')",
      "move": 0.6,
-     "hold": 0.5
-    },
-    {
-     "point": ".pane.list tr:has-text('Fax, 1 page')",
-     "move": 0.6,
-     "hold": 0.1
+     "hold": 0.4
     },
     {
      "caption": {
       "title": "Filed",
-      "sub": "Filed to the patient record, with user and time."
+      "sub": "Filed to the patient record as unverified, with user and time.",
+      "side": "left"
      },
      "ring": ".pane.detail .block:has(h4:has-text('Filing'))",
-     "hold": 3.4
+     "hold": 3.2
     },
     {
      "ring": null,
