@@ -75,12 +75,6 @@
      "hold": 0.3
     },
     {
-     "menu": "#f-send select[name=format]",
-     "move": 0.5,
-     "dur": 1.1,
-     "hold": 0.3
-    },
-    {
      "click": "#f-send textarea[name=q]",
      "move": 0.6,
      "hold": 0.2
