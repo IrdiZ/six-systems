@@ -27,7 +27,8 @@
      "card": {
       "kicker": "Prototype · synthetic data",
       "title": "One patient. <em>Six systems.</em>",
-      "sub": "What reaches the record, and what it takes to make it usable."
+      "sub": "What reaches the record, and what it takes to make it usable.",
+      "cut": true
      },
      "hold": 3.4
     },
@@ -35,6 +36,9 @@
      "mark": "app",
      "card": null,
      "hold": 0.6
+    },
+    {
+     "hold": 2.4
     },
     {
      "caption": {
@@ -68,19 +72,115 @@
    ]
   },
   {
-   "id": "refer",
+   "id": "request",
    "from": "record",
    "steps": [
     {
-     "point": "[data-act=send]",
+     "click": ".pane.list tr:has-text('Troponin, point-of-care')",
      "move": 0.6,
-     "hold": 0.2,
-     "mark": "refer"
+     "hold": 0.4,
+     "mark": "request"
     },
     {
-     "click": "[data-act=send]",
-     "move": 0.2,
+     "caption": {
+      "title": "Not stored",
+      "sub": "Point-of-care troponin, sent by the referring hospital by fax."
+     },
+     "ring": ".pane.detail dd:has-text('reported by fax')",
+     "hold": 3.4
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "click": ".pane.detail [data-act=request]",
+     "move": 0.6,
+     "hold": 0.5
+    },
+    {
+     "menu": "#f-req select[name=ch0]",
+     "dur": 1.4,
+     "hold": 0.2,
+     "pick": "ZorgMail",
+     "walk": false
+    },
+    {
+     "caption": {
+      "title": "Result request",
+      "sub": "Sent via ZorgMail to the emergency department of the referring hospital."
+     },
+     "ring": "#f-req select[name=ch0]",
+     "hold": 3.2
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "click": "#f-req button.primary",
+     "move": 0.6,
+     "hold": 0.5
+    },
+    {
+     "click": ".pane.detail button:has-text('View as recipient')",
+     "move": 0.6,
+     "hold": 0.6
+    },
+    {
+     "caption": {
+      "title": "As the recipient sees it",
+      "sub": "The request arrives in their ZorgMail inbox, with patient, test and date."
+     },
+     "ring": ".dlg",
+     "hold": 3.4
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "click": ".dlg input",
+     "move": 0.6,
+     "hold": 0.2
+    },
+    {
+     "type": "227",
+     "cps": 8,
+     "hold": 0.4
+    },
+    {
+     "click": ".dlg button:has-text('Send result')",
+     "move": 0.6,
      "hold": 0.7
+    },
+    {
+     "caption": {
+      "title": "Structured",
+      "sub": "The reply is filed to the record as a structured result, with its source."
+     },
+     "ring": ".pane.detail table.grid",
+     "hold": 3.4
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "hold": 0.4
+    }
+   ]
+  },
+  {
+   "id": "refer",
+   "from": "request",
+   "steps": [
+    {
+     "mark": "refer",
+     "caption": {
+      "title": "Refer to any registered organisation"
+     },
+     "ring": "[data-act=send]",
+     "hold": 2.4
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "click": "[data-act=send]",
+     "move": 0.6,
+     "hold": 0.6
     },
     {
      "menu": "#f-send select[name=to]",
@@ -128,8 +228,80 @@
    ]
   },
   {
-   "id": "trail",
+   "id": "clinical",
    "from": "refer",
+   "steps": [
+    {
+     "click": ".pane.list tr:has-text('External laboratory report')",
+     "move": 0.6,
+     "hold": 0.4,
+     "mark": "convert-verify"
+    },
+    {
+     "zoom": ".pane.detail .block",
+     "scale": 1.6,
+     "dur": 0.6,
+     "ease": "out",
+     "hold": 0.1
+    },
+    {
+     "caption": {
+      "title": "Conversion",
+      "sub": "Reported value, conversion and LOINC code shown with the result."
+     },
+     "ring": ".pane.detail dd:has-text('× 1000')",
+     "hold": 3.6
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "zoom": null,
+     "dur": 0.5,
+     "ease": "out",
+     "hold": 0.1
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "click": ".pane.list tr:has-text('Transthoracic echocardiogram')",
+     "move": 0.6,
+     "hold": 0.4
+    },
+    {
+     "point": ".pane.detail [data-act=confirm]",
+     "move": 0.6,
+     "hold": 0.1
+    },
+    {
+     "caption": {
+      "title": "Verify result",
+      "sub": "Read by text recognition. Unverified until checked against the source image."
+     },
+     "ring": ".pane.detail [data-act=confirm]",
+     "hold": 3.6
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "click": ".pane.detail [data-act=confirm]",
+     "move": 0.3,
+     "hold": 0.6
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "hold": 1.8
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "hold": 0.4
+    }
+   ]
+  },
+  {
+   "id": "trail",
+   "from": "clinical",
    "steps": [
     {
      "click": ".tabs a:has-text('Audit trail')",
@@ -206,179 +378,8 @@
    ]
   },
   {
-   "id": "clinical",
-   "from": "repair",
-   "steps": [
-    {
-     "click": ".side a:has-text('Vallenduuk')",
-     "move": 0.6,
-     "hold": 0.4,
-     "mark": "convert-verify"
-    },
-    {
-     "click": ".pane.list tr:has-text('External laboratory report')",
-     "move": 0.6,
-     "hold": 0.4
-    },
-    {
-     "zoom": ".pane.detail .block",
-     "scale": 1.6,
-     "dur": 0.6,
-     "ease": "out",
-     "hold": 0.1
-    },
-    {
-     "caption": {
-      "title": "Conversion",
-      "sub": "Reported value, conversion and LOINC code shown with the result."
-     },
-     "ring": ".pane.detail dd:has-text('× 1000')",
-     "hold": 3.6
-    },
-    {
-     "ring": null,
-     "caption": null,
-     "zoom": null,
-     "dur": 0.5,
-     "ease": "out",
-     "hold": 0.1
-    },
-    {
-     "ring": null,
-     "caption": null,
-     "click": ".pane.list tr:has-text('Transthoracic echocardiogram')",
-     "move": 0.6,
-     "hold": 0.4
-    },
-    {
-     "point": ".pane.detail [data-act=confirm]",
-     "move": 0.6,
-     "hold": 0.1
-    },
-    {
-     "caption": {
-      "title": "Verify result",
-      "sub": "Read by text recognition. Unverified until checked against the source image."
-     },
-     "ring": ".pane.detail [data-act=confirm]",
-     "hold": 3.6
-    },
-    {
-     "ring": null,
-     "caption": null,
-     "click": ".pane.detail [data-act=confirm]",
-     "move": 0.3,
-     "hold": 0.6
-    },
-    {
-     "caption": {
-      "title": "Verified",
-      "sub": "User and time recorded with the result."
-     },
-     "ring": ".pane.detail dd:has-text('Verified against')",
-     "hold": 3.0
-    },
-    {
-     "ring": null,
-     "caption": null,
-     "hold": 0.4
-    }
-   ]
-  },
-  {
-   "id": "regional",
-   "from": "clinical",
-   "steps": [
-    {
-     "click": ".pane.list tr:has-text('Troponin, point-of-care')",
-     "move": 0.6,
-     "hold": 0.4,
-     "mark": "request"
-    },
-    {
-     "caption": {
-      "title": "Not stored",
-      "sub": "Point-of-care troponin, sent by the referring hospital by fax."
-     },
-     "ring": ".pane.detail dd:has-text('reported by fax')",
-     "hold": 3.4
-    },
-    {
-     "ring": null,
-     "caption": null,
-     "click": ".pane.detail [data-act=request]",
-     "move": 0.6,
-     "hold": 0.5
-    },
-    {
-     "menu": "#f-req select[name=ch0]",
-     "move": 0.6,
-     "dur": 2.0,
-     "hold": 0.2
-    },
-    {
-     "caption": {
-      "title": "Result request",
-      "sub": "Sent via ZorgMail to the emergency department of the referring hospital."
-     },
-     "ring": "#f-req select[name=ch0]",
-     "hold": 3.2
-    },
-    {
-     "ring": null,
-     "caption": null,
-     "click": "#f-req button.primary",
-     "move": 0.6,
-     "hold": 0.5
-    },
-    {
-     "click": ".pane.detail button:has-text('View as recipient')",
-     "move": 0.6,
-     "hold": 0.6
-    },
-    {
-     "caption": {
-      "title": "As the recipient sees it",
-      "sub": "The request arrives in their ZorgMail inbox, with patient, test and date."
-     },
-     "ring": ".dlg",
-     "hold": 3.4
-    },
-    {
-     "ring": null,
-     "caption": null,
-     "click": ".dlg input",
-     "move": 0.6,
-     "hold": 0.2
-    },
-    {
-     "type": "227",
-     "cps": 8,
-     "hold": 0.4
-    },
-    {
-     "click": ".dlg button:has-text('Send result')",
-     "move": 0.6,
-     "hold": 0.7
-    },
-    {
-     "caption": {
-      "title": "Structured",
-      "sub": "The reply is filed to the record as a structured result, with its source."
-     },
-     "ring": ".pane.detail table.grid",
-     "hold": 3.4
-    },
-    {
-     "ring": null,
-     "caption": null,
-     "hold": 0.4
-    }
-   ]
-  },
-  {
    "id": "overview",
-   "from": "regional",
+   "from": "repair",
    "steps": [
     {
      "mark": "management",

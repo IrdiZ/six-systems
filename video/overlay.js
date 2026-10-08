@@ -125,7 +125,7 @@
       Object.assign(el.menu.style, { left: m.x + "px", top: m.y + "px", width: "max-content", minWidth: m.w + "px", font: m.font, display: "" });
       m.x = Math.min(m.x, innerWidth - 8 - el.menu.offsetWidth), el.menu.style.left = m.x + "px"; // as wide as its longest option, kept on screen
       const end = opts.length - 1;
-      S.cur = { a: curAt(t0), b: [m.x + Math.min(m.w / 2, 80), m.rowY(m.pick ?? m.sel)], t0, d: d * 0.85, e: "linear" }; // ends on the option kept or picked
+      if (walk || m.pick !== null) S.cur = { a: curAt(t0), b: [m.x + Math.min(m.w / 2, 80), m.rowY(m.pick ?? m.sel)], t0, d: d * 0.85, e: "linear" }; // ends on the option kept or picked
       busy(t0 + d);
     },
     key(label, t0) { S.key = { label, t0 }; busy(t0 + 1.2); },
@@ -180,7 +180,7 @@
         const at = !m.walk && m.pick === null ? m.sel : m.pick !== null ? m.sel + E.inOut(f) * (m.pick - m.sel) : f < 0.65 ? m.sel + E.inOut(f / 0.65) * (end - m.sel) : end + E.inOut((f - 0.65) / 0.35) * (m.sel - end), i = Math.round(at);
         [...el.menu.children].forEach((r, k) => r.classList.toggle("on", k === i));
         el.menu.style.opacity = Math.min(1, mp * m.d / 0.1, (1 - mp) * m.d / 0.12);
-        cy = m.rowY(at);
+        if (m.walk || m.pick !== null) cy = m.rowY(at); // a menu only opened and closed leaves the cursor still
       }
       el.cur.style.transform = `translate(${cx}px, ${cy}px)`;
       show(el.cur, !(S.card && !(S.card.t1 && t >= S.card.t1))); // no cursor on a title card
@@ -250,7 +250,7 @@
       if (cd && cd.t1 && t >= cd.t1 + 0.5) S.card = null;
       show(el.card, !!S.card);
       if (S.card) {
-        const pin = prog(t, cd.t0, 0.55, "out"), pout = cd.t1 ? prog(t, cd.t1, 0.5, "inOut") : 0;
+        const pin = cd.c.cut ? 1 : prog(t, cd.t0, 0.55, "out"), /* cut: on screen from the first frame */ pout = cd.t1 ? prog(t, cd.t1, 0.5, "inOut") : 0;
         el.card.style.clipPath = `inset(${(1 - pin) * 100}% 0 ${pout * 100}% 0)`;
         [...el.card.children].forEach((n, i) => {
           const q = prog(t, cd.t0 + 0.25 + i * 0.1, 0.6, "out");
