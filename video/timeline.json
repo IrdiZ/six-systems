@@ -311,7 +311,9 @@
     {
      "caption": {
       "title": "Audit trail",
-      "sub": "Referral recorded with recipient, format, channel and acknowledgement."
+      "sub": "Referral recorded with recipient, format, channel and acknowledgement.",
+      "at": ".tabs a:has-text('Audit trail')",
+      "side": "right"
      },
      "hold": 3.6
     },
@@ -335,7 +337,9 @@
     {
      "caption": {
       "title": "To file",
-      "sub": "Results received by fax, scan, mailbox or chat, held here until they are filed."
+      "sub": "Results received by fax, scan, mailbox or chat, held here until they are filed.",
+      "at": ".side a:has-text('To file')",
+      "side": "right"
      },
      "hold": 3.0
     },
@@ -402,7 +406,9 @@
     {
      "caption": {
       "title": "Overview",
-      "sub": "Results per source and department, by receipt status. Fax senders listed per source."
+      "sub": "Results per source and department, by receipt status. Fax senders listed per source.",
+      "at": "a[href='#/admin/overview']",
+      "side": "below"
      },
      "hold": 4.4
     },
@@ -440,7 +446,9 @@
     {
      "caption": {
       "title": "Department Databases",
-      "sub": "Existing local registries are read in place. Data is not written back."
+      "sub": "Existing local registries are read in place. Data is not written back.",
+      "at": "a[href='#/admin/sources']",
+      "side": "below"
      },
      "hold": 3.6
     },
@@ -520,7 +528,9 @@
     {
      "caption": {
       "title": "Access Log",
-      "sub": "User, action and legal basis per access. Exportable per patient."
+      "sub": "User, action and legal basis per access. Exportable per patient.",
+      "at": "a[href='#/admin/access']",
+      "side": "below"
      },
      "hold": 3.8
     },

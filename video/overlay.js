@@ -130,11 +130,11 @@
     },
     key(label, t0) { S.key = { label, t0 }; busy(t0 + 1.2); },
     // c: "text", {title, sub, side, dur} or null. side pins the callout's side (below, above, right, left).
-    caption(c, t0) {
+    caption(c, t0, at) { // at: an element to sit beside when there is no ring (no ring, no dimming)
       c = typeof c === "string" ? { title: c } : c;
       const prev = S.cap && (!S.cap.t1 || S.cap.t1 > t0) ? S.cap : null;
       S.old = prev ? { ...prev, t0, t1: t0 + 0.2 } : null;
-      S.cap = c ? { ...c, t0: t0 + (prev ? 0.2 : 0), t1: c.dur ? t0 + c.dur : 0 } : null;
+      S.cap = c ? { ...c, atNode: at || null, t0: t0 + (prev ? 0.2 : 0), t1: c.dur ? t0 + c.dur : 0 } : null;
       busy(t0 + 0.7);
       if (S.cap?.t1) busy(S.cap.t1);
     },
@@ -236,7 +236,8 @@
         if (el.t.textContent !== (k.title || "")) { el.t.textContent = k.title || ""; el.s.textContent = k.sub || ""; el.n.textContent = k.n || ""; }
         if (!o) {
           const fresh = capG.key !== c || capG.node !== ringG.node; // a new caption or a new target: choose the spot again
-          const [px, py, side] = place(rr, el.cap.offsetWidth, el.cap.offsetHeight, c.side || (fresh ? null : capG.side));
+          const anchor = rr || (c.atNode?.isConnected ? ringRect(c.atNode, 4) : null);
+          const [px, py, side] = place(anchor, el.cap.offsetWidth, el.cap.offsetHeight, c.side || (fresh ? null : capG.side));
           if (fresh || capG.side !== side) Object.assign(capG, { t0: t, from: capG.key === c && capG.last ? capG.last : null, key: c, side, node: ringG.node }), busy(t + MOVE);
           capG.last = glide(capG, [px, py], t);
         }

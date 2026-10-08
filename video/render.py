@@ -110,7 +110,8 @@ class Rec:
             pg.evaluate("h => (location.hash = h)", st["route"])
             self.settle()
         if "caption" in st:
-            ov("caption", st["caption"], self.t)
+            c = st["caption"]  # {"at": selector} puts a caption without a ring beside that element
+            ov("caption", c, self.t, isinstance(c, dict) and c.get("at") and self.loc(c["at"]).element_handle() or None)
         if "ring" in st:
             # a selector, a list (first match), {"all": selector} (one ring around every match), or {"each": [...]} (a ring per item)
             one = lambda r: pg.locator(r["all"]).element_handles() if isinstance(r, dict) else self.loc(r).element_handle()
