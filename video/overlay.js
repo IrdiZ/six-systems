@@ -68,11 +68,11 @@
   const glide = (g, live, t) => (g.from ? live.map((v, i) => lerp(g.from[i], v, prog(t, g.t0, MOVE))) : live);
   const ringG = { node: null }, capG = { side: null };
 
-  function ringRect(n) { // the ring's box on screen (around one element or several), kept inside the screen
+  function ringRect(n, pad = PAD) { // the ring's box on screen (around one element or several), kept inside the screen
     const rs = [].concat(n).map((e) => e.getBoundingClientRect()), W = innerWidth, H = innerHeight;
     const b = { left: Math.min(...rs.map((r) => r.left)), top: Math.min(...rs.map((r) => r.top)), right: Math.max(...rs.map((r) => r.right)), bottom: Math.max(...rs.map((r) => r.bottom)) };
-    const x0 = clamp(b.left - PAD, 3, W - 3), y0 = clamp(b.top - PAD, 3, H - 3);
-    return [x0, y0, clamp(b.right + PAD, 3, W - 3) - x0, clamp(b.bottom + PAD, 3, H - 3) - y0];
+    const x0 = clamp(b.left - pad, 3, W - 3), y0 = clamp(b.top - pad, 3, H - 3);
+    return [x0, y0, clamp(b.right + pad, 3, W - 3) - x0, clamp(b.bottom + pad, 3, H - 3) - y0];
   }
 
   // how much is under a box: a 6x3 grid of probes, each counting when it lands on text, an image or a control
@@ -198,7 +198,7 @@
           const n = tg[0], live = ringRect(n);
           if (ringG.node !== n) Object.assign(ringG, { node: n, t0: t, from: g.fresh || !ringG.last ? null : ringG.last }), busy(t + MOVE);
           rects = [(ringG.last = glide(ringG, live, t))];
-        } else rects = tg.map(ringRect), Object.assign(ringG, { node: g.node, last: rects.at(-1), from: null });
+        } else rects = tg.map((x) => ringRect(x, 3)), // tight, so neighbouring areas never cross Object.assign(ringG, { node: g.node, last: rects.at(-1), from: null });
         alpha = g.fresh ? prog(t, g.t0, 0.3, "out") : 1;
         S.ringOut = null;
       } else {
@@ -207,7 +207,8 @@
         if (fp < 1) rects = f.rects, alpha = 1 - E.out(fp);
       }
       S.rects = ok ? rects : null;
-      const rr = ok ? rects.at(-1) : null; // the callout sits beside the last target
+      // the callout sits beside the target; with several, in the corner after the last and below the first, clear of both
+      const rr = !ok ? null : rects.length < 2 ? rects[0] : [rects.at(-1)[0] + 26, rects[0][1] + rects[0][3] + 28, rects.at(-1)[2], rects.at(-1)[3]];
       [el.ring, el.r2].forEach((e, i) => {
         const r = rects?.[i];
         show(e, !!r);
