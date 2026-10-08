@@ -100,16 +100,17 @@
     },
     // a select's option list, drawn as the page would (screenshots never show the native popup); the highlight and
     // the cursor run down the options and back to the current one, then it closes and the value is left as it was
-    menu(node, t0, d) {
+    menu(node, t0, d, pick) { // pick: the option index chosen at the end (none: browse and keep the current one)
       const b = node.getBoundingClientRect(), cs = getComputedStyle(node), opts = [...node.options].map((o) => o.text);
       const rowH = Math.round(parseFloat(cs.fontSize) * 1.75), h = opts.length * rowH + 8, below = b.bottom + 2 + h <= innerHeight - 8;
-      const m = { t0, d, opts, sel: node.selectedIndex, rowH, x: b.left, w: b.width, y: below ? b.bottom + 2 : b.top - 2 - h, font: `${cs.fontSize} ${cs.fontFamily}` };
+      const m = { t0, d, opts, sel: node.selectedIndex, pick: pick ?? null, rowH, x: b.left, w: b.width, y: below ? b.bottom + 2 : b.top - 2 - h, font: `${cs.fontSize} ${cs.fontFamily}` };
       m.rowY = (i) => m.y + 4 + (i + 0.5) * rowH;
       S.menu = m;
       el.menu.innerHTML = opts.map((o) => `<div style="height:${rowH}px;line-height:${rowH}px">${o.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</div>`).join("");
-      Object.assign(el.menu.style, { left: m.x + "px", top: m.y + "px", width: m.w + "px", font: m.font });
+      Object.assign(el.menu.style, { left: m.x + "px", top: m.y + "px", width: "max-content", minWidth: m.w + "px", font: m.font, display: "" });
+      m.x = Math.min(m.x, innerWidth - 8 - el.menu.offsetWidth), el.menu.style.left = m.x + "px"; // as wide as its longest option, kept on screen
       const end = opts.length - 1;
-      S.cur = { a: curAt(t0), b: [m.x + Math.min(m.w / 2, 80), m.rowY(m.sel)], t0, d: d * 0.85, e: "linear" }; // ends on the kept option
+      S.cur = { a: curAt(t0), b: [m.x + Math.min(m.w / 2, 80), m.rowY(m.pick ?? m.sel)], t0, d: d * 0.85, e: "linear" }; // ends on the option kept or picked
       busy(t0 + d);
     },
     key(label, t0) { S.key = { label, t0 }; busy(t0 + 1.2); },
@@ -148,7 +149,7 @@
       show(el.menu, mp >= 0 && mp < 1);
       if (mp >= 0 && mp < 1) { // the highlight steps row by row; the cursor glides with it
         const end = m.opts.length - 1, f = Math.min(1, mp / 0.85); // down to the last option, then back up to the one kept
-        const at = f < 0.65 ? m.sel + E.inOut(f / 0.65) * (end - m.sel) : end + E.inOut((f - 0.65) / 0.35) * (m.sel - end), i = Math.round(at);
+        const at = m.pick !== null ? m.sel + E.inOut(f) * (m.pick - m.sel) : f < 0.65 ? m.sel + E.inOut(f / 0.65) * (end - m.sel) : end + E.inOut((f - 0.65) / 0.35) * (m.sel - end), i = Math.round(at);
         [...el.menu.children].forEach((r, k) => r.classList.toggle("on", k === i));
         el.menu.style.opacity = Math.min(1, mp * m.d / 0.1, (1 - mp) * m.d / 0.12);
         cy = m.rowY(at);
