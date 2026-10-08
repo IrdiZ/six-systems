@@ -34,17 +34,17 @@ Needs Tesseract (`brew install tesseract`). The build is deterministic (seed 7).
 ## Techniques
 
 - No LLM. All extraction is rule-based.
-- OCR: Tesseract on echo screenshots. It misreads "cm" as "¢m" and loses 2 of 28 values. Treat it as a placeholder.
+- OCR: Tesseract on echo screenshots. It misreads "cm" as "¢m" and fails on some values. Treat it as a placeholder. Readings are pinned in `assemble/ocr_reference.json`.
 - PDF: `pdfplumber` plus fixed regex patterns. This is the most fragile part, because real reports use varied wording.
 
 ## Open items
 
-1. **New sources are not in the "gap" timeline.** `docs/app.js` has a fixed lane list. Sources from the 40-patient simulation (ECG, cathlab, GP, lung function, and more) draw outside the lanes. Fix after the new video is done.
-2. **Fix the PDF highlight box.** It is too wide on radiology reports. The cause is the fixed width in `parse_pdf` in `assemble/parsers.py`.
+1. **Fix the PDF highlight box.** It is too wide on radiology reports. The cause is the fixed width in `parse_pdf` in `assemble/parsers.py`.
+2. **The system tiles on "The gap" show 6 sources.** The data has 12. The timeline already shows every source per patient.
 3. **Possible next experiment.** Compare OCR engines (Tesseract, Apple Vision, PaddleOCR, a local vision model) with the answer-key scoring. Count values recovered and values wrong per engine.
 4. **"Expected but missing" detection.** The demo knows a fax is missing only because of the answer key. A real system must infer it, e.g. from an ER visit with no troponin result, or an order with no result.
 
-Done on 2026-10-08: disclaimer on all pages; status labels Structured / Converted / Unverified / Not received; one design language across all three pages (shared top bar); Wegiz text corrected (BgZ now follows the EHDS dates, 2029 and 2031).
+Done on 2026-10-08: timeline lanes follow each patient's sources (all 2,044 markers checked); hovered markers stay in place; fast-cut video (`video/timeline-pitch.json`); disclaimer on all pages; status labels Structured / Converted / Unverified / Not received; one design language across all three pages (shared top bar); Wegiz text corrected (BgZ now follows the EHDS dates, 2029 and 2031).
 
 ## Pages
 
@@ -53,7 +53,7 @@ Done on 2026-10-08: disclaimer on all pages; status labels Structured / Converte
 | Explained | `docs/explained.html` | Walkthrough picks the chest-pain patient with the most steps; each step shows only if the data has it. |
 | The gap | `docs/index.html` | Archive view versus computable view. |
 | Clinical tool | `docs/handover/` | @danilosolciaa's UI. `docs/handover/standalone.py` writes a single offline HTML file. |
-| Video | `video/` | Records the clinical tool to MP4 (Playwright + ffmpeg). |
+| Videos | `video/` | `timeline.json`: calm 2-minute walkthrough. `timeline-pitch.json`: 56-second fast cut for a voiceover. See `video/README.md`. |
 
 ## Rules for this repo
 

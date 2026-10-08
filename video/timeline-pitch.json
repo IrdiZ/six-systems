@@ -1,0 +1,308 @@
+{
+ "size": [
+  1920,
+  1080
+ ],
+ "viewport": [
+  1440,
+  810
+ ],
+ "fps": 30,
+ "clock": "2026-05-27T09:30:00",
+ "app": "docs/handover/index.html",
+ "scenario": "default",
+ "cursor": [
+  1000,
+  560
+ ],
+ "scenes": [
+  {
+   "id": "open",
+   "setup": [
+    "#/clinic/cardiology/P001"
+   ],
+   "steps": [
+    {
+     "mark": "intro",
+     "card": {
+      "kicker": "Prototype · synthetic data",
+      "title": "One patient. <em>Six systems.</em>",
+      "sub": "What reaches the record, and what it takes to make it usable."
+     },
+     "hold": 3.6
+    },
+    {
+     "mark": "stats",
+     "card": {
+      "kicker": "In this simulation",
+      "stats": [
+       {
+        "to": 97,
+        "suffix": "%",
+        "label": "of the case is in the archive"
+       },
+       {
+        "to": 56,
+        "suffix": "%",
+        "label": "arrives usable as data",
+        "color": "#8fb8d6"
+       }
+      ]
+     },
+     "hold": 4.4
+    },
+    {
+     "mark": "app",
+     "card": null,
+     "hold": 0.6
+    },
+    {
+     "zoom": ".banner .alerts",
+     "scale": 1.9,
+     "dur": 0.6,
+     "ease": "out",
+     "ring": ".banner .alerts",
+     "caption": {
+      "title": "Missing and unchecked, up front"
+     },
+     "hold": 2.6
+    },
+    {
+     "zoom": ".pane.list table.grid",
+     "scale": 1.35,
+     "dur": 0.6,
+     "ease": "out",
+     "ring": ".pane.list table.grid",
+     "caption": {
+      "title": "How every document arrived"
+     },
+     "hold": 2.6
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "zoom": null,
+     "dur": 0.5,
+     "hold": 0.15
+    }
+   ]
+  },
+  {
+   "id": "convert",
+   "from": "open",
+   "steps": [
+    {
+     "mark": "convert",
+     "click": ".pane.list tr:has-text('External laboratory report')",
+     "move": 0.45,
+     "hold": 0.25
+    },
+    {
+     "zoom": ".pane.detail .block",
+     "scale": 1.7,
+     "dur": 0.6,
+     "ease": "out",
+     "hold": 0.1
+    },
+    {
+     "ring": ".pane.detail dd:has-text('× 1000')",
+     "caption": {
+      "title": "Another lab's units, converted"
+     },
+     "hold": 2.4
+    },
+    {
+     "ring": ".pane.detail dd:has-text('67151-1')",
+     "caption": {
+      "title": "One code for the same test"
+     },
+     "hold": 2.4
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "zoom": null,
+     "dur": 0.5,
+     "hold": 0.15
+    }
+   ]
+  },
+  {
+   "id": "verify",
+   "from": "convert",
+   "steps": [
+    {
+     "mark": "verify",
+     "click": ".pane.list tr:has-text('Transthoracic echocardiogram')",
+     "move": 0.45,
+     "hold": 0.25
+    },
+    {
+     "zoom": ".pane.detail .viewer",
+     "scale": 1.5,
+     "dur": 0.6,
+     "ease": "out",
+     "ring": ".pane.detail .viewer",
+     "caption": {
+      "title": "Read off a picture of the screen"
+     },
+     "hold": 2.6
+    },
+    {
+     "zoom": null,
+     "dur": 0.5,
+     "ring": ".pane.detail [data-act=confirm]",
+     "caption": {
+      "title": "A clinician confirms it"
+     },
+     "hold": 1.4
+    },
+    {
+     "key": "v",
+     "hold": 0.5
+    },
+    {
+     "ring": ".pane.detail dd:has-text('Verified against')",
+     "caption": {
+      "title": "Signed, with name and time"
+     },
+     "hold": 2.2
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "zoom": null,
+     "dur": 0.5,
+     "hold": 0.15
+    }
+   ]
+  },
+  {
+   "id": "request",
+   "from": "verify",
+   "steps": [
+    {
+     "mark": "request",
+     "click": ".pane.list tr:has-text('Troponin, point-of-care')",
+     "move": 0.45,
+     "hold": 0.25
+    },
+    {
+     "ring": ".pane.detail dd:has-text('reported by fax')",
+     "caption": {
+      "title": "This result only came by fax"
+     },
+     "hold": 2.4
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "key": "r",
+     "hold": 0.5
+    },
+    {
+     "select": [
+      "#f-req select[name=ch0]",
+      "Regional platform (search)"
+     ],
+     "move": 0.45,
+     "hold": 0.25
+    },
+    {
+     "click": [
+      "#rs-go",
+      ".dlg button:has-text('Search')"
+     ],
+     "move": 0.4,
+     "hold": 1.4
+    },
+    {
+     "ring": [
+      ".dlg dd:has-text('found')",
+      ".dlg .block:has(dt:text('Found'))"
+     ],
+     "caption": {
+      "title": "Found on the regional platform"
+     },
+     "hold": 2.2
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "click": [
+      "#rs-import",
+      ".dlg button:has-text('Import result')"
+     ],
+     "move": 0.4,
+     "hold": 0.3
+    },
+    {
+     "ring": ".pane.detail table.grid",
+     "caption": {
+      "title": "Now in the record, as data"
+     },
+     "hold": 2.4
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "zoom": null,
+     "dur": 0.5,
+     "hold": 0.15
+    }
+   ]
+  },
+  {
+   "id": "manage",
+   "from": "request",
+   "steps": [
+    {
+     "mark": "manage",
+     "click": "a[href='#/admin']",
+     "move": 0.45,
+     "hold": 0.4
+    },
+    {
+     "ring": "tr:has-text('Point-of-care testing')",
+     "caption": {
+      "title": "Where paper still comes in"
+     },
+     "hold": 2.6
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "zoom": null,
+     "dur": 0.5,
+     "hold": 0.15,
+     "rest": true
+    }
+   ]
+  },
+  {
+   "id": "close",
+   "from": "manage",
+   "steps": [
+    {
+     "mark": "question",
+     "card": {
+      "light": true,
+      "kicker": "The open question",
+      "title": "Exchange between organisations, or <em>data for research</em>?",
+      "sub": "Same root cause, different owners. Which one hurts more in practice?"
+     },
+     "hold": 4.6
+    },
+    {
+     "mark": "end",
+     "card": {
+      "kicker": "Prototype",
+      "title": "Synthetic data. <em>Fictional organisations.</em>",
+      "sub": "github.com/IrdiZ/six-systems"
+     },
+     "hold": 3.2
+    }
+   ]
+  }
+ ]
+}
