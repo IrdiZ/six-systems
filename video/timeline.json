@@ -63,28 +63,24 @@
      "hold": 0.7
     },
     {
-     "ring": "#f-send .field:has(select[name=to])",
      "menu": "#f-send select[name=to]",
      "move": 0.8,
      "dur": 3.6,
      "hold": 0.3
     },
     {
-     "ring": "#f-send .field:has(select[name=channel])",
      "menu": "#f-send select[name=channel]",
      "move": 0.6,
      "dur": 1.8,
      "hold": 0.3
     },
     {
-     "ring": "#f-send .field:has(select[name=format])",
      "menu": "#f-send select[name=format]",
      "move": 0.5,
      "dur": 1.1,
      "hold": 0.3
     },
     {
-     "ring": "#f-send textarea[name=q]",
      "click": "#f-send textarea[name=q]",
      "move": 0.6,
      "hold": 0.2
@@ -95,24 +91,20 @@
      "hold": 0.5
     },
     {
-     "ring": "#f-send .field:has(input[type=checkbox])",
      "click": "#f-send tr:has-text('07:15') input[type=checkbox]",
      "move": 0.7,
      "hold": 1.0
     },
     {
-     "ring": null,
      "scroll": "#f-send .body",
      "by": 600,
      "dur": 1.1,
      "hold": 0.2
     },
     {
-     "ring": "#send-preview",
      "hold": 3.0
     },
     {
-     "ring": null,
      "click": "#f-send button.primary",
      "move": 0.8,
      "hold": 0.8
@@ -311,6 +303,42 @@
      },
      "ring": ".pane.list table.grid",
      "hold": 3.6
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "click": ".actions button:has-text('Register institution')",
+     "move": 0.9,
+     "hold": 0.6
+    },
+    {
+     "menu": "form select[name=type]",
+     "move": 0.7,
+     "dur": 1.8,
+     "hold": 0.2
+    },
+    {
+     "menu": "form select[name=channel]",
+     "move": 0.6,
+     "dur": 1.5,
+     "hold": 0.2
+    },
+    {
+     "menu": "form select[name=rel]",
+     "move": 0.5,
+     "dur": 1.1,
+     "hold": 0.2
+    },
+    {
+     "menu": "form select[name=check]",
+     "move": 0.5,
+     "dur": 1.6,
+     "hold": 0.2
+    },
+    {
+     "click": "form button:has-text('Cancel')",
+     "move": 0.7,
+     "hold": 0.4
     },
     {
      "ring": null,
