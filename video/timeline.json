@@ -23,28 +23,17 @@
    ],
    "steps": [
     {
-     "hold": 0.5
+     "hold": 0.8
+    },
+    {
+     "point": ".pane.list table.grid tr:has-text('External laboratory report')",
+     "move": 1.1,
+     "hold": 0.2
     },
     {
      "caption": {
-      "title": "One record across departments and institutions",
-      "sub": "Results from internal departments, referring hospitals and external laboratories, consolidated per patient."
-     },
-     "ring": ".pane.list table.grid",
-     "hold": 5.0
-    },
-    {
-     "caption": {
-      "title": "Completeness stated in the patient banner",
-      "sub": "Results not received, not stored electronically or pending verification, before the record is acted on."
-     },
-     "ring": ".banner .alerts",
-     "hold": 4.4
-    },
-    {
-     "caption": {
-      "title": "Provenance and receipt status per document",
-      "sub": "Structured, converted, unverified or not stored, with the sending organisation."
+      "title": "Receipt status",
+      "sub": "Sender and status per document: structured, converted, unverified or not stored."
      },
      "ring": ".pane.list table.grid",
      "hold": 0.2
@@ -52,8 +41,8 @@
     {
      "zoom": ".pane.list table.grid",
      "scale": 1.3,
-     "dur": 1.0,
-     "hold": 4.0
+     "dur": 1.1,
+     "hold": 3.8
     },
     {
      "ring": null,
@@ -69,58 +58,113 @@
    "from": "record",
    "steps": [
     {
-     "hold": 0.6
+     "point": "[data-act=send]",
+     "move": 1.0,
+     "hold": 0.3
     },
     {
-     "key": "s",
+     "click": "[data-act=send]",
+     "move": 0.2,
      "hold": 0.8
     },
     {
+     "point": "#f-send select[name=to]",
+     "move": 0.8,
+     "hold": 0.1
+    },
+    {
      "caption": {
-      "title": "Referral",
-      "sub": "Recipient and channel are resolved from the institution register. A clinical question is mandatory."
+      "title": "Recipient",
+      "sub": "Selected from the institution register. URA checked in ZORG-AB.",
+      "n": 1
      },
-     "ring": "#send-hint",
-     "hold": 4.6
+     "ring": "#f-send .field:has(select[name=to])",
+     "hold": 3.6
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "point": "#f-send select[name=channel]",
+     "move": 0.6,
+     "hold": 0.1
+    },
+    {
+     "caption": {
+      "title": "Channel and message format",
+      "sub": "Twiin: BgZ and referral letter in FHIR STU3. ZorgMail and e-mail with access code also available.",
+      "n": 2
+     },
+     "ring": "#f-send .field:has(select[name=channel])",
+     "hold": 3.8
     },
     {
      "ring": null,
      "caption": null,
      "click": "#f-send textarea[name=q]",
-     "hold": 0.3
-    },
-    {
-     "type": "Back-referral after chest pain work-up. Please continue follow-up.",
-     "cps": 32,
-     "hold": 0.4
-    },
-    {
-     "scroll": "#f-send .body",
-     "by": 600,
-     "dur": 1.0,
+     "move": 0.6,
      "hold": 0.2
     },
     {
      "caption": {
-      "title": "Content as received by the recipient",
-      "sub": "Verified results are transmitted as structured data; unverified results as images, labelled unverified."
+      "title": "Clinical question",
+      "sub": "Required before sending.",
+      "n": 3
+     },
+     "ring": "#f-send textarea[name=q]",
+     "hold": 0.3
+    },
+    {
+     "type": "Back-referral after chest pain work-up. Please continue follow-up.",
+     "cps": 30,
+     "hold": 1.0
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "click": "#f-send tr:has-text('07:15') input[type=checkbox]",
+     "move": 0.7,
+     "hold": 0.3
+    },
+    {
+     "caption": {
+      "title": "Enclosures",
+      "sub": "Received documents are selected per referral.",
+      "n": 4
+     },
+     "ring": "#f-send .field:has(input[type=checkbox])",
+     "hold": 3.2
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "scroll": "#f-send .body",
+     "by": 600,
+     "dur": 1.1,
+     "hold": 0.2
+    },
+    {
+     "caption": {
+      "title": "Recipient receives",
+      "sub": "Verified results as structured data, original value included. Unverified values as images, labelled unverified.",
+      "n": 5
      },
      "ring": "#send-preview",
-     "hold": 5.0
+     "hold": 4.6
     },
     {
      "ring": null,
      "caption": null,
      "click": "#f-send button.primary",
+     "move": 0.8,
      "hold": 0.6
     },
     {
      "caption": {
-      "title": "Referral sent through Twiin",
-      "sub": "Transmission and acknowledgement are recorded per patient."
+      "title": "Referral sent",
+      "sub": "Recorded in the audit trail."
      },
      "ring": ".actions .status",
-     "hold": 3.4
+     "hold": 3.2
     },
     {
      "ring": null,

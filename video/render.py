@@ -130,6 +130,10 @@ class Rec:
             pg.mouse.click(x, y)
             ov("ripple", x, y, self.t)
             self.settle()
+        if "point" in st and live:  # the cursor glides to an element without clicking
+            b = self.loc(st["point"]).bounding_box()
+            ov("move", b["x"] + min(b["width"] / 2, 60), b["y"] + b["height"] / 2, self.t, st.get("move", 0.7), "inOut")
+            self.frames(st.get("move", 0.7))
         if "select" in st:  # [selector, option label]
             l = self.loc(st["select"][0])
             b = l.bounding_box()

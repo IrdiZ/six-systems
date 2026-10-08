@@ -9,7 +9,7 @@
   const S = { cur: { a: [0, 0], b: [0, 0], t0: 0, d: 0 }, zoom: { a: [1, 0, 0], b: [1, 0, 0], t0: 0, d: 0 }, rip: null, ring: null, cap: null, old: null, key: null, scroll: null, until: 0, dirty: true };
   const busy = (t1) => (S.until = Math.max(S.until, t1));
   const FONT = "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap";
-  const PAD = 6, GAP = 14, SAFE = 20, MOVE = 0.5; // ring padding, ring-to-callout gap, screen margin (CSS px); glide time (s)
+  const PAD = 8, GAP = 14, SAFE = 20, MOVE = 0.5; // ring padding, ring-to-callout gap, screen margin (CSS px); glide time (s)
   let el = {};
 
   const CSS = `
@@ -17,22 +17,27 @@
     #__ov { position: fixed; inset: 0; z-index: 2147483647; font-family: Geist, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
     #__ov .cur { position: absolute; left: 0; top: 0; width: 24px; height: 24px; margin: -2px 0 0 -3px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.35)); }
     #__ov .rip { position: absolute; border: 2px solid #1d6fa5; border-radius: 50%; }
-    #__ov .ring { position: absolute; border: 2px solid #1d6fa5; border-radius: 7px; box-shadow: 0 0 0 5px rgba(29,111,165,.13); }
-    #__ov .cap { position: absolute; left: 0; top: 0; width: max-content; max-width: 400px; padding: 13px 18px 14px; border-radius: 8px;
-      background: #15191e; color: #fff; box-shadow: 0 12px 32px rgba(15,20,25,.22), 0 2px 6px rgba(15,20,25,.14); }
-    #__ov .cap .t { font-size: 20px; line-height: 1.25; font-weight: 600; letter-spacing: -.012em; text-wrap: balance; }
-    #__ov .cap .s { margin-top: 4px; font-size: 15px; line-height: 1.4; font-weight: 400; color: rgba(255,255,255,.7); text-wrap: pretty; }
-    #__ov .cap .s:empty { display: none; }
+    #__ov .ring { position: absolute; border: 3px solid #1d6fa5; border-radius: 10px; background: rgba(29,111,165,.035);
+      box-shadow: 0 0 0 5px rgba(29,111,165,.14), 0 6px 18px rgba(29,111,165,.16); }
+    #__ov .cap { position: absolute; left: 0; top: 0; width: max-content; max-width: 290px; padding: 11px 15px 12px 14px; border-radius: 6px;
+      background: #fff; color: #16202a; border: 1px solid #d3d9df; border-left: 3px solid #1d6fa5;
+      box-shadow: 0 10px 28px rgba(15,23,30,.16), 0 1px 3px rgba(15,23,30,.08); }
+    #__ov .cap .t { display: flex; align-items: center; gap: 8px; font-size: 17px; line-height: 1.25; font-weight: 600; letter-spacing: -.01em; }
+    #__ov .cap .s { margin-top: 3px; font-size: 14px; line-height: 1.42; font-weight: 400; color: #4a5561; text-wrap: pretty; }
+    #__ov .cap .s:empty, #__ov .n:empty { display: none; }
+    #__ov .n { flex: none; width: 22px; height: 22px; border-radius: 50%; background: #1d6fa5; color: #fff; font-size: 12.5px; font-weight: 600;
+      display: grid; place-items: center; }
+    #__ov .ring .n { position: absolute; left: -13px; top: -13px; box-shadow: 0 0 0 3px #fff; }
     #__ov .key { position: absolute; right: 24px; bottom: 24px; min-width: 40px; padding: 7px 13px 8px; border-radius: 7px; text-align: center;
       background: #15191e; color: #fff; font-size: 16px; font-weight: 600; box-shadow: 0 6px 18px rgba(15,20,25,.2), inset 0 -2px 0 rgba(255,255,255,.14); }`;
 
   function mount() {
     const root = document.createElement("div");
     root.id = "__ov";
-    root.innerHTML = `<link rel="stylesheet" href="${FONT}"><style>${CSS}</style><div class="ring"></div><div class="rip"></div><div class="cap"><div class="t"></div><div class="s"></div></div><div class="key"></div><img class="cur" src="${window.__CURSOR || ""}">`;
+    root.innerHTML = `<link rel="stylesheet" href="${FONT}"><style>${CSS}</style><div class="ring"><span class="n"></span></div><div class="rip"></div><div class="cap"><div class="t"><span class="n"></span><span class="tt"></span></div><div class="s"></div></div><div class="key"></div><img class="cur" src="${window.__CURSOR || ""}">`;
     document.documentElement.append(root); // outside <body>, so the zoom on <body> leaves the overlay alone
     for (const k of ["ring", "rip", "cap", "key", "cur"]) el[k] = root.querySelector("." + k);
-    el.t = el.cap.querySelector(".t"), el.s = el.cap.querySelector(".s");
+    el.t = el.cap.querySelector(".tt"), el.s = el.cap.querySelector(".s"), el.n = el.cap.querySelector(".n"), el.rn = el.ring.querySelector(".n");
     new MutationObserver(() => (S.dirty = true)).observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
   }
   document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", mount) : mount();
@@ -68,8 +73,10 @@
     if (!r) return [SAFE + 4, H - SAFE - 4 - h, "none"];
     const [x, y, rw, rh] = r, cx = (v) => clamp(v, SAFE, W - SAFE - w), cy = (v) => clamp(v, SAFE, H - SAFE - h);
     const spots = [["below", cx(x), y + rh + GAP], ["below-end", cx(x + rw - w), y + rh + GAP], ["above", cx(x), y - GAP - h],
-      ["above-end", cx(x + rw - w), y - GAP - h], ["right", x + rw + GAP, cy(y)], ["left", x - GAP - w, cy(y)]]
-      .filter(([, px, py]) => px >= SAFE && py >= SAFE && px + w <= W - SAFE && py + h <= H - SAFE);
+      ["above-end", cx(x + rw - w), y - GAP - h], ["right", x + rw + GAP, cy(y)], ["left", x - GAP - w, cy(y)],
+      ["right-margin", W - SAFE - w, cy(y)], ["left-margin", SAFE, cy(y)]] // level with a wide target, in the screen margin
+      .filter(([, px, py]) => px >= SAFE && py >= SAFE && px + w <= W - SAFE && py + h <= H - SAFE
+        && (px + w + GAP <= x || px >= x + rw + GAP || py + h + GAP <= y || py >= y + rh + GAP)); // never on the target
     const kept = spots.find((s) => s[0] === keep);
     if (kept) return kept.slice(1).concat(kept[0]);
     if (!spots.length) return [cx(x + 12), cy(y + rh - h - 12), "inside"]; // the target fills the screen
@@ -132,6 +139,9 @@
         Object.assign(el.ring.style, { left: rr[0] + "px", top: rr[1] + "px", width: rr[2] + "px", height: rr[3] + "px", opacity: a });
       } else ringG.node = ringG.last = null;
       show(el.ring, !!n);
+      const num = (S.cap && !(S.old && t < S.old.t1) && S.cap.n) || "";
+      if (el.rn.textContent !== String(num)) el.rn.textContent = num;
+      if (rr) el.rn.style.top = el.rn.style.left = rr[1] < 16 ? "6px" : ""; // inside the ring when it touches the top edge
 
       // callout: the old one fades out in place, the new one fades in beside the ring and glides when the ring moves
       const o = S.old && t < S.old.t1 ? S.old : null, c = o ? null : S.cap;
@@ -139,7 +149,7 @@
       show(el.cap, op > 0);
       if (op > 0) {
         const k = o || c;
-        if (el.t.textContent !== (k.title || "")) { el.t.textContent = k.title || ""; el.s.textContent = k.sub || ""; }
+        if (el.t.textContent !== (k.title || "")) { el.t.textContent = k.title || ""; el.s.textContent = k.sub || ""; el.n.textContent = k.n || ""; }
         if (!o) {
           const fresh = capG.key !== c || capG.node !== ringG.node; // a new caption or a new target: choose the spot again
           const [px, py, side] = place(rr, el.cap.offsetWidth, el.cap.offsetHeight, c.side || (fresh ? null : capG.side));
