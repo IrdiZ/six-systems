@@ -4,10 +4,10 @@
   const REPO = "https://github.com/IrdiZ/six-systems";
   const STATUSES = ["DATA", "CONFLICT", "PICTURE", "LOST"];
   const STATUS_TXT = {
-    DATA: "Usable as data",
-    CONFLICT: "Needed repair",
-    PICTURE: "Only human-readable",
-    LOST: "Lost",
+    DATA: "Structured",
+    CONFLICT: "Converted",
+    PICTURE: "Unverified",
+    LOST: "Not received",
   };
   const STATUS_LONG = {
     DATA: "structured, coded, right unit, right patient",
@@ -16,6 +16,8 @@
     LOST: "never archived, unlinkable, or unreadable",
   };
   const LANES = ["ext_lab", "epic_lab", "echo", "radiology", "pathology", "offline"];
+  // Timeline lanes follow a patient's care, so the set depends on the record; this fixes their order.
+  const LANE_ORDER = ["gp", "nb_lab", "ext_lab", "epic_lab", "ecg", "echo", "cathlab", "radiology", "pft", "pathology", "mdo"];
   const PATHS = { chest_pain: "Chest pain", lung_nodule: "Lung nodule", kidney: "Kidney follow-up" };
   const FACT_ORDER = ["troponin_poc", "troponin", "creatinine", "hb", "egfr", "glucose", "lvef", "ivs_thickness",
     "lv_diameter", "ct_exam", "ct_raw_data", "calcium_score", "nodule_size", "path_diagnosis", "tumour_size",
@@ -52,7 +54,7 @@
     const n = STATUSES.reduce((a, s) => a + counts[s], 0) || 1;
     return `<div class="bar">${STATUSES.map((s) => `<span style="--c:${cv(s)};width:${(100 * counts[s]) / n}%"></span>`).join("")}</div>`;
   };
-  const chip = (s) => `<span class="st" style="--c:${cv(s)}">${s}</span>`;
+  const chip = (s) => `<span class="st" style="--c:${cv(s)}">${STATUS_TXT[s]}</span>`;
 
   // ------------------------------------------------------------ tooltip
   const tip = $("#tip");
@@ -70,7 +72,7 @@
   function renderStats() {
     const s = C.summary;
     const cards = [
-      { v: s.archive_pct, c: "accent", cap: "of the case is in the archive", sub: "Every file opens. The case looks complete.", vs: "what you see" },
+      { v: s.archive_pct, c: "text", cap: "of the case is in the archive", sub: "Every file opens. The case looks complete.", vs: "what you see" },
       { v: s.usable_pct, c: "DATA", cap: "is usable as data on arrival", sub: "Structured, coded, right unit, right patient.", vs: "what you can compute on" },
       { v: s.recovered_pct, c: "CONFLICT", cap: "recovered by this pipeline", sub: `After code maps, unit maths, identity matching, OCR and PDF reading. ${s.wrong} wrong values.`, vs: "after repair" },
     ];
@@ -184,8 +186,8 @@
       off += len;
       return a;
     }).join("");
-    return `<svg width="${size}" height="${size}"><circle r="${r}" cx="${size / 2}" cy="${size / 2}" fill="none" stroke="#1a2440" stroke-width="10"/>${arcs}
-      <text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" fill="var(--text)" font-weight="800" font-size="19">${pct(counts.DATA, n)}%</text></svg>`;
+    return `<svg width="${size}" height="${size}"><circle r="${r}" cx="${size / 2}" cy="${size / 2}" fill="none" stroke="var(--hair)" stroke-width="10"/>${arcs}
+      <text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" fill="var(--text)" font-weight="600" font-size="18">${pct(counts.DATA, n)}%</text></svg>`;
   }
 
   function renderPatient() {
@@ -246,26 +248,28 @@
   function drawTimeline(p) {
     const box = $("#timeline");
     const W = Math.max(860, box.clientWidth), left = 200, right = 30, laneH = 56, top = 34;
-    const H = top + laneH * LANES.length + 14;
+    const used = new Set([...p.facts.map((f) => f.source), ...p.documents.map((d) => d.source)]);
+    const lanes = [...LANE_ORDER.filter((k) => used.has(k)), ...[...used].filter((k) => k !== "offline" && !LANE_ORDER.includes(k)), "offline"];
+    const H = top + laneH * lanes.length + 14;
     const times = [...p.facts.map((f) => f.time), ...p.documents.map((d) => d.time)].filter(Boolean).map((t) => +new Date(t));
     let t0 = Math.min(...times), t1 = Math.max(...times);
     const pad = Math.max((t1 - t0) * 0.06, 3600e3 * 2);
     t0 -= pad; t1 += pad;
     const x = (t) => left + ((+new Date(t) - t0) / (t1 - t0)) * (W - left - right);
-    const laneY = (k) => top + laneH * LANES.indexOf(k) + laneH / 2;
+    const laneY = (k) => top + laneH * lanes.indexOf(k) + laneH / 2;
     const short = t1 - t0 < 6 * 864e5;
 
     let g = "";
-    LANES.forEach((k, i) => {
+    lanes.forEach((k, i) => {
       const y = top + laneH * i;
-      g += `<rect x="0" y="${y}" width="${W}" height="${laneH}" fill="${i % 2 ? "#0e1528" : "transparent"}"/>`;
+      g += `<rect x="0" y="${y}" width="${W}" height="${laneH}" fill="${i % 2 ? "var(--bg2)" : "transparent"}"/>`;
       g += `<text class="lane-label" x="16" y="${y + laneH / 2 - 3}">${esc(src(k).label)}</text>`;
       g += `<text class="lane-sub" x="16" y="${y + laneH / 2 + 12}">${esc(src(k).format)}</text>`;
     });
-    g += `<line x1="${left - 10}" x2="${left - 10}" y1="${top}" y2="${H - 14}" stroke="#22304f"/>`;
+    g += `<line x1="${left - 10}" x2="${left - 10}" y1="${top}" y2="${H - 14}" stroke="var(--line)"/>`;
     for (let i = 0; i <= 6; i++) {
       const t = t0 + ((t1 - t0) * i) / 6, xx = x(t);
-      g += `<line x1="${xx}" x2="${xx}" y1="${top}" y2="${H - 14}" stroke="#1a2440" stroke-dasharray="2 4"/>`;
+      g += `<line x1="${xx}" x2="${xx}" y1="${top}" y2="${H - 14}" stroke="var(--hair)" stroke-dasharray="2 4"/>`;
       g += `<text class="axis-tick" x="${xx}" y="20" text-anchor="middle">${fmtDate(t)}${short ? " " + fmtTime(t) : ""}</text>`;
     }
 
@@ -277,12 +281,14 @@
       placed[lane] = placed[lane] || [];
       const near = placed[lane].filter((v) => Math.abs(v - xx) < 26).length;
       placed[lane].push(xx);
-      const yy = laneY(lane) + (near ? (near % 2 ? -1 : 1) * Math.ceil(near / 2) * 13 : 0);
-      a += `<g class="mk" data-doc="${i}" transform="translate(${xx - 11},${yy - 11})">
-        <rect width="22" height="22" rx="6" fill="#16213a" stroke="var(--accent)" stroke-width="1.5"/>
-        <path d="M6 11.5l3.2 3.2L16 8" fill="none" stroke="var(--DATA)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+      // Documents at the same moment fill a 3-row grid (middle, top, bottom), then a new column.
+      const yy = laneY(lane) + [0, -14, 14][near % 3], dx = Math.floor(near / 3) * 26;
+      // Position on the outer group: the hover scale is a CSS transform and would replace an SVG transform on the same node.
+      a += `<g transform="translate(${xx - 11 + dx},${yy - 11})"><g class="mk" data-doc="${i}">
+        <rect width="22" height="22" rx="3" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+        <path d="M6 11.5l3.2 3.2L16 8" fill="none" stroke="var(--DATA)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g></g>`;
     });
-    a += `<text x="${left + 10}" y="${laneY("offline") + 4}" fill="#5c6886" font-size="12" font-style="italic">nothing here: the archive does not know what it never received</text>`;
+    a += `<text x="${left + 10}" y="${laneY("offline") + 4}" fill="var(--dim)" font-size="12" font-style="italic">nothing here: the archive does not know what it never received</text>`;
 
     // computable layer: facts
     const groups = {};
@@ -292,12 +298,15 @@
     });
     let c = "";
     Object.values(groups).forEach((idxs) => {
+      // Same-time results stack in columns of up to 3, so a full lab panel stays a compact block.
+      const cols = Math.ceil(idxs.length / 3), rows = Math.min(3, idxs.length);
       idxs.forEach((i, j) => {
-        const f = p.facts[i], xx = x(f.time) + (j - (idxs.length - 1) / 2) * 15, yy = laneY(f.source);
+        const col = Math.floor(j / 3), row = j % 3;
+        const f = p.facts[i], xx = x(f.time) + (col - (cols - 1) / 2) * 15, yy = laneY(f.source) + (row - (rows - 1) / 2) * 15;
         const lost = f.status === "LOST";
-        c += `<circle class="mk" data-fact="${i}" cx="${xx}" cy="${yy}" r="${lost ? 6.5 : 7}"
-          fill="${lost ? "rgba(251,113,133,.12)" : cv(f.status)}" stroke="${cv(f.status)}" stroke-width="${lost ? 2 : 0}"
-          ${lost ? 'stroke-dasharray="3 2.5"' : ""} style="filter:drop-shadow(0 0 5px ${lost ? "transparent" : cv(f.status)})"/>`;
+        c += `<circle class="mk" data-fact="${i}" cx="${xx}" cy="${yy}" r="${lost ? 5.5 : 6.5}"
+          fill="${lost ? "var(--surface)" : cv(f.status)}" stroke="${cv(f.status)}" stroke-width="${lost ? 2 : 0}"
+          ${lost ? 'stroke-dasharray="3 2.5"' : ""}/>`;
       });
     });
 
@@ -424,7 +433,7 @@
       : d.media ? `<div class="media ${d.kind === "pdf" ? "pdf" : ""}"><img src="media/${esc(d.media)}" alt=""></div>`
         : `<pre class="raw">Proprietary vendor format. No open reader, no DICOM conversion.</pre>`;
     openDrawer(`
-      <div class="chips"><span class="chip">${esc(src(d.source).label)}</span><span class="chip mono">${esc(d.kind.toUpperCase())}</span><span class="st" style="--c:var(--DATA)">IN THE ARCHIVE</span></div>
+      <div class="chips"><span class="chip">${esc(src(d.source).label)}</span><span class="chip mono">${esc(d.kind.toUpperCase())}</span><span class="st" style="--c:var(--DATA)">In the archive</span></div>
       <h3>${esc(d.title)}</h3>
       <div class="sub">${esc(p.name)} · ${fmtDate(d.time, true)} ${fmtTime(d.time)}</div>
       <div class="dt">Linked to the patient by</div><div>${esc(d.link || "—")}</div>
@@ -595,7 +604,7 @@
     $("#unlinked").innerHTML = C.unlinked.map((u) => `
       <div class="unl">
         <div>
-          <span class="st" style="--c:var(--LOST)">UNLINKED</span>
+          <span class="st" style="--c:var(--LOST)">Unlinked</span>
           <h4 style="margin-top:10px">${esc(u.title)} from ${esc(src(u.source).label.toLowerCase())}</h4>
           <p class="muted" style="font-size:14px">Addressed to <b style="color:var(--text)">${esc(u.who)}</b>, received ${fmtDate(u.time, true)}.</p>
           <p style="font-size:14px">${esc(u.reason)}. The birth date on the file does not match the hospital's record, and there is no BSN to fall back on. So the results sit in an inbox, attached to no one, until a person notices.</p>
@@ -618,6 +627,12 @@
   const [hp, hv] = location.hash.slice(1).split(":");
   if (hv === "computable") state.view = "computable";
   selectPatient(byPid[hp] ? hp : C.patients[0].pid);
+  addEventListener("hashchange", () => {
+    const [pid, view] = location.hash.slice(1).split(":");
+    if (!byPid[pid]) return;
+    state.view = view === "computable" ? "computable" : "archive";
+    selectPatient(pid);
+  });
   let rt;
   addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => state.pid && renderPatient(), 200); });
 })();

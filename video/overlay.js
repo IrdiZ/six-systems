@@ -6,7 +6,7 @@
   const E = { linear: (p) => p, out: (p) => 1 - (1 - p) ** 3, inOut: (p) => (p < 0.5 ? 4 * p ** 3 : 1 - (-2 * p + 2) ** 3 / 2) };
   const lerp = (a, b, p) => a + (b - a) * p;
   const prog = (t, t0, d, e = "inOut") => (d > 0 ? (E[e] || E.inOut)(Math.max(0, Math.min(1, (t - t0) / d))) : 1);
-  const S = { cur: { a: [0, 0], b: [0, 0], t0: 0, d: 0 }, zoom: { a: [1, 0, 0], b: [1, 0, 0], t0: 0, d: 0 }, rip: null, ring: null, cap: null, old: null, key: null, scroll: null, until: 0, dirty: true };
+  const S = { cur: { a: [0, 0], b: [0, 0], t0: 0, d: 0 }, zoom: { a: [1, 0, 0], b: [1, 0, 0], t0: 0, d: 0 }, rip: null, ring: null, cap: null, old: null, key: null, scroll: null, card: null, until: 0, dirty: true };
   const busy = (t1) => (S.until = Math.max(S.until, t1));
   const FONT = "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap";
   const PAD = 8, GAP = 14, SAFE = 20, MOVE = 0.5; // ring padding, ring-to-callout gap, screen margin (CSS px); glide time (s)
@@ -32,15 +32,29 @@
       padding: 3px 0; overflow: hidden; }
     #__ov .menu div { padding: 0 9px; white-space: nowrap; overflow: hidden; color: #16202a; }
     #__ov .menu div.on { background: #1d6fa5; color: #fff; }
+    #__ov .card { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; padding: 0 9vw; background: #262d34; color: #fff; }
+    #__ov .card.light { background: #f6f7f8; color: #161a1e; }
+    #__ov .card > * { will-change: transform, opacity; }
+    #__ov .card .k { font-size: 15px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: #8fb8d6; margin-bottom: 18px; }
+    #__ov .card.light .k { color: #1d6fa5; }
+    #__ov .card .h { font-size: 64px; line-height: 1.04; font-weight: 600; letter-spacing: -.03em; max-width: 15em; text-wrap: balance; }
+    #__ov .card .h em { font-style: normal; color: #8fb8d6; }
+    #__ov .card.light .h em { color: #1d6fa5; }
+    #__ov .card .s { margin-top: 20px; font-size: 22px; line-height: 1.4; color: rgba(255,255,255,.66); max-width: 34em; }
+    #__ov .card.light .s { color: #4f575f; }
+    #__ov .card .stats { display: flex; gap: 6vw; margin-top: 8px; }
+    #__ov .card .st b { display: block; font-size: 150px; line-height: 1; font-weight: 600; letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
+    #__ov .card .st b small { font-size: .45em; letter-spacing: 0; }
+    #__ov .card .st span { display: block; margin-top: 10px; font-size: 22px; color: inherit; opacity: .7; }
     #__ov .key { position: absolute; right: 24px; bottom: 24px; min-width: 40px; padding: 7px 13px 8px; border-radius: 7px; text-align: center;
       background: #15191e; color: #fff; font-size: 16px; font-weight: 600; box-shadow: 0 6px 18px rgba(15,20,25,.2), inset 0 -2px 0 rgba(255,255,255,.14); }`;
 
   function mount() {
     const root = document.createElement("div");
     root.id = "__ov";
-    root.innerHTML = `<link rel="stylesheet" href="${FONT}"><style>${CSS}</style><div class="ring"><span class="n"></span></div><div class="rip"></div><div class="cap"><div class="t"><span class="n"></span><span class="tt"></span></div><div class="s"></div></div><div class="menu"></div><div class="key"></div><img class="cur" src="${window.__CURSOR || ""}">`;
+    root.innerHTML = `<link rel="stylesheet" href="${FONT}"><style>${CSS}</style><div class="ring"><span class="n"></span></div><div class="rip"></div><div class="cap"><div class="t"><span class="n"></span><span class="tt"></span></div><div class="s"></div></div><div class="menu"></div><div class="key"></div><div class="card" style="display:none"></div><img class="cur" src="${window.__CURSOR || ""}">`;
     document.documentElement.append(root); // outside <body>, so the zoom on <body> leaves the overlay alone
-    for (const k of ["ring", "rip", "cap", "menu", "key", "cur"]) el[k] = root.querySelector("." + k);
+    for (const k of ["ring", "rip", "cap", "menu", "key", "cur", "card"]) el[k] = root.querySelector("." + k);
     el.t = el.cap.querySelector(".tt"), el.s = el.cap.querySelector(".s"), el.n = el.cap.querySelector(".n"), el.rn = el.ring.querySelector(".n");
     new MutationObserver(() => (S.dirty = true)).observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
   }
@@ -137,6 +151,19 @@
       S.zoom = { a: [s0, x0, y0], b, t0, d, e };
       busy(t0 + d);
     },
+    // A full-screen title card. c: {kicker, title (may hold <em>), sub, stats: [{to, from, suffix, label, color}], light} or null.
+    // In: a wipe up, then the lines rise one after another, then the numbers count up. Out: a wipe up, uncovering the app.
+    card(c, t0) {
+      if (!c) { if (S.card) { S.card.t1 = t0; busy(t0 + 0.5); } return; }
+      const esc = (v) => String(v ?? "").replace(/[&<>]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[m]);
+      el.card.className = "card" + (c.light ? " light" : "");
+      el.card.innerHTML = (c.kicker ? `<div class="k">${esc(c.kicker)}</div>` : "")
+        + (c.title ? `<div class="h">${esc(c.title).replace(/&lt;(\/?)em&gt;/g, "<$1em>")}</div>` : "")
+        + (c.stats ? `<div class="stats">${c.stats.map((x, i) => `<div class="st"><b style="color:${x.color || "inherit"}" data-i="${i}"></b><span>${esc(x.label)}</span></div>`).join("")}</div>` : "")
+        + (c.sub ? `<div class="s">${esc(c.sub)}</div>` : "");
+      S.card = { c, t0, t1: 0 };
+      busy(t0 + 0.4 + el.card.children.length * 0.1 + 1.6);
+    },
     scroll(node, dy, t0, d, e) { S.scroll = { node, from: node.scrollTop, dy, t0, d, e }; busy(t0 + d); },
 
     frame(t) {
@@ -155,6 +182,7 @@
         cy = m.rowY(at);
       }
       el.cur.style.transform = `translate(${cx}px, ${cy}px)`;
+      show(el.cur, !(S.card && !(S.card.t1 && t >= S.card.t1))); // no cursor on a title card
 
       const r = S.rip, rp = r ? (t - r.t0) / 0.45 : 1;
       show(el.rip, rp >= 0 && rp < 1);
@@ -197,6 +225,23 @@
         const [dx, dy] = { below: [0, -d], above: [0, d], right: [-d, 0], left: [d, 0] }[side.split("-")[0]] || [0, d];
         el.cap.style.opacity = op;
         el.cap.style.transform = `translate(${px + dx}px, ${py + dy}px)`;
+      }
+
+      const cd = S.card;
+      if (cd && cd.t1 && t >= cd.t1 + 0.5) S.card = null;
+      show(el.card, !!S.card);
+      if (S.card) {
+        const pin = prog(t, cd.t0, 0.55, "out"), pout = cd.t1 ? prog(t, cd.t1, 0.5, "inOut") : 0;
+        el.card.style.clipPath = `inset(${(1 - pin) * 100}% 0 ${pout * 100}% 0)`;
+        [...el.card.children].forEach((n, i) => {
+          const q = prog(t, cd.t0 + 0.25 + i * 0.1, 0.6, "out");
+          n.style.opacity = q;
+          n.style.transform = `translateY(${(1 - q) * 36}px)`;
+        });
+        el.card.querySelectorAll("b[data-i]").forEach((b) => {
+          const x = cd.c.stats[+b.dataset.i], q = prog(t, cd.t0 + 0.45, 1.4, "out");
+          b.innerHTML = `${Math.round(lerp(x.from || 0, x.to, q))}<small>${x.suffix || ""}</small>`;
+        });
       }
 
       const k = S.key, kp = k ? t - k.t0 : 9;

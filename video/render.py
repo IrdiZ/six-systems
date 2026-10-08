@@ -62,6 +62,7 @@ class Rec:
         self.cdp = page.context.new_cdp_session(page)
         self.f = self.shots = self.force = 0
         self.debt, self.jpg = 0.0, None
+        self.marks = []  # [label, seconds into the scene]: timecodes for the voiceover script
         self.pos = None  # last cursor position, kept through the off-camera replay
 
     t = property(lambda self: self.f / self.fps)
@@ -101,6 +102,10 @@ class Rec:
         pg = self.page
         ov = lambda fn, *a: live and pg.evaluate(f"a => __ov.{fn}(...a)", list(a))
         dur, ease = st.get("dur", 0.8), st.get("ease", "inOut")
+        if "mark" in st and live:
+            self.marks.append([st["mark"], round(self.t, 2)])
+        if "card" in st:
+            ov("card", st["card"], self.t)
         if "route" in st:
             pg.evaluate("h => (location.hash = h)", st["route"])
             self.settle()
@@ -233,7 +238,7 @@ def render_scene(scene, g, port, preview, fdir, out):
     if enc.wait():
         raise RuntimeError(f"ffmpeg failed for {scene['id']}")
     os.replace(tmp, out)
-    return r.f, r.shots, time.time() - t0
+    return r.f, r.shots, time.time() - t0, r.marks
 
 
 def main():
@@ -241,9 +246,13 @@ def main():
     ap.add_argument("--only", help="render only this scene id (others are taken from the cache)")
     ap.add_argument("--force", action="store_true", help="re-render even when the segment is cached")
     ap.add_argument("--preview", action="store_true", help="half resolution, separate cache and output (demo-preview.mp4)")
+    ap.add_argument("--timeline", default="timeline.json", help="timeline file in video/ (default timeline.json)")
+    ap.add_argument("--out", help="output name without extension (default demo, or the timeline name)")
     a = ap.parse_args()
 
-    tl = json.loads((HERE / "timeline.json").read_text(encoding="utf-8"))
+    tl_path = HERE / a.timeline
+    tl = json.loads(tl_path.read_text(encoding="utf-8"))
+    name = a.out or ("demo" if tl_path.name == "timeline.json" else tl_path.stem.removeprefix("timeline-"))
     g = {k: v for k, v in tl.items() if k != "scenes"}
     scenes, done = [], {}
     for s in tl["scenes"]:  # "from": start where that scene ends, by replaying its setup and steps off camera
@@ -258,7 +267,7 @@ def main():
     index = REPO / g["app"].split("?")[0]  # the page, the local files it loads, the media folder; not build outputs beside it
     loads = [index.parent / u for u in re.findall(r'(?:src|href)="(?!https?:|#)([^"?#]+)', index.read_text(encoding="utf-8"))]
     deps = digest([index, *loads, REPO / "docs/media", HERE / "overlay.js", HERE / "cursor.svg"] + ([fdir] if fdir else []))
-    prefix = "pre-" if a.preview else "seg-"
+    prefix = ("pre-" if a.preview else "seg-") + ("" if name == "demo" else name + "-")  # each timeline keeps its own cache
 
     def seg(s):
         key = "\n".join([json.dumps(s, sort_keys=True, separators=(",", ":")), json.dumps(g, sort_keys=True), deps, " ".join(encode_args(g["fps"])), RENDER_VERSION, prefix])
@@ -280,7 +289,8 @@ def main():
             jobs = {ex.submit(render_scene, s, g, srv.server_port, a.preview, fdir and str(fdir), str(segs[s["id"]])): s["id"] for s in todo}
             for j in cf.as_completed(jobs):
                 try:
-                    n, shots, sec = j.result()
+                    n, shots, sec, mk = j.result()
+                    segs[jobs[j]].with_suffix(".json").write_text(json.dumps({"frames": n, "marks": mk}), encoding="utf-8")
                     print(f"{jobs[j]:<14} rendered  {sec:5.1f} s  ({n / g['fps']:.1f} s of video, {shots}/{n} frames captured)")
                 except Exception as e:
                     print(f"{jobs[j]:<14} FAILED    {str(e).strip().splitlines()[0]}")
@@ -289,13 +299,14 @@ def main():
 
     keep = set(segs.values())
     for f in CACHE.glob(prefix + "*.mp4"):
-        if f not in keep and not f.name.endswith(".tmp.mp4"):
+        if f not in keep and re.fullmatch(re.escape(prefix) + r"[0-9a-f]{16}\.mp4", f.name):  # not another timeline's segments
             f.unlink()
+            f.with_suffix(".json").unlink(missing_ok=True)
     missing = [i for i, p in segs.items() if not p.exists()]
     if missing:
         return print(f"not joined: {', '.join(missing)} not rendered yet")
     (CACHE / "list.txt").write_text("".join(f"file '{segs[s['id']].name}'\n" for s in scenes), encoding="utf-8")
-    out = HERE / ("demo-preview.mp4" if a.preview else "demo.mp4")
+    out = HERE / (f"{name}-preview.mp4" if a.preview else f"{name}.mp4")
     tmp = out.with_suffix(".tmp.mp4")
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(CACHE / "list.txt"), "-c", "copy", "-movflags", "+faststart", str(tmp)], check=True)
     try:
@@ -303,6 +314,18 @@ def main():
     except PermissionError:
         return print(f"{out.name} is open in another program; the new video is at {tmp}")
     print(f"wrote {out}")
+    # absolute timecodes of every "mark" step, for the voiceover script
+    t, codes = 0.0, []
+    for s in scenes:
+        info = segs[s["id"]].with_suffix(".json")
+        if not info.exists():
+            return print("timecodes skipped: a cached segment has no marks file (re-render with --force)")
+        d = json.loads(info.read_text(encoding="utf-8"))
+        codes += [{"scene": s["id"], "mark": m, "t": round(t + sec, 2)} for m, sec in d["marks"]]
+        t += d["frames"] / g["fps"]
+    codes.append({"scene": "end", "mark": "end", "t": round(t, 2)})
+    (HERE / f"{name}-timecodes.json").write_text(json.dumps(codes, indent=1), encoding="utf-8")
+    print(f"wrote {name}-timecodes.json ({t:.1f} s)")
 
 
 if __name__ == "__main__":

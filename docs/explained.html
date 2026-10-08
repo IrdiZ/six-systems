@@ -7,86 +7,100 @@
 <meta name="description" content="A plain-language walkthrough: why a hospital that has all the files still does not have the data, and what this prototype measures.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&text=0123456789&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600&family=Atkinson+Hyperlegible+Mono&display=swap">
 <link rel="stylesheet" href="style.css">
 <style>
   .ex { max-width: 780px; margin: 0 auto; padding: 0 24px; }
-  .ex p, .ex li { font: 18px/1.7 "Source Serif 4", Georgia, serif; color: #d3daea; }
+  .ex p, .ex li { font-size: 17px; line-height: 1.65; color: var(--muted); }
   .ex p strong, .ex li strong { color: var(--text); }
-  .ex h2 { font-size: 30px; font-weight: 800; margin: 72px 0 14px; }
-  .ex h2 .n { color: var(--accent); font: 700 14px var(--mono); display: block; margin-bottom: 8px; letter-spacing: .1em; }
-  .ex-hero { padding: 72px 0 40px; border-bottom: 1px solid var(--line); background: radial-gradient(800px 360px at 10% -10%, rgba(56,189,248,.14), transparent 60%), radial-gradient(600px 300px at 100% 0, rgba(167,139,250,.12), transparent 60%); }
-  .ex-hero h1 { font-size: clamp(38px, 6vw, 64px); }
-  .tldr { background: var(--surface); border: 1px solid var(--line2); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 22px 24px; margin: 28px 0 0; }
-  .tldr .k { font: 700 12px Inter, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
-  .tldr p { margin: 0; font-size: 20px; color: var(--text); }
-  .navrow { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 22px; }
-  .navrow a { text-decoration: none; }
+  .ex h2 { font-size: 24px; margin: 52px 0 12px; }
+  .ex h2 .n { color: var(--dim); font: 600 13px var(--mono); display: block; margin-bottom: 6px; letter-spacing: .04em; }
+  .ex-hero { padding: 40px 0 32px; border-bottom: 1px solid var(--line); background: var(--surface); }
+  .tldr { background: var(--bg2); border: 1px solid var(--line); border-left: 3px solid var(--accent); padding: 16px 18px; margin: 20px 0 0; }
+  .tldr .k { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin-bottom: 4px; }
+  .tldr p { margin: 0; font-size: 18px; color: var(--text); }
+  .navrow { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
 
-  .analogy { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 26px 0; }
-  .an { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
-  .an h4 { font-size: 15px; margin-bottom: 10px; }
-  .an .rcpt { background: #f4f1e8; color: #222; font: 13px/1.5 var(--mono); padding: 14px; border-radius: 6px; transform: rotate(-1.5deg); box-shadow: 0 10px 30px rgba(0,0,0,.4); filter: blur(.25px); }
-  .an table { width: 100%; border-collapse: collapse; font: 13px var(--mono); }
-  .an td, .an th { border: 1px solid var(--line2); padding: 5px 8px; text-align: left; }
+  .analogy { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin: 22px 0; border: 1px solid var(--line); background: var(--surface); }
+  .an { padding: 16px; }
+  .an + .an { border-left: 1px solid var(--line); }
+  .an h4 { font-size: 14px; margin-bottom: 10px; }
+  .an .rcpt { background: #f4f1e8; color: #222; font: 13px/1.5 var(--mono); padding: 14px; border: 1px solid #ddd6c4; transform: rotate(-1.2deg); }
+  .an table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .an td, .an th { border: 1px solid var(--line); padding: 4px 8px; text-align: left; }
   .an th { color: var(--muted); font-weight: 600; background: var(--bg2); }
-  .an .cap { font: 14px/1.5 Inter, sans-serif; color: var(--muted); margin-top: 12px; }
+  .an .cap { font-size: 14px; color: var(--muted); margin-top: 10px; }
 
-  .journey { position: relative; margin: 30px 0; padding-left: 34px; }
-  .journey::before { content: ""; position: absolute; left: 11px; top: 8px; bottom: 8px; width: 2px; background: linear-gradient(var(--accent), var(--CONFLICT), var(--PICTURE), var(--LOST)); opacity: .5; }
-  .stop { position: relative; margin-bottom: 30px; }
-  .stop .dot { position: absolute; left: -31px; top: 4px; width: 18px; height: 18px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 4px var(--bg), 0 0 18px var(--c); }
-  .stop .dot.hollow { background: var(--bg); border: 2px dashed var(--c); }
+  .journey { position: relative; margin: 26px 0; padding-left: 30px; }
+  .journey::before { content: ""; position: absolute; left: 7px; top: 8px; bottom: 8px; width: 1px; background: var(--line); }
+  .stop { position: relative; margin-bottom: 26px; }
+  .stop .dot { position: absolute; left: -29px; top: 5px; width: 14px; height: 14px; border-radius: 3px; background: var(--c); }
+  .stop .dot.hollow { background: var(--surface); border: 2px dashed var(--c); }
   .stop .when { font: 12px var(--mono); color: var(--dim); }
-  .stop h3 { font-size: 20px; margin: 2px 0 8px; }
-  .stop p { margin: 0 0 12px; font-size: 17px; }
-  .stop pre { margin: 0 0 10px; background: #04070f; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 12px; color: #c8d3ea; overflow-x: auto; }
-  .stop pre mark { background: color-mix(in srgb, var(--c) 30%, transparent); color: #fff; border-radius: 3px; padding: 0 2px; }
-  .stop img { display: block; max-width: 100%; border-radius: 10px; border: 1px solid var(--line2); }
-  .stop .verdict { display: inline-flex; align-items: center; gap: 8px; font: 600 14px Inter, sans-serif; color: var(--c); margin-top: 4px; }
+  .stop h3 { font-size: 17px; margin: 2px 0 6px; }
+  .stop p { margin: 0 0 10px; font-size: 16px; }
+  .stop pre { margin: 0 0 10px; background: var(--surface); border: 1px solid var(--line); padding: 10px 12px; font-size: 12px; color: var(--text); overflow-x: auto; }
+  .stop pre mark { background: color-mix(in srgb, var(--c) 20%, transparent); color: var(--text); padding: 0 2px; }
+  .stop img { display: block; max-width: 100%; border: 1px solid var(--line); }
+  .stop .verdict { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: var(--text); margin-top: 2px; }
 
-  .four { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 24px 0; }
-  .fc { background: var(--surface); border: 1px solid var(--line); border-top: 4px solid var(--c); border-radius: var(--radius); padding: 18px; }
-  .fc h4 { font-size: 17px; color: var(--c); }
-  .fc .ex1 { font: 14px/1.5 Inter, sans-serif; color: #c3cce0; margin-top: 8px; }
-  .fc .ex1 i { color: var(--muted); }
-  .fc .n { font: 800 34px Inter, sans-serif; margin-top: 10px; }
-  .fc .n small { font-size: 14px; color: var(--muted); font-weight: 500; }
+  .four { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin: 20px 0; border: 1px solid var(--line); background: var(--surface); }
+  .fc { padding: 16px; border-left: 3px solid var(--c); border-bottom: 1px solid var(--line); }
+  .fc:nth-child(odd) { border-right: 1px solid var(--line); }
+  .fc:nth-child(n+3) { border-bottom: 0; }
+  .fc h4 { font-size: 15px; }
+  .fc .ex1 { font-size: 14px; line-height: 1.5; color: var(--muted); margin-top: 6px; }
+  .fc .ex1 i { color: var(--dim); }
+  .fc .n { font-size: 28px; font-weight: 600; margin-top: 8px; color: var(--c); }
+  .fc .n small { font-size: 13px; color: var(--muted); font-weight: 400; }
 
-  .machine { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 10px; align-items: stretch; margin: 26px 0; }
-  .mb { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
-  .mb .t { font: 800 15px Inter, sans-serif; }
-  .mb .t span { color: var(--accent); font: 700 12px var(--mono); display: block; margin-bottom: 4px; }
-  .mb p { font: 14px/1.5 Inter, sans-serif !important; color: var(--muted) !important; margin: 8px 0 0; }
-  .arrow { display: grid; place-items: center; color: var(--dim); font-size: 22px; }
-  .key { background: repeating-linear-gradient(135deg, rgba(251,191,36,.06) 0 10px, transparent 10px 20px); border: 1px dashed rgba(251,191,36,.5); border-radius: var(--radius); padding: 16px 18px; }
-  .key p { margin: 0; font-size: 16px; }
+  .machine { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px; align-items: stretch; margin: 22px 0; }
+  .mb { background: var(--surface); border: 1px solid var(--line); padding: 14px; }
+  .mb .t { font-size: 15px; font-weight: 600; }
+  .mb .t span { color: var(--dim); font: 600 12px var(--mono); display: block; margin-bottom: 2px; }
+  .mb p { font-size: 14px !important; line-height: 1.5 !important; color: var(--muted) !important; margin: 6px 0 0; }
+  .arrow { display: grid; place-items: center; color: var(--dim); font-size: 20px; }
+  .key { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--PICTURE); padding: 14px 16px; }
+  .key p { margin: 0; font-size: 15px; }
 
-  .numbers { display: grid; gap: 12px; margin: 22px 0; }
-  .nm { display: grid; grid-template-columns: 110px 1fr; gap: 18px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px; }
-  .nm b { font: 800 44px Inter, sans-serif; color: var(--c); letter-spacing: -.03em; }
-  .nm p { margin: 0; font-size: 16px; }
+  .numbers { display: grid; gap: 0; margin: 20px 0; border: 1px solid var(--line); background: var(--surface); }
+  .nm { display: grid; grid-template-columns: 100px 1fr; gap: 16px; align-items: center; padding: 14px 18px; border-left: 3px solid var(--c); border-bottom: 1px solid var(--line); }
+  .nm:last-child { border-bottom: 0; }
+  .nm b { font-size: 34px; font-weight: 600; color: var(--c); }
+  .nm p { margin: 0; font-size: 15px; }
 
-  .notlist li { margin-bottom: 8px; }
-  .gl { display: grid; grid-template-columns: 170px 1fr; gap: 0; border-top: 1px solid var(--line); margin: 20px 0; }
-  .gl > div { padding: 10px 0; border-bottom: 1px solid var(--line); font: 15px/1.5 Inter, sans-serif; }
-  .gl > div:nth-child(odd) { font-weight: 700; color: var(--text); }
-  .gl > div:nth-child(even) { color: #c3cce0; }
-  .cta { text-align: center; margin: 72px 0 40px; padding: 40px 24px; border: 1px solid var(--line2); border-radius: var(--radius); background: linear-gradient(90deg, rgba(56,189,248,.08), rgba(167,139,250,.08)); }
-  .cta h3 { font-size: 26px; margin-bottom: 10px; }
+  .notlist li { margin-bottom: 6px; }
+  .gl { display: grid; grid-template-columns: 170px 1fr; gap: 0; border-top: 1px solid var(--line); margin: 18px 0; }
+  .gl > div { padding: 8px 0; border-bottom: 1px solid var(--hair); font-size: 15px; line-height: 1.5; }
+  .gl > div:nth-child(odd) { font-weight: 600; color: var(--text); }
+  .gl > div:nth-child(even) { color: var(--muted); }
+  .cta { text-align: center; margin: 52px 0 32px; padding: 28px 20px; border: 1px solid var(--line); background: var(--surface); }
+  .cta h3 { font-size: 20px; margin-bottom: 8px; }
 
   @media (max-width: 700px) {
     .analogy, .four { grid-template-columns: 1fr; }
+    .an + .an { border-left: 0; border-top: 1px solid var(--line); }
+    .fc:nth-child(odd) { border-right: 0; }
+    .fc:nth-child(n+3) { border-bottom: 1px solid var(--line); }
     .machine { grid-template-columns: 1fr; }
     .arrow { transform: rotate(90deg); }
     .nm { grid-template-columns: 1fr; gap: 4px; }
     .gl { grid-template-columns: 1fr; }
     .gl > div:nth-child(odd) { border-bottom: 0; padding-bottom: 0; }
-    .ex p, .ex li { font-size: 17px; }
   }
 </style>
 </head>
 <body>
+
+<header id="top">
+  <a class="brand" href="index.html">DEMO</a>
+  <nav>
+    <a class="on" href="explained.html">Explained</a>
+    <a href="index.html">The gap</a>
+    <a href="handover/">Clinical tool</a>
+  </nav>
+</header>
 
 <header class="ex-hero">
   <div class="ex">
@@ -134,7 +148,7 @@
   <p id="j-intro">This is a real record from the simulation. Every file below is exactly what the program had to work with.</p>
   <div class="journey" id="journey-list"></div>
 
-  <h2><span class="n">05 · THE FOUR OUTCOMES</span>Every fact ends up in one of four colours</h2>
+  <h2><span class="n">05 · THE FOUR OUTCOMES</span>Every fact ends up with one of four statuses</h2>
   <p>For every true fact about every patient, we ask one question: <em>could a computer use this, and what did it take?</em></p>
   <div class="four" id="four"></div>
 
@@ -151,7 +165,7 @@
   <h2><span class="n">07 · THE RESULT</span>Three numbers</h2>
   <div class="numbers" id="numbers"></div>
   <p class="muted"><em>The percentages reflect how this simulation was built. They show the mechanism, not a measured rate at any hospital.</em></p>
-  <p>The gap between the first two numbers is the whole story: <strong>the archive shows almost everything, but only about a quarter of it arrives as usable data.</strong> The third number shows the gap can be closed a long way, but only with a lot of translating, matching and reading, which is the work nobody currently owns.</p>
+  <p>The gap between the first two numbers is the whole story: <strong>the archive shows almost everything, but only <span id="usable-share">part</span> of it arrives as usable data.</strong> The third number shows the gap can be closed a long way, but only with a lot of translating, matching and reading, which is the work nobody currently owns.</p>
 
   <h2><span class="n">08 · WHY IT MATTERS</span>Two different problems hiding in one complaint</h2>
   <p><strong>Care between organisations.</strong> A patient's results from a neighbouring hospital or regional lab arrive with different codes, different units, sometimes no patient number, sometimes by fax. Doctors re-type, re-check, or miss them. The Dutch exchange law (the Wegiz) is on hold until it is aligned with EU rules. The EU's European Health Data Space (EHDS) now sets the clock: patient summaries by 2029, lab results and images by 2031.</p>
@@ -184,7 +198,7 @@
 
   <div class="cta">
     <h3>Now go and click around</h3>
-    <p style="font-family:Inter,sans-serif;font-size:16px;color:var(--muted);margin:0 0 20px">Flip any patient between the archive view and the data view, and click any dot to see where it came from.</p>
+    <p style="font-size:16px;color:var(--muted);margin:0 0 20px">Flip any patient between the archive view and the data view, and click any dot to see where it came from.</p>
     <a class="btn" href="index.html">Open the interactive demo →</a>
   </div>
 </article>
@@ -197,6 +211,9 @@
 <script>
 (() => {
   const C = window.CASES, S = C.summary;
+  const LABEL = { DATA: "Structured", CONFLICT: "Converted", PICTURE: "Unverified", LOST: "Not received" };
+  const share = (v) => (v < 30 ? "about a quarter" : v < 40 ? "about a third" : v < 62 ? "about half" : v < 72 ? "about two thirds" : `${Math.round(v)}%`);
+  document.getElementById("usable-share").textContent = share(S.usable_pct);
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   const d = (t) => new Date(t).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   const u = (x) => (x || "").replace("umol/L", "µmol/L");
@@ -204,41 +221,51 @@
   const mark = (text, needle) => needle ? esc(text).split("\n").map((l) => l.includes(needle) ? `<mark>${l}</mark>` : l).join("\n") : esc(text);
 
   // pick a chest-pain patient whose story has every twist: fax, regional lab, clean lab, OCR, CT raw loss, PDF
-  const p = C.patients.find((x) => x.path === "chest_pain");
-  const F = (fact, src) => p.facts.find((f) => f.fact === fact && (!src || f.source === src));
-  const D = (kind, src) => p.documents.find((x) => x.kind === kind && (!src || x.source === src));
+  // The walkthrough needs one patient with all six steps; care paths branch, so not every chest-pain patient has them.
+  // Care paths branch, so each step is built only when this patient's record has it.
+  function stopsFor(p) {
+    const F = (fact, src) => p.facts.find((f) => f.fact === fact && (!src || f.source === src));
+    const D = (kind, src) => p.documents.find((x) => x.kind === kind && (!src || x.source === src));
+    const first = p.name.split(" ")[0], out = [];
+    const poc = F("troponin_poc");
+    if (poc) out.push({ c: "LOST", hollow: true, when: poc.time, title: "Emergency room at the neighbouring hospital",
+      body: `${first} arrives at a smaller hospital nearby. A quick bedside troponin test (a heart-damage marker) reads <strong>${num(poc.truth_value)} ng/L</strong>. The result is faxed to the academic hospital.`,
+      verdict: "A fax is paper. No system ever received it as data." });
+    const extT = F("troponin", "ext_lab"), extDoc = D("edi");
+    if (extT && extDoc) {
+      const unitStep = (extT.steps || []).find((x) => x.includes("→") && x.includes("×")) || "";
+      out.push({ c: "CONFLICT", when: extT.time, title: "Blood test at the regional lab",
+        body: `A regional lab runs the proper test. Its file uses its own codes (<code>TNTHS</code> instead of the universal code), a different unit (µg/L instead of ng/L)${/RSL\+NV\+\d+,/.test(extDoc.raw) ? " and a comma as the decimal point" : ""}. To line it up with the hospital's own results, the program has to translate it${unitStep ? `: <em>${esc(unitStep)}</em>` : ""}.`,
+        pre: extDoc.raw, needle: "RSL", verdict: "Usable only after code and unit translation." });
+    }
+    const epT = F("troponin", "epic_lab"), hl7 = D("hl7");
+    if (epT && hl7) out.push({ c: "DATA", when: epT.time, title: "Blood test inside the academic hospital",
+      body: `${first} is transferred. The hospital's own lab measures troponin again: <strong>${num(epT.got)} ng/L</strong>. This file is the good kind: universal codes, standard units, the patient's BSN right there on the message.`,
+      pre: hl7.raw, needle: "OBX|1", verdict: "Usable straight away. This is what everything should look like." });
+    const lvef = F("lvef", "echo"), echo = D("sc", "echo");
+    if (lvef && echo && lvef.status === "PICTURE") out.push({ c: "PICTURE", when: lvef.time, title: "Heart ultrasound (echo)",
+      body: `An ultrasound measures how well the heart pumps: an ejection fraction of <strong>${num(lvef.truth_value)}%</strong>. The machine stores its measurements as <strong>a picture of its screen</strong>. To get the numbers, the program has to read them off the image (OCR), which can misread, for example "cm" as "¢m".`,
+      img: echo.media, verdict: "Rescued by reading pixels, with no guarantee." });
+    const raw = F("ct_raw_data");
+    if (raw) out.push({ c: "LOST", hollow: true, when: raw.time, title: "CT scan of the heart arteries",
+      body: `The CT scanner records raw measurement data, then turns it into images. The images are stored; <strong>the raw data is thrown away</strong>, so nobody can ever reprocess it (for example with better AI later). The images themselves arrive fine.`,
+      verdict: "The images arrive as data; the raw acquisition is lost for good." });
+    const calc = F("calcium_score");
+    if (calc && calc.status === "PICTURE") out.push({ c: "PICTURE", when: calc.time, title: "The radiologist's report",
+      body: `The report gives a coronary calcium score of <strong>${num(calc.truth_value)}</strong>. It exists only as a sentence in a PDF. The program finds it by searching the text for a fixed phrase, which only works because this hospital always phrases it the same way.`,
+      verdict: "Pulled out of PDF text." });
+    const cag = F("cag_result");
+    if (cag && cag.status === "PICTURE") out.push({ c: "PICTURE", when: cag.time, title: "Heart catheterisation",
+      body: `A catheter procedure shows the state of the heart arteries. The conclusion, <strong>"${esc(cag.truth_value)}"</strong>, exists only as text in a PDF report. The program pulls it out by pattern matching.`,
+      verdict: "Pulled out of PDF text." });
+    return out.sort((x, y) => (x.when < y.when ? -1 : 1));
+  }
+  const ranked = C.patients.filter((x) => x.path === "chest_pain").map((x) => ({ p: x, stops: stopsFor(x) }))
+    .sort((x, y) => y.stops.length - x.stops.length);
+  const { p, stops } = ranked[0];
   const first = p.name.split(" ")[0];
   document.getElementById("j-name").textContent = `${p.name}'s heart scare`;
   document.getElementById("j-intro").innerHTML = `${esc(p.name)} (${p.pid}, invented) has chest pain. This is their real record from the simulation: every file below is exactly what the program had to work with.`;
-
-  const poc = F("troponin_poc"), extT = F("troponin", "ext_lab"), extDoc = D("edi");
-  const epT = F("troponin", "epic_lab"), hl7 = D("hl7");
-  const lvef = F("lvef"), ivs = F("ivs_thickness"), echo = D("sc", "echo");
-  const ct = F("ct_exam"), raw = F("ct_raw_data"), calc = F("calcium_score");
-  const unitStep = (extT.steps || []).find((s) => s.includes("→") && s.includes("×")) || "";
-  const stops = [
-    { c: "LOST", hollow: true, when: poc.time, title: "Emergency room at the neighbouring hospital",
-      body: `${first} arrives at a smaller hospital nearby. A quick bedside troponin test (a heart-damage marker) reads <strong>${num(poc.truth_value)} ng/L</strong>. The result is faxed to the academic hospital.`,
-      verdict: "Lost: a fax is paper. No system ever received it as data." },
-    { c: "CONFLICT", when: extT.time, title: "Blood test at the regional lab",
-      body: `A regional lab runs the proper test. Its file uses its own codes (<code>TNTHS</code> instead of the universal code), a different unit (µg/L instead of ng/L) and a comma as the decimal point. To line it up with the hospital's own results, the program has to translate it: <em>${esc(unitStep)}</em>.`,
-      pre: extDoc && extDoc.raw, needle: "RSL",
-      verdict: "Needed repair: usable only after code and unit translation." },
-    { c: "DATA", when: epT.time, title: "Blood test inside the academic hospital",
-      body: `${first} is transferred. The hospital's own lab measures troponin again: <strong>${num(epT.got)} ng/L</strong>. This file is the good kind: universal codes, standard units, the patient's BSN right there on the message.`,
-      pre: hl7 && hl7.raw, needle: "OBX|1",
-      verdict: "Usable as data, straight away. This is what everything should look like." },
-    { c: "PICTURE", when: lvef.time, title: "Heart ultrasound (echo)",
-      body: `The next morning an ultrasound measures how well the heart pumps: an ejection fraction of <strong>${num(lvef.truth_value)}%</strong>. The machine stores its measurements as <strong>a picture of its screen</strong>. To get the numbers, the program has to read them off the image (OCR), and it misread "cm" as "¢m" on the way.`,
-      img: echo && echo.media,
-      verdict: "Only human-readable: rescued by reading pixels, with no guarantee." },
-    { c: "LOST", hollow: true, when: raw.time, title: "CT scan of the heart arteries",
-      body: `The CT scanner records raw measurement data, then turns it into images. The images are stored; <strong>the raw data is thrown away</strong>, so nobody can ever reprocess it (for example with better AI later). The images themselves arrive fine.`,
-      verdict: "The images arrive as data; the raw acquisition is lost for good." },
-    { c: "PICTURE", when: calc.time, title: "The radiologist's report",
-      body: `The report gives a coronary calcium score of <strong>${num(calc.truth_value)}</strong>. It exists only as a sentence in a PDF. The program finds it by searching the text for the pattern "Agatston calciumscore:", which only works because this hospital always phrases it the same way.`,
-      verdict: "Only human-readable: pulled out of PDF text." },
-  ];
   document.getElementById("journey-list").innerHTML = stops.map((s) => `
     <div class="stop" style="--c:var(--${s.c})">
       <div class="dot ${s.hollow ? "hollow" : ""}"></div>
@@ -247,15 +274,15 @@
       <p>${s.body}</p>
       ${s.pre ? `<pre>${mark(s.pre, s.needle)}</pre>` : ""}
       ${s.img ? `<img src="media/${esc(s.img)}" alt="Ultrasound screen capture with measurements burned into the image" loading="lazy">` : ""}
-      <div class="verdict"><span class="st" style="--c:var(--${s.c})">${s.c}</span>${s.verdict}</div>
+      <div class="verdict"><span class="st" style="--c:var(--${s.c})">${LABEL[s.c]}</span>${s.verdict}</div>
     </div>`).join("") + `
-    <p style="font-family:Inter,sans-serif;font-size:15px;color:var(--muted)">In the archive, all of ${esc(first)}'s files look present and openable. As data: <strong style="color:var(--text)">${p.summary.by_status.DATA} of ${p.facts.length}</strong> facts arrived usable. <a href="index.html#${p.pid}:computable" style="color:var(--accent)">See ${esc(first)} in the demo →</a></p>`;
+    <p style="font-size:15px;color:var(--muted)">In the archive, all of ${esc(first)}'s files look present and openable. As data: <strong style="color:var(--text)">${p.summary.by_status.DATA} of ${p.facts.length}</strong> facts arrived usable. <a href="index.html#${p.pid}:computable" style="color:var(--accent)">See ${esc(first)} in the demo →</a></p>`;
 
   const four = [
-    ["DATA", "Usable as data", "Arrived coded, in the right unit, tied to the right patient. Nothing to do.", "the hospital's own lab results"],
-    ["CONFLICT", "Needed repair", "Arrived, but had to be translated (codes, units, decimal commas) or matched to a patient by name and birth date because the ID was missing.", "results from the regional lab"],
-    ["PICTURE", "Only human-readable", "Only exists as an image or a sentence in a PDF. Recovered by reading it like a person would, which can fail.", "ultrasound measurements, report findings"],
-    ["LOST", "Lost", "Never stored, stored in a format nothing can open, or arrived but could never be tied to a patient.", "faxes, raw scanner data, an unmatched lab file"],
+    ["DATA", "Structured", "Arrived coded, in the right unit, tied to the right patient. Nothing to do.", "the hospital's own lab results"],
+    ["CONFLICT", "Converted", "Arrived, but had to be translated (codes, units, decimal commas) or matched to a patient by name and birth date because the ID was missing.", "results from the regional lab"],
+    ["PICTURE", "Unverified", "Only exists as an image or a sentence in a PDF. Recovered by reading it like a person would, which can fail.", "ultrasound measurements, report findings"],
+    ["LOST", "Not received", "Never stored, stored in a format nothing can open, or arrived but could never be tied to a patient.", "faxes, raw scanner data, an unmatched lab file"],
   ];
   document.getElementById("four").innerHTML = four.map(([k, t, body, eg]) => `
     <div class="fc" style="--c:var(--${k})"><h4>${t}</h4><div class="ex1">${body}<br><i>e.g. ${eg}</i></div>
