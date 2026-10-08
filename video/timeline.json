@@ -23,7 +23,25 @@
    ],
    "steps": [
     {
-     "hold": 0.4
+     "mark": "intro",
+     "card": {
+      "kicker": "Prototype · synthetic data",
+      "title": "One patient. <em>Six systems.</em>",
+      "sub": "What reaches the record, and what it takes to make it usable."
+     },
+     "hold": 3.4
+    },
+    {
+     "mark": "app",
+     "card": null,
+     "hold": 0.6
+    },
+    {
+     "zoom": ".banner",
+     "scale": 1.5,
+     "dur": 0.6,
+     "ease": "out",
+     "hold": 0.1
     },
     {
      "caption": {
@@ -32,6 +50,12 @@
      },
      "ring": ".banner",
      "hold": 2.8
+    },
+    {
+     "zoom": null,
+     "dur": 0.5,
+     "ease": "out",
+     "hold": 0.1
     },
     {
      "caption": {
@@ -54,8 +78,9 @@
    "steps": [
     {
      "point": "[data-act=send]",
-     "move": 1.0,
-     "hold": 0.2
+     "move": 0.6,
+     "hold": 0.2,
+     "mark": "refer"
     },
     {
      "click": "[data-act=send]",
@@ -64,7 +89,7 @@
     },
     {
      "menu": "#f-send select[name=to]",
-     "move": 0.8,
+     "move": 0.6,
      "dur": 3.6,
      "hold": 0.3
     },
@@ -86,7 +111,7 @@
     },
     {
      "click": "#f-send tr:has-text('07:15') input[type=checkbox]",
-     "move": 0.7,
+     "move": 0.6,
      "hold": 1.0
     },
     {
@@ -100,7 +125,7 @@
     },
     {
      "click": "#f-send button.primary",
-     "move": 0.8,
+     "move": 0.6,
      "hold": 0.8
     }
    ]
@@ -111,7 +136,7 @@
    "steps": [
     {
      "click": ".tabs a:has-text('Audit trail')",
-     "move": 0.9,
+     "move": 0.6,
      "hold": 0.5
     },
     {
@@ -119,7 +144,7 @@
       "title": "Audit trail",
       "sub": "Referral recorded with recipient, format, channel and acknowledgement."
      },
-     "hold": 4.0
+     "hold": 3.6
     },
     {
      "ring": null,
@@ -134,12 +159,13 @@
    "steps": [
     {
      "click": ".side a:has-text('To file')",
-     "move": 0.9,
-     "hold": 0.5
+     "move": 0.6,
+     "hold": 0.5,
+     "mark": "to-file"
     },
     {
      "click": ".pane.list tr:has-text('Fax, 1 page')",
-     "move": 0.8,
+     "move": 0.6,
      "hold": 0.5
     },
     {
@@ -156,13 +182,13 @@
       "sub": "Patient and value confirmed before filing. Recorded as unverified."
      },
      "ring": ".pane.detail .block:has(h4:has-text('Filing'))",
-     "hold": 3.8
+     "hold": 3.6
     },
     {
      "ring": null,
      "caption": null,
      "click": ".pane.detail button:has-text('File to patient')",
-     "move": 0.8,
+     "move": 0.6,
      "hold": 0.5
     },
     {
@@ -191,13 +217,21 @@
    "steps": [
     {
      "click": ".side a:has-text('Vallenduuk')",
-     "move": 0.8,
-     "hold": 0.4
+     "move": 0.6,
+     "hold": 0.4,
+     "mark": "convert-verify"
     },
     {
      "click": ".pane.list tr:has-text('External laboratory report')",
-     "move": 0.8,
+     "move": 0.6,
      "hold": 0.4
+    },
+    {
+     "zoom": ".pane.detail .block",
+     "scale": 1.6,
+     "dur": 0.6,
+     "ease": "out",
+     "hold": 0.1
     },
     {
      "caption": {
@@ -210,13 +244,21 @@
     {
      "ring": null,
      "caption": null,
+     "zoom": null,
+     "dur": 0.5,
+     "ease": "out",
+     "hold": 0.1
+    },
+    {
+     "ring": null,
+     "caption": null,
      "click": ".pane.list tr:has-text('Transthoracic echocardiogram')",
-     "move": 0.8,
+     "move": 0.6,
      "hold": 0.4
     },
     {
      "point": ".pane.detail [data-act=confirm]",
-     "move": 0.8,
+     "move": 0.6,
      "hold": 0.1
     },
     {
@@ -255,8 +297,9 @@
    "steps": [
     {
      "click": ".pane.list tr:has-text('Troponin, point-of-care')",
-     "move": 0.8,
-     "hold": 0.4
+     "move": 0.6,
+     "hold": 0.4,
+     "mark": "request"
     },
     {
      "caption": {
@@ -270,12 +313,12 @@
      "ring": null,
      "caption": null,
      "click": ".pane.detail [data-act=request]",
-     "move": 0.8,
+     "move": 0.6,
      "hold": 0.5
     },
     {
      "menu": "#f-req select[name=ch0]",
-     "move": 0.7,
+     "move": 0.6,
      "dur": 2.0,
      "hold": 0.2
     },
@@ -291,12 +334,12 @@
      "ring": null,
      "caption": null,
      "click": "#f-req button.primary",
-     "move": 0.8,
+     "move": 0.6,
      "hold": 0.5
     },
     {
      "click": ".pane.detail button:has-text('View as recipient')",
-     "move": 0.8,
+     "move": 0.6,
      "hold": 0.6
     },
     {
@@ -311,7 +354,7 @@
      "ring": null,
      "caption": null,
      "click": ".dlg input",
-     "move": 0.8,
+     "move": 0.6,
      "hold": 0.2
     },
     {
@@ -321,7 +364,7 @@
     },
     {
      "click": ".dlg button:has-text('Send result')",
-     "move": 0.7,
+     "move": 0.6,
      "hold": 0.7
     },
     {
@@ -344,8 +387,21 @@
    "from": "regional",
    "steps": [
     {
+     "mark": "management",
+     "card": {
+      "kicker": "Management",
+      "title": "Sources, mappings, <em>connections and access.</em>",
+      "sub": "For data management and the head of department."
+     },
+     "hold": 2.8
+    },
+    {
+     "card": null,
+     "hold": 0.6
+    },
+    {
      "click": "a[href='#/admin']",
-     "move": 1.0,
+     "move": 0.6,
      "hold": 0.5
     },
     {
@@ -368,7 +424,7 @@
    "steps": [
     {
      "click": "a[href='#/admin/mapping']",
-     "move": 0.8,
+     "move": 0.6,
      "hold": 0.4
     },
     {
@@ -383,7 +439,7 @@
      "ring": null,
      "caption": null,
      "click": "a[href='#/admin/sources']",
-     "move": 0.7,
+     "move": 0.6,
      "hold": 0.4
     },
     {
@@ -397,7 +453,7 @@
      "ring": null,
      "caption": null,
      "click": "a[href='#/admin/channels']",
-     "move": 0.7,
+     "move": 0.6,
      "hold": 0.4
     },
     {
@@ -412,7 +468,7 @@
      "ring": null,
      "caption": null,
      "click": "a[href='#/admin/directory']",
-     "move": 0.7,
+     "move": 0.6,
      "hold": 0.4
     },
     {
@@ -427,12 +483,12 @@
      "ring": null,
      "caption": null,
      "click": ".actions button:has-text('Register institution')",
-     "move": 0.9,
+     "move": 0.6,
      "hold": 0.6
     },
     {
      "menu": "form select[name=type]",
-     "move": 0.7,
+     "move": 0.6,
      "dur": 1.8,
      "hold": 0.2
     },
@@ -456,14 +512,14 @@
     },
     {
      "click": "form button:has-text('Cancel')",
-     "move": 0.7,
+     "move": 0.6,
      "hold": 0.4
     },
     {
      "ring": null,
      "caption": null,
      "click": "a[href='#/admin/access']",
-     "move": 0.7,
+     "move": 0.6,
      "hold": 0.4
     },
     {
@@ -479,17 +535,22 @@
      "hold": 0.6
     },
     {
-     "ring": null,
-     "caption": {
-      "title": "Alongside regional exchange",
+     "mark": "close",
+     "card": {
+      "light": true,
+      "kicker": "Regional exchange",
+      "title": "Alongside the <em>regional platform.</em>",
       "sub": "Regional platforms handle a growing share of transport between institutions. Results that still arrive by fax, mail, scan or local database are handled here too."
      },
-     "hold": 6.5
+     "hold": 5.6
     },
     {
-     "ring": null,
-     "caption": null,
-     "hold": 1.0
+     "card": {
+      "kicker": "Prototype",
+      "title": "Synthetic data. <em>Fictional organisations.</em>",
+      "sub": "github.com/IrdiZ/six-systems"
+     },
+     "hold": 3.2
     }
    ]
   }
