@@ -1347,7 +1347,7 @@ function intakeDetail(i) {
       <div class="inline">${ok ? "" : `<button data-q-act="i-dir" data-key="${i.key}">Register sender as institution</button>`}
         <button class="primary" data-q-act="i-file" data-key="${i.key}" ${ok ? "" : "disabled"}>File to patient</button>
         ${!i.pid ? `<button data-q-act="ask" data-key="${i.key}">Request again</button>` : ""}
-        <button data-q-act="i-reject" data-key="${i.key}">Reject</button></div>${S.asked[i.key] ? `<p class="note dim">${esc(S.asked[i.key])}</p>` : ""}` : `<div>${esc(i.status)}</div>`}</div>
+        <button data-q-act="i-reject" data-key="${i.key}">Reject</button></div>${S.asked[i.key] ? `<p class="note dim">${esc(S.asked[i.key])}</p>` : ""}` : `<dl class="kv"><dt>Status</dt><dd>${esc(i.status)}</dd>${i.filedAt ? `<dt>Filed to</dt><dd>${esc(patient(i.pid).name)}</dd><dt>Filed by</dt><dd>${esc(i.filedBy)}, ${esc(fmtTime(i.filedAt))}</dd>` : ""}</dl>`}</div>
     ${scanFile(i) ? uploadView(scanFile(i)) : chatImage(i) ? viewer(chatImage(i)) : ""}
     ${originOf(i)}
     ${["fax", "chat"].includes(i.channel) ? `<div class="block"><h4>${i.channel === "fax" ? "Text read from the fax (OCR)" : "Message"}</h4><pre class="raw">${esc(i.text)}</pre></div>` : ""}`;
@@ -2158,7 +2158,7 @@ function reconAct(a, key) {
   if (a === "i-file") {
     const pid = $("#i-pid").value; if (!pid) return $("#i-pid").focus();
     fileResult(pid, { fact: i.fact, value: $("#i-val")?.value, via: chanName(i.channel), by: "User, To file", origin: i.from, title: i.title, upload: scanFile(i) || undefined });
-    Object.assign(i, { pid, status: "Filed" });
+    Object.assign(i, { pid, status: "Filed", filedBy: "User", filedAt: now() });
     logAccess({ pid, action: "Filed document", object: i.subject, basis: "Treatment relationship", system: chanName(i.channel) });
     return flash(`Filed to ${patient(pid).name}; routed to the ${DEPTS[deptOf(patient(pid))].label} worklist`);
   }
