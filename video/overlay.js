@@ -17,8 +17,8 @@
     #__ov { position: fixed; inset: 0; z-index: 2147483647; font-family: Geist, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
     #__ov .cur { position: absolute; left: 0; top: 0; width: 24px; height: 24px; margin: -2px 0 0 -3px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.35)); }
     #__ov .rip { position: absolute; border: 2px solid #1d6fa5; border-radius: 50%; }
-    #__ov .ring { position: absolute; border: 3px solid #1d6fa5; border-radius: 10px; background: rgba(29,111,165,.035);
-      box-shadow: 0 0 0 5px rgba(29,111,165,.14), 0 6px 18px rgba(29,111,165,.16); }
+    #__ov .ring { position: absolute; border: 2.5px solid #1d6fa5; border-radius: 8px;
+      box-shadow: 0 0 0 4px rgba(255,255,255,.9), 0 0 0 9999px rgba(14,22,30,.3); } /* white keyline, then the dimmed screen */
     #__ov .cap { position: absolute; left: 0; top: 0; width: max-content; max-width: 290px; padding: 11px 15px 12px 14px; border-radius: 6px;
       background: #fff; color: #16202a; border: 1px solid #d3d9df; border-left: 3px solid #1d6fa5;
       box-shadow: 0 10px 28px rgba(15,23,30,.16), 0 1px 3px rgba(15,23,30,.08); }
@@ -89,7 +89,11 @@
     cursor(x, y) { S.cur = { a: [x, y], b: [x, y], t0: 0, d: 0 }; },
     move(x, y, t0, d, e) { S.cur = { a: curAt(t0), b: [x, y], t0, d, e }; busy(t0 + d); },
     ripple(x, y, t0) { S.rip = { x, y, t0 }; busy(t0 + 0.5); },
-    ring(node, t0) { S.ring = node ? { node, t0, fresh: !S.ring } : null; busy(t0 + MOVE); },
+    ring(node, t0) {
+      if (!node && S.ring && ringG.last) S.ringOut = { t0, rect: ringG.last }; // fade out where it was, not a pop
+      S.ring = node ? { node, t0, fresh: !S.ring } : null;
+      busy(t0 + MOVE);
+    },
     key(label, t0) { S.key = { label, t0 }; busy(t0 + 1.2); },
     // c: "text", {title, sub, side, dur} or null. side pins the callout's side (below, above, right, left).
     caption(c, t0) {
@@ -137,8 +141,13 @@
         rr = ringG.last = glide(ringG, live, t);
         const a = g.fresh ? prog(t, g.t0, 0.3, "out") : 1;
         Object.assign(el.ring.style, { left: rr[0] + "px", top: rr[1] + "px", width: rr[2] + "px", height: rr[3] + "px", opacity: a });
-      } else ringG.node = ringG.last = null;
-      show(el.ring, !!n);
+      } else {
+        ringG.node = ringG.last = null;
+        const f = S.ringOut, fp = f ? (t - f.t0) / 0.3 : 1;
+        if (fp < 1) Object.assign(el.ring.style, { left: f.rect[0] + "px", top: f.rect[1] + "px", width: f.rect[2] + "px", height: f.rect[3] + "px", opacity: 1 - E.out(fp) });
+      }
+      if (n) S.ringOut = null;
+      show(el.ring, !!n || (S.ringOut && t - S.ringOut.t0 < 0.3));
       const num = (S.cap && !(S.old && t < S.old.t1) && S.cap.n) || "";
       if (el.rn.textContent !== String(num)) el.rn.textContent = num;
       if (rr) el.rn.style.top = el.rn.style.left = rr[1] < 16 ? "6px" : ""; // inside the ring when it touches the top edge
