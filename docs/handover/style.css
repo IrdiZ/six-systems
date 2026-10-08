@@ -255,3 +255,11 @@ a.link { color: var(--accent); } a.link:hover { text-decoration: underline; }
 .viewer.doc .stage { display: block; max-height: 62vh; overflow: auto; background: #2b3036; padding: 12px; cursor: default; }
 .viewer.doc .frame { width: calc(var(--z, 1) * 100%); margin: 0 auto; }
 .viewer.doc .frame img { width: 100%; max-width: none; max-height: none; box-shadow: 0 1px 4px rgba(0, 0, 0, .4); }
+/* detail panes: tables are exactly the pane's width and wrap at word boundaries; nothing scrolls sideways */
+.pane.detail .block { overflow-x: visible; }
+.pane.detail .block .grid { table-layout: auto; width: 100%; }
+.pane.detail .block .grid td, .pane.detail .block .grid th { white-space: normal; overflow-wrap: anywhere; word-break: normal; }
+.pane.detail .block .grid td:first-child { white-space: normal; }
+.pane.detail .block .grid td.nowrap, .pane.detail .block .grid .st { white-space: nowrap; }
+.pane.detail dl.kv dd select { max-width: 100%; }
+.pane.detail dl.kv dd select[data-recog-hook] { width: 100%; }

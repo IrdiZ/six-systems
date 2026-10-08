@@ -1433,20 +1433,12 @@ function printPage(it) {
 const rowStatus = (o) => o.status === "Adds structured value" ? td(st("DATA", o.status), "", `${o.m.p.name}: ${o.upd.map((h) => LABEL[h.fact]).join(", ")}`)
   : ["No patient match", "Duplicate", "Not parsed"].includes(o.status) ? td(st("LOST", o.status), "", o.status)
   : o.status === "Differs from received" ? td(st("PICTURE", o.status), "", o.status) : tdt(`${o.status}${o.m.p ? ", " + o.m.p.name : ""}`);
-function sourceDetail(d, x) {
-  const kpi = (l, v) => `<div class="kpi"><label>${l}</label><b>${v}</b></div>`;
-  const heads = x ? Object.keys(x.out[0]?.r || {}) : [];
+function sourceDetail(d) {
   return `
     <div class="block"><dl class="kv"><dt>Type</dt><dd>${esc(d.kind)}</dd><dt>Connection</dt><dd>${esc(d.conn)}</dd><dt>Account</dt><dd>${esc(d.account)}</dd>
-      <dt>Access</dt><dd>Read-only. Nothing is written back to the source.</dd><dt>Patient matching</dt><dd>${esc(d.match)}</dd>
+      <dt>Access</dt><dd>Read-only</dd><dt>Patient matching</dt><dd>${esc(d.match)}</dd>
       <dt>Schedule</dt><dd>${esc(d.schedule)}</dd><dt>Owner</dt><dd>${esc(d.owner)}</dd><dt>Last sync</dt><dd>${esc(d.synced)}</dd></dl>
-      <div class="inline"><button data-q-act="db-test" data-key="${d.id}">Test connection</button><button data-q-act="db-sync" data-key="${d.id}">Sync now</button>
-        ${x?.upd ? `<button class="primary" data-q-act="db-apply" data-key="${d.id}">Update ${plural(x.upd, "result")}</button>` : ""}</div></div>
-    <div class="block"><h4>Column mapping</h4>${table([["Source column", "26%"], ["Field", "30%"], ["Transformation"]], d.cols.map((c) => `<tr>${td(`<code>${esc(c[0])}</code>`, "", c[0])}${tdt(c[1])}${tdt(c[2])}</tr>`))}</div>
-    ${x ? `<div class="block"><h4>Data quality, last sync</h4><div class="kpis mini">${kpi("Rows", x.rows)}${kpi("Matched", x.matched)}${kpi("No patient match", x.nomatch)}${kpi("Duplicates", x.dup)}${kpi("Not parsed", x.bad)}${kpi("New structured values", x.upd)}</div>
-      ${x.upd ? `<p class="dim" style="margin:8px 0 0">${plural(x.upd, "value")} on screen as unverified or not received ${x.upd === 1 ? "is" : "are"} held here as data. Updating replaces them; the received value stays in the audit trail.</p>` : ""}</div>
-      <div class="block"><h4>Rows as stored in the source</h4>${table([...heads.map((h) => [esc(h)]), ["Result of mapping", "30%"]], x.out.map((o) => `<tr>${heads.map((h) => tdt(o.r[h])).join("")}${rowStatus(o)}</tr>`))}</div>`
-      : `<div class="block"><p class="empty" style="padding:0">First sync pending.</p></div>`}`;
+      <div class="inline"><button data-q-act="db-test" data-key="${d.id}">Test connection</button><button data-q-act="db-sync" data-key="${d.id}">Sync now</button></div></div>`;
 }
 
 function channelDetail(c) {
@@ -1880,7 +1872,7 @@ function recogDetail(t) {
       <dt>Every read</dt><dd>Stays unverified until a person verifies it against the image</dd>
       <dt>Active</dt><dd><label><input type="checkbox" data-recog-on="${t.id}" ${t.on ? "checked" : ""}> ${t.on ? "Reading new documents" : "Off: new documents are filed as images, nothing is read"}</label></dd></dl></div>
     <div class="block"><h4>Reads</h4>${table([["Patient"], ["Read", "28%"], ["Value", "18%", "num"], ["Confidence", "92px", "num"]],
-      rs.map((r) => `<tr class="row" data-href="${r.href}">${td(`${esc(r.who)}<br><span class="dim">${esc(r.time)}</span>`)}${td(r.line ? `<code>${esc(r.line)}</code>` : `<span class="dim">–</span>`, "nowrap")}${td(r.value ? esc(r.value) : `<span class="dim">–</span>`, "num nowrap", r.status)}${td(conf(r), "num nowrap")}</tr>`))}</div>`;
+      rs.map((r) => `<tr class="row" data-href="${r.href}">${td(`${esc(r.who)}<br><span class="dim">${esc(r.time)}</span>`)}${td(r.line ? `<code>${esc(r.line)}</code>` : `<span class="dim">–</span>`)}${td(r.value ? esc(r.value) : `<span class="dim">–</span>`, !r.value || /^[<>]?[\d.,]+(\s|$)/.test(r.value) ? "num nowrap" : "", r.status)}${td(conf(r), "num nowrap")}</tr>`))}</div>`;
 }
 function recogDialog() {
   const hooks = [...CHANNELS.map((c) => ["channel", c.id, `Connection: ${c.name}`]), ...DIR.map((d) => ["institution", d.name, `Institution: ${d.name}`])];
