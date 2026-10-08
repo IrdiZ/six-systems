@@ -111,56 +111,56 @@
   <p>Each feature addresses one cause of the gap. The numbers come from the simulated case.</p>
   <div class="features">
 
-    <div class="feature" data-feature="missing-result-alert">
+    <div class="feature" data-feature="missing-result-alert" data-preview-alt="The record opens with an alert banner. A click on Not received shows the results that never arrived.">
       <h3>Missing-result alert</h3>
       <p>The clinician sees up front which expected results never arrived, for example a faxed troponin that no system received.</p>
       <div class="fn"><b data-n="lost"></b><span>results missing from the patient record: on fax or paper, or in a file no patient matched. They affect <span data-n="lostPatients"></span> patients</span></div>
       <a class="fl" id="l-missing" href="handover/#/clinic/cardiology/intake">See it in the clinical tool →</a>
     </div>
 
-    <div class="feature" data-feature="provenance">
+    <div class="feature" data-feature="provenance" data-preview-alt="A click on an external laboratory report shows the sender, the connection and the time of receipt.">
       <h3>Provenance per value</h3>
       <p>Every document shows who sent it, through which connection, in which format and which repairs the assembler applied.</p>
       <div class="fn"><b data-n="docs"></b><span>documents, each with its origin, from <span data-n="sources"></span> sources</span></div>
       <a class="fl" id="l-prov" href="handover/#/clinic/cardiology/intake">See it in the clinical tool →</a>
     </div>
 
-    <div class="feature" data-feature="code-unit-conversion">
+    <div class="feature" data-feature="code-unit-conversion" data-preview-alt="An external laboratory report shows the reported value, the conversion factor and the LOINC code.">
       <h3>Code and unit conversion on arrival</h3>
       <p>Local codes map to LOINC, units convert and decimal commas are read correctly. Inputs include HL7v2, EDIFACT and GP exports.</p>
       <div class="fn"><b data-n="converted"></b><span>results converted on arrival</span></div>
       <a class="fl" href="handover/#/admin/mapping">See it in the clinical tool →</a>
     </div>
 
-    <div class="feature" data-feature="patient-matching">
+    <div class="feature" data-feature="patient-matching" data-preview-alt="The To file list shows a letter matched to a patient by BSN, and a scan with no identifier that waits for a person.">
       <h3>Patient matching across organisations</h3>
       <p>The assembler matches on BSN, then hospital number, then name and birth date. Files without a match wait in a To file list.</p>
       <div class="fn"><b data-n="byMrn"></b><span>files matched by hospital number; <span data-n="unlinked"></span> files not linkable</span></div>
       <a class="fl" href="handover/#/clinic/cardiology/intake">See it in the clinical tool →</a>
     </div>
 
-    <div class="feature" data-feature="image-pdf-reading">
+    <div class="feature" data-feature="image-pdf-reading" data-preview-alt="An echo value read from a screen capture is Unverified. A clinician verifies it.">
       <h3>Values from images and PDFs</h3>
       <p>The assembler reads echo screens with OCR and PDF reports with pattern matching. A result stays Unverified until a clinician verifies it. A DICOM SR gives values without OCR.</p>
       <div class="fn"><b data-n="picture"></b><span>values read from images and PDFs, <span data-n="ocr"></span> of them from images</span></div>
       <a class="fl" id="l-echo" href="handover/#/clinic/cardiology/intake">See it in the clinical tool →</a>
     </div>
 
-    <div class="feature" data-feature="request-missing-result">
+    <div class="feature" data-feature="request-missing-result" data-preview-alt="A clinician opens a faxed troponin result, fills in a request to the sender and sends it.">
       <h3>Request a missing result</h3>
       <p>The clinician requests a missing result from the sender. The request goes through the sender's connection, or through a one-time upload link.</p>
       <div class="fn"><b data-n="fax"></b><span>results exist only on fax or paper</span></div>
       <a class="fl" href="handover/#/admin/outbound">See it in the clinical tool →</a>
     </div>
 
-    <div class="feature" data-feature="management-overview">
+    <div class="feature" data-feature="management-overview" data-preview-alt="The overview shows, per sender, how many results arrive as data, converted, unverified or not received.">
       <h3>Management overview by sender</h3>
       <p>Per source and per department, the overview shows how many results arrive as data, converted, unverified or not received.</p>
       <div class="fn"><b data-n="paperSources"></b><span>of <span data-n="sources"></span> sources deliver no result as data</span></div>
       <a class="fl" href="handover/#/admin/overview">See it in the clinical tool →</a>
     </div>
 
-    <div class="feature" data-feature="research-export">
+    <div class="feature" data-feature="research-export" data-preview-alt="A click on Run research export makes a pseudonymised export and shows the result of the leak check.">
       <h3>Research export</h3>
       <p>The browser export pseudonymises patients, shifts dates per patient and runs a leak check on the output. DICOM de-identification runs in the Python build.</p>
       <div class="fn"><b data-n="patients"></b><span>patients and <span data-n="exportFacts"></span> facts in the export</span></div>
