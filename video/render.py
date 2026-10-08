@@ -1,4 +1,5 @@
 """Render the demo video from timeline.json: one cached segment per scene, joined into demo.mp4. See README.md.
+A timeline with "clips": true writes one looping clip and poster per scene to docs/media/clips/ instead.
 
 python video/render.py [--only <scene>] [--force] [--preview]
 """
@@ -9,6 +10,7 @@ RENDER_VERSION = "3"  # bump when capture or overlay logic changes in a way the 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent  # served over http, so the app's ../data and ../media resolve
 CACHE = HERE / ".cache"
+CLIPS = REPO / "docs/media/clips"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
 # mulberry32: the app's Math.random() (request IDs, new upload links) repeats on every render
 SEED = "(()=>{let s=20260527;Math.random=()=>{s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}})();"
@@ -41,6 +43,36 @@ def fonts(index):
     return d
 
 
+def clip_args(fps):  # the hover clips: small, one keyframe per loop is enough
+    return f"-c:v libx264 -profile:v high -preset slow -crf 28 -tune animation -pix_fmt yuv420p -r {fps} -g {fps * 6} -an -movflags +faststart".split()
+
+
+def deps_of(g):
+    """The font cache dir and the digest of everything the timeline's app page renders from."""
+    fdir = fonts(REPO / g["app"].split("?")[0])
+    index = REPO / g["app"].split("?")[0]  # the page, the local files it loads, the media folder; not build outputs beside it
+    loads = [index.parent / u for u in re.findall(r'(?:src|href)="(?!https?:|#)([^"?#]+)', index.read_text(encoding="utf-8"))]
+    media = [f for f in sorted((REPO / "docs/media").rglob("*")) if f.is_file() and CLIPS not in f.parents]  # the clips are outputs, not inputs
+    return fdir, digest([index, *loads, *media, HERE / "overlay.js", HERE / "cursor.svg"] + ([fdir] if fdir else []))
+
+
+def make_clip(seg, slug, seam, fps):
+    """Loop the segment without a cut: its last `seam` seconds fade into its first. Poster = frame 0 of the clip."""
+    from PIL import Image
+
+    d = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(seg)], capture_output=True, text=True, check=True).stdout)
+    mp4, png = CLIPS / f"{slug}.mp4", CLIPS / f"{slug}.tmp.png"
+    graph = (f"[0:v]split[a][b];[a]trim={seam}:{d},setpts=PTS-STARTPTS[body];[b]trim=0:{seam},setpts=PTS-STARTPTS[head];"
+             f"[body][head]xfade=transition=fade:duration={seam}:offset={d - 2 * seam:.3f}")
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(seg), "-filter_complex", graph, *clip_args(fps), str(mp4.with_suffix(".tmp.mp4"))], check=True)
+    os.replace(mp4.with_suffix(".tmp.mp4"), mp4)
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(mp4), "-frames:v", "1", str(png)], check=True)
+    with Image.open(png) as im:
+        im.save(CLIPS / f"{slug}.webp", quality=80, method=6)
+    png.unlink()
+    return round(d - seam, 2)
+
+
 def fname(u):  # gstatic URLs can carry a query (font?kit=...), not a valid file name on Windows
     return hashlib.sha256(u.encode()).hexdigest()[:16] + ".woff2"
 
@@ -71,7 +103,8 @@ class Rec:
         n, self.debt = int(self.debt), self.debt - int(self.debt)
         for _ in range(n):
             if self.page.evaluate("t => __ov.frame(t)", self.t) or self.force > 0 or self.jpg is None:
-                shot = self.cdp.send("Page.captureScreenshot", {"format": "jpeg", "quality": 92, "optimizeForSpeed": True, "clip": self.clip})
+                sx, sy = self.page.evaluate("[scrollX, scrollY]")  # the clip is in page coordinates: follow a scrolled page
+                shot = self.cdp.send("Page.captureScreenshot", {"format": "jpeg", "quality": 92, "optimizeForSpeed": True, "clip": {**self.clip, "x": sx, "y": sy}})
                 self.jpg, self.shots = base64.b64decode(shot["data"]), self.shots + 1
             self.force -= 1
             self.enc.stdin.write(self.jpg)
@@ -241,10 +274,7 @@ def main():
     if a.only and a.only not in [s["id"] for s in scenes]:
         raise SystemExit(f"no scene {a.only!r}; scenes: {', '.join(s['id'] for s in scenes)}")
     CACHE.mkdir(exist_ok=True)
-    fdir = fonts(REPO / g["app"].split("?")[0])
-    index = REPO / g["app"].split("?")[0]  # the page, the local files it loads, the media folder; not build outputs beside it
-    loads = [index.parent / u for u in re.findall(r'(?:src|href)="(?!https?:|#)([^"?#]+)', index.read_text(encoding="utf-8"))]
-    deps = digest([index, *loads, REPO / "docs/media", HERE / "overlay.js", HERE / "cursor.svg"] + ([fdir] if fdir else []))
+    fdir, deps = deps_of(g)
     prefix = ("pre-" if a.preview else "seg-") + ("" if name == "demo" else name + "-")  # each timeline keeps its own cache
 
     def seg(s):
@@ -281,6 +311,8 @@ def main():
             f.unlink()
             f.with_suffix(".json").unlink(missing_ok=True)
     missing = [i for i, p in segs.items() if not p.exists()]
+    if g.get("clips"):
+        return write_clips(scenes, segs, g, deps, missing)
     if missing:
         return print(f"not joined: {', '.join(missing)} not rendered yet")
     (CACHE / "list.txt").write_text("".join(f"file '{segs[s['id']].name}'\n" for s in scenes), encoding="utf-8")
@@ -304,6 +336,27 @@ def main():
     codes.append({"scene": "end", "mark": "end", "t": round(t, 2)})
     (HERE / f"{name}-timecodes.json").write_text(json.dumps(codes, indent=1), encoding="utf-8")
     print(f"wrote {name}-timecodes.json ({t:.1f} s)")
+
+
+def write_clips(scenes, segs, g, deps, missing):
+    """One clip and poster per scene; manifest.json is shared by every clips timeline, merged by slug."""
+    CLIPS.mkdir(parents=True, exist_ok=True)
+    mf = CLIPS / "manifest.json"
+    man = json.loads(mf.read_text(encoding="utf-8")) if mf.exists() else {}
+    for s in scenes:
+        slug, seg = s["id"], segs[s["id"]]
+        if slug in missing:
+            print(f"{slug:<22} no clip: segment not rendered")
+            continue
+        old = man.get(slug, {})
+        if old.get("segment") == seg.name and (CLIPS / f"{slug}.mp4").exists() and (CLIPS / f"{slug}.webp").exists():
+            continue
+        dur = make_clip(seg, slug, g.get("seam", 0.4), g["fps"])
+        man[slug] = {"duration": dur, "bytes": (CLIPS / f"{slug}.mp4").stat().st_size, "poster_bytes": (CLIPS / f"{slug}.webp").stat().st_size,
+                     "app": g["app"], "digest": deps, "segment": seg.name}
+        print(f"{slug:<22} clip {dur:.2f} s, {man[slug]['bytes'] / 1024:.0f} KB, poster {man[slug]['poster_bytes'] / 1024:.0f} KB")
+    mf.write_text(json.dumps(dict(sorted(man.items())), indent=1) + "\n", encoding="utf-8")
+    print(f"wrote {mf.relative_to(REPO)}")
 
 
 if __name__ == "__main__":

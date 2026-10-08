@@ -1,0 +1,36 @@
+{
+ "clips": true,
+ "seam": 0.4,
+ "size": [
+  960,
+  540
+ ],
+ "viewport": [
+  1120,
+  630
+ ],
+ "fps": 24,
+ "clock": "2026-05-27T09:30:00",
+ "cursor": [
+  1000,
+  560
+ ],
+ "app": "docs/index.html",
+ "scenes": [
+  {
+   "id": "research-export",
+   "setup": [
+    "#export-section"
+   ],
+   "steps": [
+    {
+     "hold": 0.6
+    },
+    {
+     "click": "#run-export",
+     "hold": 3.8
+    }
+   ]
+  }
+ ]
+}

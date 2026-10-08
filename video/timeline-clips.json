@@ -1,0 +1,223 @@
+{
+ "clips": true,
+ "seam": 0.4,
+ "size": [
+  960,
+  540
+ ],
+ "viewport": [
+  1440,
+  810
+ ],
+ "fps": 24,
+ "clock": "2026-05-27T09:30:00",
+ "scenario": "default",
+ "cursor": [
+  1000,
+  560
+ ],
+ "app": "docs/handover/index.html",
+ "scenes": [
+  {
+   "id": "missing-result-alert",
+   "setup": [
+    "#/clinic/cardiology/P001"
+   ],
+   "steps": [
+    {
+     "zoom": [
+      240,
+      40,
+      1200,
+      675
+     ],
+     "scale": 1.2,
+     "dur": 0.01
+    },
+    {
+     "hold": 0.6
+    },
+    {
+     "ring": ".banner .alerts",
+     "hold": 1.4
+    },
+    {
+     "ring": null,
+     "click": "a[href='#/clinic/cardiology/P001/missing']",
+     "hold": 2.0
+    }
+   ]
+  },
+  {
+   "id": "provenance",
+   "setup": [
+    "#/clinic/cardiology/P001/all"
+   ],
+   "steps": [
+    {
+     "zoom": [
+      560,
+      40,
+      880,
+      495
+     ],
+     "scale": 1.5,
+     "dur": 0.01
+    },
+    {
+     "hold": 0.3
+    },
+    {
+     "click": ".pane.list tr:has-text('External laboratory report')",
+     "hold": 0.3
+    },
+    {
+     "scroll": ".pane.detail",
+     "by": 400,
+     "dur": 0.7
+    },
+    {
+     "zoom": ".pane.detail .block:has(h4:has-text('Origin'))",
+     "scale": 1.6,
+     "dur": 0.7
+    },
+    {
+     "ring": ".pane.detail .block:has(h4:has-text('Origin'))",
+     "hold": 2.2
+    },
+    {
+     "ring": null,
+     "hold": 0.2
+    }
+   ]
+  },
+  {
+   "id": "code-unit-conversion",
+   "setup": [
+    "#/clinic/cardiology/P001/all",
+    {
+     "click": ".pane.list tr:has-text('External laboratory report')"
+    }
+   ],
+   "steps": [
+    {
+     "zoom": ".pane.detail .block",
+     "scale": 1.5,
+     "dur": 0.01
+    },
+    {
+     "hold": 0.5
+    },
+    {
+     "ring": ".pane.detail .block",
+     "hold": 3.6
+    },
+    {
+     "ring": null,
+     "hold": 0.5
+    }
+   ]
+  },
+  {
+   "id": "patient-matching",
+   "setup": [
+    "#/clinic/cardiology/intake"
+   ],
+   "steps": [
+    {
+     "zoom": ".pane.detail",
+     "scale": 1.25,
+     "dur": 0.01
+    },
+    {
+     "hold": 0.3
+    },
+    {
+     "click": ".pane.list tr:has-text('Referral letter')",
+     "hold": 2.0
+    },
+    {
+     "click": ".pane.list tr:has-text('Scanned document')",
+     "hold": 2.0
+    }
+   ]
+  },
+  {
+   "id": "image-pdf-reading",
+   "setup": [
+    "#/clinic/cardiology/P001/echo",
+    {
+     "click": ".pane.list tr:has-text('Transthoracic echocardiogram')"
+    }
+   ],
+   "steps": [
+    {
+     "zoom": ".pane.detail",
+     "scale": 1.2,
+     "dur": 0.01
+    },
+    {
+     "hold": 0.6
+    },
+    {
+     "ring": ".pane.detail [data-act=confirm]",
+     "hold": 1.6
+    },
+    {
+     "ring": null,
+     "key": "v",
+     "hold": 2.6
+    }
+   ]
+  },
+  {
+   "id": "request-missing-result",
+   "setup": [
+    "#/clinic/cardiology/P001"
+   ],
+   "steps": [
+    {
+     "zoom": ".pane.detail",
+     "scale": 1.15,
+     "dur": 0.01
+    },
+    {
+     "click": ".pane.list tr:has-text('Troponin, point-of-care')",
+     "hold": 0.5
+    },
+    {
+     "key": "r",
+     "hold": 1.4
+    },
+    {
+     "click": "#f-req button:has-text('Send request')",
+     "hold": 2.0
+    }
+   ]
+  },
+  {
+   "id": "management-overview",
+   "setup": [
+    "#/admin/overview"
+   ],
+   "steps": [
+    {
+     "zoom": "table.grid",
+     "scale": 1.1,
+     "dur": 0.01
+    },
+    {
+     "hold": 0.6
+    },
+    {
+     "ring": "tr:has-text('Point-of-care testing')",
+     "hold": 3.4
+    },
+    {
+     "ring": null,
+     "hold": 0.6
+    }
+   ]
+  }
+ ]
+}
