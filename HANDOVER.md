@@ -25,7 +25,7 @@ Needs Tesseract (`brew install tesseract`). The build is deterministic (seed 7).
 
 | Part | Files | Job |
 |---|---|---|
-| Simulator | `sim/` | Makes 20 synthetic patients, writes each department's files to `raw/`, writes the answer key `raw/truth.json`. |
+| Simulator | `sim/` | Makes 40 synthetic patients, writes each department's files to `raw/`, writes the answer key `raw/truth.json`. |
 | Assembler | `assemble/` | Parses each source, links files to patients, converts codes and units, runs OCR and PDF extraction, scores against the answer key. |
 | Export | `export/deid.py` | Pseudonymises, shifts dates, de-identifies DICOM, then checks its own output for leaks. |
 | Viewer | `docs/index.html`, `docs/app.js`, `docs/style.css` | The interactive demo. Reads `docs/data/cases.js`. |
@@ -40,7 +40,12 @@ Needs Tesseract (`brew install tesseract`). The build is deterministic (seed 7).
 ## Open items
 
 1. **Fix the PDF highlight box.** It is too wide on radiology reports. The cause is the fixed width in `parse_pdf` in `assemble/parsers.py`.
-2. **The system tiles on "The gap" show 6 sources.** The data has 12. The timeline already shows every source per patient.
+2. **Clinical tool (`docs/handover/`) audit, 2026-10-08, not yet fixed.**
+   - 14 facts are dated after the generation time (up to 2027-02-06). Cap timestamps in `sim/`.
+   - The tool totals 1,627 results because it drops the 37 CT raw-data facts. The rest of the site says 1,664. Add a note or a total row.
+   - The tool uses seven status words ("Not stored", "Not legible", "Code mapped", "Verified"). The site uses four. Show the subtype as detail text.
+   - There is no "synthetic data" note in the visible UI, and the brand reads "DEMO".
+   - There is no phone layout. Add a "best on a desktop screen" note.
 3. **Possible next experiment.** Compare OCR engines (Tesseract, Apple Vision, PaddleOCR, a local vision model) with the answer-key scoring. Count values recovered and values wrong per engine.
 4. **"Expected but missing" detection.** The demo knows a fax is missing only because of the answer key. A real system must infer it, e.g. from an ER visit with no troponin result, or an order with no result.
 
