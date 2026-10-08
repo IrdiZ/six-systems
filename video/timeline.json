@@ -362,14 +362,6 @@
      "hold": 0.3
     },
     {
-     "caption": {
-      "title": "Sender",
-      "sub": "Identified by fax number from the institution register."
-     },
-     "ring": ".pane.detail dd:has-text('matched by fax number')",
-     "hold": 3.2
-    },
-    {
      "ring": null,
      "caption": null,
      "point": ".pane.detail .viewer .box",
