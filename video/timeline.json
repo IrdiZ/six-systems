@@ -55,100 +55,64 @@
     {
      "point": "[data-act=send]",
      "move": 1.0,
-     "hold": 0.3
+     "hold": 0.2
     },
     {
      "click": "[data-act=send]",
      "move": 0.2,
-     "hold": 0.8
+     "hold": 0.7
     },
     {
-     "point": "#f-send select[name=to]",
-     "move": 0.8,
-     "hold": 0.1
-    },
-    {
-     "caption": {
-      "title": "Recipient",
-      "sub": "Selected from the institution register. URA checked in ZORG-AB.",
-      "n": 1
-     },
      "ring": "#f-send .field:has(select[name=to])",
-     "hold": 3.6
+     "menu": "#f-send select[name=to]",
+     "move": 0.8,
+     "dur": 3.6,
+     "hold": 0.3
     },
     {
-     "ring": null,
-     "caption": null,
-     "point": "#f-send select[name=channel]",
-     "move": 0.6,
-     "hold": 0.1
-    },
-    {
-     "caption": {
-      "title": "Channel and message format",
-      "sub": "Twiin: BgZ and referral letter in FHIR STU3. ZorgMail and e-mail with access code also available.",
-      "n": 2
-     },
      "ring": "#f-send .field:has(select[name=channel])",
-     "hold": 3.8
+     "menu": "#f-send select[name=channel]",
+     "move": 0.6,
+     "dur": 1.8,
+     "hold": 0.3
     },
     {
-     "ring": null,
-     "caption": null,
+     "ring": "#f-send .field:has(select[name=format])",
+     "menu": "#f-send select[name=format]",
+     "move": 0.5,
+     "dur": 1.1,
+     "hold": 0.3
+    },
+    {
+     "ring": "#f-send textarea[name=q]",
      "click": "#f-send textarea[name=q]",
      "move": 0.6,
      "hold": 0.2
     },
     {
-     "caption": {
-      "title": "Clinical question",
-      "sub": "Required before sending.",
-      "n": 3
-     },
-     "ring": "#f-send textarea[name=q]",
-     "hold": 0.3
-    },
-    {
      "type": "Back-referral after chest pain work-up. Please continue follow-up.",
      "cps": 30,
+     "hold": 0.5
+    },
+    {
+     "ring": "#f-send .field:has(input[type=checkbox])",
+     "click": "#f-send tr:has-text('07:15') input[type=checkbox]",
+     "move": 0.7,
      "hold": 1.0
     },
     {
      "ring": null,
-     "caption": null,
-     "click": "#f-send tr:has-text('07:15') input[type=checkbox]",
-     "move": 0.7,
-     "hold": 0.3
-    },
-    {
-     "caption": {
-      "title": "Enclosures",
-      "sub": "Received documents are selected per referral.",
-      "n": 4
-     },
-     "ring": "#f-send .field:has(input[type=checkbox])",
-     "hold": 3.2
-    },
-    {
-     "ring": null,
-     "caption": null,
      "scroll": "#f-send .body",
      "by": 600,
      "dur": 1.1,
      "hold": 0.2
     },
     {
-     "caption": {
-      "title": "Recipient receives",
-      "sub": "Verified results as structured data, original value included. Unverified values as images, labelled unverified.",
-      "n": 5
-     },
      "ring": "#send-preview",
-     "hold": 4.6
+     "hold": 3.0
     },
     {
      "ring": null,
-     "caption": null,
      "click": "#f-send button.primary",
      "move": 0.8,
      "hold": 0.8

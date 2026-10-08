@@ -28,15 +28,19 @@
     #__ov .n { flex: none; width: 22px; height: 22px; border-radius: 50%; background: #1d6fa5; color: #fff; font-size: 12.5px; font-weight: 600;
       display: grid; place-items: center; }
     #__ov .ring .n { position: absolute; left: -13px; top: -13px; box-shadow: 0 0 0 3px #fff; }
+    #__ov .menu { position: absolute; background: #fff; border: 1px solid #8a9299; border-radius: 4px; box-shadow: 0 8px 22px rgba(15,23,30,.22);
+      padding: 3px 0; overflow: hidden; }
+    #__ov .menu div { padding: 0 9px; white-space: nowrap; overflow: hidden; color: #16202a; }
+    #__ov .menu div.on { background: #1d6fa5; color: #fff; }
     #__ov .key { position: absolute; right: 24px; bottom: 24px; min-width: 40px; padding: 7px 13px 8px; border-radius: 7px; text-align: center;
       background: #15191e; color: #fff; font-size: 16px; font-weight: 600; box-shadow: 0 6px 18px rgba(15,20,25,.2), inset 0 -2px 0 rgba(255,255,255,.14); }`;
 
   function mount() {
     const root = document.createElement("div");
     root.id = "__ov";
-    root.innerHTML = `<link rel="stylesheet" href="${FONT}"><style>${CSS}</style><div class="ring"><span class="n"></span></div><div class="rip"></div><div class="cap"><div class="t"><span class="n"></span><span class="tt"></span></div><div class="s"></div></div><div class="key"></div><img class="cur" src="${window.__CURSOR || ""}">`;
+    root.innerHTML = `<link rel="stylesheet" href="${FONT}"><style>${CSS}</style><div class="ring"><span class="n"></span></div><div class="rip"></div><div class="cap"><div class="t"><span class="n"></span><span class="tt"></span></div><div class="s"></div></div><div class="menu"></div><div class="key"></div><img class="cur" src="${window.__CURSOR || ""}">`;
     document.documentElement.append(root); // outside <body>, so the zoom on <body> leaves the overlay alone
-    for (const k of ["ring", "rip", "cap", "key", "cur"]) el[k] = root.querySelector("." + k);
+    for (const k of ["ring", "rip", "cap", "menu", "key", "cur"]) el[k] = root.querySelector("." + k);
     el.t = el.cap.querySelector(".tt"), el.s = el.cap.querySelector(".s"), el.n = el.cap.querySelector(".n"), el.rn = el.ring.querySelector(".n");
     new MutationObserver(() => (S.dirty = true)).observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
   }
@@ -94,6 +98,20 @@
       S.ring = node ? { node, t0, fresh: !S.ring } : null;
       busy(t0 + MOVE);
     },
+    // a select's option list, drawn as the page would (screenshots never show the native popup); the highlight and
+    // the cursor run down the options and back to the current one, then it closes and the value is left as it was
+    menu(node, t0, d) {
+      const b = node.getBoundingClientRect(), cs = getComputedStyle(node), opts = [...node.options].map((o) => o.text);
+      const rowH = Math.round(parseFloat(cs.fontSize) * 1.75), h = opts.length * rowH + 8, below = b.bottom + 2 + h <= innerHeight - 8;
+      const m = { t0, d, opts, sel: node.selectedIndex, rowH, x: b.left, w: b.width, y: below ? b.bottom + 2 : b.top - 2 - h, font: `${cs.fontSize} ${cs.fontFamily}` };
+      m.rowY = (i) => m.y + 4 + (i + 0.5) * rowH;
+      S.menu = m;
+      el.menu.innerHTML = opts.map((o) => `<div style="height:${rowH}px;line-height:${rowH}px">${o.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</div>`).join("");
+      Object.assign(el.menu.style, { left: m.x + "px", top: m.y + "px", width: m.w + "px", font: m.font });
+      const end = opts.length - 1;
+      S.cur = { a: curAt(t0), b: [m.x + Math.min(m.w / 2, 80), m.rowY(m.sel)], t0, d: d * 0.85, e: "linear" }; // ends on the kept option
+      busy(t0 + d);
+    },
     key(label, t0) { S.key = { label, t0 }; busy(t0 + 1.2); },
     // c: "text", {title, sub, side, dur} or null. side pins the callout's side (below, above, right, left).
     caption(c, t0) {
@@ -125,7 +143,16 @@
       if (S.tf !== tf) { S.tf = tf; body.transformOrigin = "0 0"; body.transform = tf; } // write only on change: the write itself counts as a mutation
       if (S.scroll) { const c = S.scroll; c.node.scrollTop = c.from + c.dy * prog(t, c.t0, c.d, c.e); }
 
-      const [cx, cy] = curAt(t);
+      let [cx, cy] = curAt(t);
+      const m = S.menu, mp = m ? (t - m.t0) / m.d : 2;
+      show(el.menu, mp >= 0 && mp < 1);
+      if (mp >= 0 && mp < 1) { // the highlight steps row by row; the cursor glides with it
+        const end = m.opts.length - 1, f = Math.min(1, mp / 0.85); // down to the last option, then back up to the one kept
+        const at = f < 0.65 ? m.sel + E.inOut(f / 0.65) * (end - m.sel) : end + E.inOut((f - 0.65) / 0.35) * (m.sel - end), i = Math.round(at);
+        [...el.menu.children].forEach((r, k) => r.classList.toggle("on", k === i));
+        el.menu.style.opacity = Math.min(1, mp * m.d / 0.1, (1 - mp) * m.d / 0.12);
+        cy = m.rowY(at);
+      }
       el.cur.style.transform = `translate(${cx}px, ${cy}px)`;
 
       const r = S.rip, rp = r ? (t - r.t0) / 0.45 : 1;

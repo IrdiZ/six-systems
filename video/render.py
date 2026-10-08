@@ -138,6 +138,15 @@ class Rec:
             if live:
                 ov("move", *self.pos, self.t, st.get("move", 0.7), "inOut")
                 self.frames(st.get("move", 0.7))
+        if "menu" in st:  # open a select's option list and run down it; the value does not change
+            l = self.loc(st["menu"])
+            b = l.bounding_box()
+            if live:
+                ov("move", b["x"] + min(b["width"] / 2, 80), b["y"] + b["height"] / 2, self.t, st.get("move", 0.7), "inOut")
+                self.frames(st.get("move", 0.7))
+                ov("ripple", b["x"] + min(b["width"] / 2, 80), b["y"] + b["height"] / 2, self.t)
+                ov("menu", l.element_handle(), self.t, st.get("dur", 2.5))
+                self.frames(st.get("dur", 2.5))
         if "select" in st:  # [selector, option label]
             l = self.loc(st["select"][0])
             b = l.bounding_box()
