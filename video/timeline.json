@@ -84,9 +84,12 @@
     {
      "caption": {
       "title": "Not stored",
-      "sub": "Point-of-care troponin, sent by the referring hospital by fax."
+      "sub": "Point-of-care troponin, sent by the referring hospital by fax.",
+      "side": "above"
      },
-     "ring": ".pane.detail dd:has-text('reported by fax')",
+     "ring": {
+      "all": ".pane.detail table.grid, .pane.detail .block:has(dt:text-is('Remark'))"
+     },
      "hold": 3.4
     },
     {
@@ -234,7 +237,7 @@
     },
     {
      "zoom": ".pane.detail .block",
-     "scale": 1.6,
+     "scale": 1.25,
      "dur": 0.6,
      "ease": "out",
      "hold": 0.1
@@ -242,9 +245,12 @@
     {
      "caption": {
       "title": "Conversion",
-      "sub": "Reported value, conversion and LOINC code shown with the result."
+      "sub": "Reported value, conversion and LOINC code shown with the result.",
+      "side": "left"
      },
-     "ring": ".pane.detail dd:has-text('× 1000')",
+     "ring": {
+      "all": ".pane.detail dt:text-is('Conversion'), .pane.detail dd:has-text('× 1000')"
+     },
      "hold": 3.6
     },
     {
