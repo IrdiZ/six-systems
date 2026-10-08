@@ -1,15 +1,16 @@
 # Handover
 
 Status and next steps for this repo. Read this first when you start a new session.
-Last update: 2026-10-05.
+Last update: 2026-10-08.
 
 ## Current state
 
-- The prototype is complete and public. Two commits on `main`, no open branches or PRs.
+- The prototype is public. PR #1 (@danilosolciaa: clinical tool UI, 40-patient simulation, video pipeline) is merged into `main`.
 - Live site (GitHub Pages, from `docs/`):
   - Demo: https://irdiz.github.io/six-systems/
   - Plain-language explainer: https://irdiz.github.io/six-systems/explained.html
-- Result of the current build: 91% of facts in the archive, 26% usable as data, 87% recovered by the pipeline, 0 wrong values.
+  - Clinical tool (@danilosolciaa): https://irdiz.github.io/six-systems/handover/
+- Result of the current build: 40 patients, 1,664 facts. 97% in the archive, 56% usable as data, 96% recovered by the pipeline, 0 wrong values.
 
 ## Rebuild
 
@@ -38,12 +39,21 @@ Needs Tesseract (`brew install tesseract`). The build is deterministic (seed 7).
 
 ## Open items
 
-1. **Add a disclaimer line.** Put it in the explainer, the demo and the README: "The percentages reflect how this simulation was built. They show the mechanism, not a measured rate at any hospital."
+1. **New sources are not in the "gap" timeline.** `docs/app.js` has a fixed lane list. Sources from the 40-patient simulation (ECG, cathlab, GP, lung function, and more) draw outside the lanes. Fix after the new video is done.
 2. **Fix the PDF highlight box.** It is too wide on radiology reports. The cause is the fixed width in `parse_pdf` in `assemble/parsers.py`.
-3. **Consider new status labels.** The product UI uses Structured / Converted / Unverified / Not received. These are clearer for clinicians than DATA / CONFLICT / PICTURE / LOST.
-4. **Product UI from a collaborator.** A clinical-style UI (worklist, Verify and Request actions, management overview) exists outside this repo. Plan: add it as its own page, e.g. `docs/product.html`, through a branch and a PR, not directly on `main`.
-5. **Possible next experiment.** Compare OCR engines (Tesseract, Apple Vision, PaddleOCR, a local vision model) with the answer-key scoring. Count values recovered and values wrong per engine.
-6. **"Expected but missing" detection.** The demo knows a fax is missing only because of the answer key. A real system must infer it, e.g. from an ER visit with no troponin result, or an order with no result.
+3. **Possible next experiment.** Compare OCR engines (Tesseract, Apple Vision, PaddleOCR, a local vision model) with the answer-key scoring. Count values recovered and values wrong per engine.
+4. **"Expected but missing" detection.** The demo knows a fax is missing only because of the answer key. A real system must infer it, e.g. from an ER visit with no troponin result, or an order with no result.
+
+Done on 2026-10-08: disclaimer on all pages; status labels Structured / Converted / Unverified / Not received; one design language across all three pages (shared top bar); Wegiz text corrected (BgZ now follows the EHDS dates, 2029 and 2031).
+
+## Pages
+
+| Page | Path | Notes |
+|---|---|---|
+| Explained | `docs/explained.html` | Walkthrough picks the chest-pain patient with the most steps; each step shows only if the data has it. |
+| The gap | `docs/index.html` | Archive view versus computable view. |
+| Clinical tool | `docs/handover/` | @danilosolciaa's UI. `docs/handover/standalone.py` writes a single offline HTML file. |
+| Video | `video/` | Records the clinical tool to MP4 (Playwright + ffmpeg). |
 
 ## Rules for this repo
 
