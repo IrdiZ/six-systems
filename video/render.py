@@ -62,6 +62,7 @@ class Rec:
         self.cdp = page.context.new_cdp_session(page)
         self.f = self.shots = self.force = 0
         self.debt, self.jpg = 0.0, None
+        self.pos = None  # last cursor position, kept through the off-camera replay
 
     t = property(lambda self: self.f / self.fps)
 
@@ -128,12 +129,15 @@ class Rec:
                 ov("move", x, y, self.t, st.get("move", 0.7), "inOut")
                 self.frames(st.get("move", 0.7))
             pg.mouse.click(x, y)
+            self.pos = (x, y)
             ov("ripple", x, y, self.t)
             self.settle()
-        if "point" in st and live:  # the cursor glides to an element without clicking
+        if "point" in st:  # the cursor glides to an element without clicking
             b = self.loc(st["point"]).bounding_box()
-            ov("move", b["x"] + min(b["width"] / 2, 60), b["y"] + b["height"] / 2, self.t, st.get("move", 0.7), "inOut")
-            self.frames(st.get("move", 0.7))
+            self.pos = (b["x"] + min(b["width"] / 2, 60), b["y"] + b["height"] / 2)
+            if live:
+                ov("move", *self.pos, self.t, st.get("move", 0.7), "inOut")
+                self.frames(st.get("move", 0.7))
         if "select" in st:  # [selector, option label]
             l = self.loc(st["select"][0])
             b = l.bounding_box()
@@ -142,6 +146,7 @@ class Rec:
                 ov("move", x, y, self.t, st.get("move", 0.7), "inOut")
                 self.frames(st.get("move", 0.7))
             l.select_option(label=st["select"][1])
+            self.pos = (x, y)
             ov("ripple", x, y, self.t)
             self.settle()
         if "key" in st:
@@ -203,7 +208,7 @@ def render_scene(scene, g, port, preview, fdir, out):
                 r.step(st, live=False)
             r.settle()
             r.rest = g["cursor"]
-            page.evaluate("([x, y]) => __ov.cursor(x, y)", scene.get("cursor", g["cursor"]))
+            page.evaluate("([x, y]) => __ov.cursor(x, y)", r.pos or scene.get("cursor", g["cursor"]))
             for st in scene["steps"]:
                 r.step(st)
             b.close()

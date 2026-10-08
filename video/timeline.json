@@ -156,20 +156,7 @@
      "caption": null,
      "click": "#f-send button.primary",
      "move": 0.8,
-     "hold": 0.6
-    },
-    {
-     "caption": {
-      "title": "Referral sent",
-      "sub": "Recorded in the audit trail."
-     },
-     "ring": ".actions .status",
-     "hold": 3.2
-    },
-    {
-     "ring": null,
-     "caption": null,
-     "hold": 0.2
+     "hold": 0.8
     }
    ]
   },
@@ -179,20 +166,20 @@
    "steps": [
     {
      "click": ".tabs a:has-text('Audit trail')",
-     "hold": 0.6
+     "move": 0.9,
+     "hold": 0.5
     },
     {
      "caption": {
       "title": "Audit trail",
-      "sub": "Every referral, result request and receipt, with sender, recipient, format and acknowledgement."
+      "sub": "Referral recorded with recipient, format, channel and acknowledgement."
      },
      "ring": ".pane table.grid tr:has-text('Referral sent')",
-     "hold": 4.6
+     "hold": 4.0
     },
     {
      "ring": null,
      "caption": null,
-     "rest": true,
      "hold": 0.2
     }
    ]
@@ -203,27 +190,29 @@
    "steps": [
     {
      "click": ".side a:has-text('To file')",
+     "move": 0.9,
      "hold": 0.5
     },
     {
      "click": ".pane.list tr:has-text('Fax, 1 page')",
-     "hold": 0.6
+     "move": 0.8,
+     "hold": 0.5
     },
     {
      "caption": {
-      "title": "Results received outside the interfaces",
-      "sub": "Fax, scanned documents, secure mail and chat. The sender is identified through the institution register, not the fax header."
+      "title": "To file",
+      "sub": "Results received by fax, scan, mailbox or chat. Sender identified from the institution register."
      },
      "ring": ".pane.detail dd:has-text('matched by fax number')",
-     "hold": 5.4
+     "hold": 4.6
     },
     {
      "caption": {
-      "title": "Filed after review",
-      "sub": "Patient and value are confirmed before filing; the result is recorded as unverified."
+      "title": "Filing",
+      "sub": "Patient and value confirmed before filing. Recorded as unverified."
      },
      "ring": ".pane.detail .block:has(h4:has-text('Filing'))",
-     "hold": 4.2
+     "hold": 3.8
     },
     {
      "ring": null,
@@ -232,10 +221,12 @@
       "#dept",
       "Nephrology"
      ],
+     "move": 1.0,
      "hold": 0.5
     },
     {
      "click": ".side a:has-text('To file')",
+     "move": 0.8,
      "hold": 0.4
     },
     {
@@ -243,26 +234,28 @@
       ".pane.list tr:has-text('No patient match')",
       ".pane.list tr:has-text('Unmatched patient')"
      ],
-     "hold": 0.5
+     "move": 0.8,
+     "hold": 0.4
     },
     {
      "caption": {
-      "title": "Report without a patient match",
-      "sub": "No BSN, and no match on name and date of birth. Held for manual matching; the source message is retained."
+      "title": "No patient match",
+      "sub": "No BSN; name and date of birth do not match. Held for manual matching. Source message kept."
      },
      "ring": ".pane.detail .block:has(h4:has-text('Resolution'))",
-     "hold": 5.0
+     "hold": 4.6
     },
     {
      "ring": null,
      "caption": null,
      "click": "[data-q-act=link]",
-     "hold": 0.6
+     "move": 0.8,
+     "hold": 0.5
     },
     {
      "caption": {
-      "title": "Matched to the patient",
-      "sub": "The report is linked to the record and the match is logged."
+      "title": "Resolution",
+      "sub": "Linked to the patient record. The match is logged."
      },
      "ring": ".pane.detail .block:has(h4:has-text('Resolution'))",
      "hold": 3.4
@@ -270,7 +263,6 @@
     {
      "ring": null,
      "caption": null,
-     "rest": true,
      "hold": 0.2
     }
    ]
@@ -281,15 +273,16 @@
    "steps": [
     {
      "click": "a[href='#/admin']",
-     "hold": 0.6
+     "move": 1.0,
+     "hold": 0.5
     },
     {
      "caption": {
-      "title": "Management overview",
-      "sub": "Results per source and per department, by receipt status. Senders still reporting by fax are identified per source."
+      "title": "Overview",
+      "sub": "Results per source and department, by receipt status. Fax senders listed per source."
      },
      "ring": "tr:has-text('Point-of-care testing')",
-     "hold": 5.0
+     "hold": 4.4
     },
     {
      "ring": null,
@@ -304,12 +297,13 @@
    "steps": [
     {
      "click": "a[href='#/admin/mapping']",
+     "move": 0.8,
      "hold": 0.4
     },
     {
      "caption": {
-      "title": "Code and unit conversion",
-      "sub": "Mappings per sender to LOINC and UCUM, reviewed and versioned. Original values retained."
+      "title": "Code and Unit Conversion",
+      "sub": "Per sender, to LOINC and UCUM. Reviewed and versioned; original values kept."
      },
      "ring": ".pane.list tr:has-text('TNTHS')",
      "hold": 3.6
@@ -318,12 +312,13 @@
      "ring": null,
      "caption": null,
      "click": "a[href='#/admin/sources']",
+     "move": 0.7,
      "hold": 0.4
     },
     {
      "caption": {
-      "title": "Departmental databases",
-      "sub": "Existing local registries are read without migration. Nothing is written back."
+      "title": "Department Databases",
+      "sub": "Existing local registries are read in place. Data is not written back."
      },
      "ring": ".pane.detail dd:has-text('Read-only')",
      "hold": 3.6
@@ -332,12 +327,13 @@
      "ring": null,
      "caption": null,
      "click": "a[href='#/admin/channels']",
+     "move": 0.7,
      "hold": 0.4
     },
     {
      "caption": {
       "title": "Connections",
-      "sub": "HL7 v2, EDIFACT, Twiin, ZorgMail, fax and scanning folders, monitored per channel."
+      "sub": "Status per channel: HL7 v2, EDIFACT, Twiin, ZorgMail, fax and scan folders."
      },
      "ring": ".pane.list table.grid",
      "hold": 3.6
@@ -346,11 +342,12 @@
      "ring": null,
      "caption": null,
      "click": "a[href='#/admin/directory']",
+     "move": 0.7,
      "hold": 0.4
     },
     {
      "caption": {
-      "title": "Institution register",
+      "title": "Institutions",
       "sub": "AGB and URA codes, preferred channel and verification status per institution."
      },
      "ring": ".pane.list table.grid",
@@ -360,12 +357,13 @@
      "ring": null,
      "caption": null,
      "click": "a[href='#/admin/access']",
+     "move": 0.7,
      "hold": 0.4
     },
     {
      "caption": {
-      "title": "Access log",
-      "sub": "Access to patient data with user, action and legal basis. Exportable per patient."
+      "title": "Access Log",
+      "sub": "User, action and legal basis per access. Exportable per patient."
      },
      "ring": ".pane.detail dd:has-text('Explicit consent')",
      "hold": 3.8
@@ -373,7 +371,6 @@
     {
      "ring": null,
      "caption": null,
-     "rest": true,
      "hold": 0.2
     }
    ]
@@ -384,6 +381,7 @@
    "steps": [
     {
      "click": "a[href='#/clinic']",
+     "move": 0.9,
      "hold": 0.4
     },
     {
@@ -391,20 +389,23 @@
       "#dept",
       "Cardiology"
      ],
+     "move": 0.6,
      "hold": 0.3
     },
     {
      "click": ".side a:has-text('Vallenduuk')",
+     "move": 0.8,
      "hold": 0.4
     },
     {
      "click": ".pane.list tr:has-text('External laboratory report')",
+     "move": 0.8,
      "hold": 0.4
     },
     {
      "caption": {
-      "title": "Unit conversion on receipt",
-      "sub": "Reported value, conversion and LOINC code are shown with the result."
+      "title": "Conversion",
+      "sub": "Reported value, conversion and LOINC code shown with the result."
      },
      "ring": ".pane.detail dd:has-text('× 1000')",
      "hold": 3.6
@@ -413,24 +414,33 @@
      "ring": null,
      "caption": null,
      "click": ".pane.list tr:has-text('Transthoracic echocardiogram')",
+     "move": 0.8,
      "hold": 0.4
     },
     {
+     "point": ".pane.detail [data-act=confirm]",
+     "move": 0.8,
+     "hold": 0.1
+    },
+    {
      "caption": {
-      "title": "Values obtained by text recognition",
-      "sub": "Unverified until confirmed by a clinician against the source image."
+      "title": "Verify result",
+      "sub": "Read by text recognition. Unverified until checked against the source image."
      },
      "ring": ".pane.detail [data-act=confirm]",
      "hold": 3.6
     },
     {
-     "key": "v",
-     "hold": 0.8
+     "ring": null,
+     "caption": null,
+     "click": ".pane.detail [data-act=confirm]",
+     "move": 0.3,
+     "hold": 0.6
     },
     {
      "caption": {
       "title": "Verified",
-      "sub": "User and time are recorded with the result."
+      "sub": "User and time recorded with the result."
      },
      "ring": ".pane.detail dd:has-text('Verified against')",
      "hold": 3.0
@@ -448,12 +458,13 @@
    "steps": [
     {
      "click": ".pane.list tr:has-text('Troponin, point-of-care')",
-     "hold": 0.5
+     "move": 0.8,
+     "hold": 0.4
     },
     {
      "caption": {
-      "title": "Result not stored electronically",
-      "sub": "Point-of-care troponin, reported by the referring hospital by fax only."
+      "title": "Not stored",
+      "sub": "Point-of-care troponin, sent by the referring hospital by fax."
      },
      "ring": ".pane.detail dd:has-text('reported by fax')",
      "hold": 3.6
@@ -461,16 +472,17 @@
     {
      "ring": null,
      "caption": null,
-     "key": "r",
+     "click": ".pane.detail [data-act=request]",
+     "move": 0.8,
      "hold": 0.6
     },
     {
      "caption": {
       "title": "Result request",
-      "sub": "Through ZorgMail, Twiin or the regional platform. An upload link only where no network connection exists."
+      "sub": "Via ZorgMail, Twiin or the regional platform. Upload link only where no connection exists."
      },
      "ring": "#f-req select[name=ch0]",
-     "hold": 4.4
+     "hold": 4.2
     },
     {
      "ring": null,
@@ -479,6 +491,7 @@
       "#f-req select[name=ch0]",
       "Regional platform (search)"
      ],
+     "move": 0.7,
      "hold": 0.4
     },
     {
@@ -486,18 +499,19 @@
       "#rs-go",
       ".dlg button:has-text('Search')"
      ],
+     "move": 0.8,
      "hold": 1.4
     },
     {
      "caption": {
-      "title": "Regional platform query",
-      "sub": "Results published to the regional exchange are retrieved by BSN."
+      "title": "Regional platform search",
+      "sub": "Published results retrieved by BSN."
      },
      "ring": [
       ".dlg dd:has-text('found')",
       ".dlg .block:has(dt:text('Found'))"
      ],
-     "hold": 4.0
+     "hold": 3.6
     },
     {
      "ring": null,
@@ -506,12 +520,13 @@
       "#rs-import",
       ".dlg button:has-text('Import result')"
      ],
+     "move": 0.8,
      "hold": 0.5
     },
     {
      "caption": {
-      "title": "Imported as a structured result",
-      "sub": "Source and time of receipt are recorded."
+      "title": "Imported as structured result",
+      "sub": "Source and time of receipt recorded."
      },
      "ring": ".pane.detail table.grid",
      "hold": 3.2
@@ -519,15 +534,14 @@
     {
      "ring": null,
      "caption": {
-      "title": "Ready for regional exchange",
-      "sub": "As regional platforms take over transport between institutions, results still reach departments by fax, mail, scan and local databases. Those remain covered."
+      "title": "Alongside regional exchange",
+      "sub": "Regional platforms handle a growing share of transport between institutions. Results that still arrive by fax, mail, scan or local database are handled here too."
      },
      "hold": 6.5
     },
     {
      "ring": null,
      "caption": null,
-     "rest": true,
      "hold": 1.0
     }
    ]
