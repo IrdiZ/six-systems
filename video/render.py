@@ -112,8 +112,10 @@ class Rec:
         if "caption" in st:
             ov("caption", st["caption"], self.t)
         if "ring" in st:
-            r = st["ring"]  # a selector, a list (first match), or {"all": selector}: one ring around every match
-            ov("ring", isinstance(r, dict) and pg.locator(r["all"]).element_handles() or r and self.loc(r).element_handle(), self.t)
+            # a selector, a list (first match), {"all": selector} (one ring around every match), or {"each": [...]} (a ring per item)
+            one = lambda r: pg.locator(r["all"]).element_handles() if isinstance(r, dict) else self.loc(r).element_handle()
+            r = st["ring"]
+            ov("ring", r and ({"each": [one(x) for x in r["each"]]} if isinstance(r, dict) and "each" in r else one(r)), self.t)
         if "zoom" in st and live:
             z = st["zoom"]
             rect = isinstance(z, list) and all(isinstance(v, (int, float)) for v in z)

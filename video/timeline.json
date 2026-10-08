@@ -38,21 +38,19 @@
     },
     {
      "caption": {
-      "title": "Patient record",
-      "sub": "One record per patient, with documents from internal departments, referring hospitals and laboratories."
-     },
-     "ring": ".banner",
-     "hold": 3.0
-    },
-    {
-     "caption": {
-      "title": "Cardiology worklist",
-      "sub": "Patients of the department, each with counts of unverified results and results not received."
+      "title": "Patient record and worklist",
+      "sub": "The selected patient, and the patients of the department with counts of unverified results and results not received.",
+      "side": "right"
      },
      "ring": {
-      "all": ".side h3:not(.inbox), .side .sfilter, .side a[href*='/clinic/cardiology/P']"
+      "each": [
+       ".banner",
+       {
+        "all": ".side h3:not(.inbox), .side .sfilter, .side a[href*='/clinic/cardiology/P']"
+       }
+      ]
      },
-     "hold": 3.0
+     "hold": 3.6
     },
     {
      "caption": {

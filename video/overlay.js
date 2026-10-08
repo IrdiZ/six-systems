@@ -17,8 +17,8 @@
     #__ov { position: fixed; inset: 0; z-index: 2147483647; font-family: Geist, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
     #__ov .cur { position: absolute; left: 0; top: 0; width: 24px; height: 24px; margin: -2px 0 0 -3px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.35)); }
     #__ov .rip { position: absolute; border: 2px solid #1d6fa5; border-radius: 50%; }
-    #__ov .ring { position: absolute; border: 2.5px solid #1d6fa5; border-radius: 8px;
-      box-shadow: 0 0 0 4px rgba(255,255,255,.9), 0 0 0 9999px rgba(14,22,30,.3); } /* white keyline, then the dimmed screen */
+    #__ov .ring { position: absolute; border: 2.5px solid #1d6fa5; border-radius: 8px; box-shadow: 0 0 0 4px rgba(255,255,255,.9); } /* white keyline */
+    #__ov .dim { position: absolute; inset: 0; background: rgba(14,22,30,.3); } /* the dimmed screen, with a hole per ring */
     #__ov .cap { position: absolute; left: 0; top: 0; width: max-content; max-width: 290px; padding: 11px 15px 12px 14px; border-radius: 6px;
       background: #fff; color: #16202a; border: 1px solid #d3d9df; border-left: 3px solid #1d6fa5;
       box-shadow: 0 10px 28px rgba(15,23,30,.16), 0 1px 3px rgba(15,23,30,.08); }
@@ -52,9 +52,9 @@
   function mount() {
     const root = document.createElement("div");
     root.id = "__ov";
-    root.innerHTML = `<link rel="stylesheet" href="${FONT}"><style>${CSS}</style><div class="ring"><span class="n"></span></div><div class="rip"></div><div class="cap"><div class="t"><span class="n"></span><span class="tt"></span></div><div class="s"></div></div><div class="menu"></div><div class="key"></div><div class="card" style="display:none"></div><img class="cur" src="${window.__CURSOR || ""}">`;
+    root.innerHTML = `<link rel="stylesheet" href="${FONT}"><style>${CSS}</style><div class="dim"></div><div class="ring"><span class="n"></span></div><div class="ring r2"></div><div class="rip"></div><div class="cap"><div class="t"><span class="n"></span><span class="tt"></span></div><div class="s"></div></div><div class="menu"></div><div class="key"></div><div class="card" style="display:none"></div><img class="cur" src="${window.__CURSOR || ""}">`;
     document.documentElement.append(root); // outside <body>, so the zoom on <body> leaves the overlay alone
-    for (const k of ["ring", "rip", "cap", "menu", "key", "cur", "card"]) el[k] = root.querySelector("." + k);
+    for (const k of ["ring", "rip", "cap", "menu", "key", "cur", "card", "dim", "r2"]) el[k] = root.querySelector("." + k);
     el.t = el.cap.querySelector(".tt"), el.s = el.cap.querySelector(".s"), el.n = el.cap.querySelector(".n"), el.rn = el.ring.querySelector(".n");
     new MutationObserver(() => (S.dirty = true)).observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
   }
@@ -109,7 +109,7 @@
     move(x, y, t0, d, e) { S.cur = { a: curAt(t0), b: [x, y], t0, d, e }; busy(t0 + d); },
     ripple(x, y, t0) { S.rip = { x, y, t0 }; busy(t0 + 0.5); },
     ring(node, t0) {
-      if (!node && S.ring && ringG.last) S.ringOut = { t0, rect: ringG.last }; // fade out where it was, not a pop
+      if (!node && S.ring && S.rects) S.ringOut = { t0, rects: S.rects }; // fade out where it was, not a pop
       S.ring = node ? { node, t0, fresh: !S.ring } : null;
       busy(t0 + MOVE);
     },
@@ -189,22 +189,36 @@
       show(el.rip, rp >= 0 && rp < 1);
       if (rp < 1) { const R = 6 + 18 * E.out(rp); Object.assign(el.rip.style, { left: r.x - R + "px", top: r.y - R + "px", width: 2 * R + "px", height: 2 * R + "px", opacity: 0.7 * (1 - rp) }); }
 
-      // ring: fades in where it first appears, glides from one target to the next
-      const g = S.ring, n = g?.node && [].concat(g.node).every((e) => e?.isConnected) ? g.node : null;
-      let rr = null;
-      if (n) {
-        const live = ringRect(n);
-        if (ringG.node !== n) Object.assign(ringG, { node: n, t0: t, from: g.fresh || !ringG.last ? null : ringG.last }), busy(t + MOVE);
-        rr = ringG.last = glide(ringG, live, t);
-        const a = g.fresh ? prog(t, g.t0, 0.3, "out") : 1;
-        Object.assign(el.ring.style, { left: rr[0] + "px", top: rr[1] + "px", width: rr[2] + "px", height: rr[3] + "px", opacity: a });
+      // ring: fades in where it first appears, glides from one target to the next. {each: [a, b]} lights several targets
+      // at once; the screen is dimmed by one layer with a rounded hole per ring, so the rings never dim each other.
+      const g = S.ring, tg = g ? g.node?.each || [g.node] : [], ok = tg.length > 0 && tg.every((x) => [].concat(x).every((e) => e?.isConnected));
+      let rects = null, alpha = 0;
+      if (ok) {
+        if (tg.length === 1) {
+          const n = tg[0], live = ringRect(n);
+          if (ringG.node !== n) Object.assign(ringG, { node: n, t0: t, from: g.fresh || !ringG.last ? null : ringG.last }), busy(t + MOVE);
+          rects = [(ringG.last = glide(ringG, live, t))];
+        } else rects = tg.map(ringRect), Object.assign(ringG, { node: g.node, last: rects.at(-1), from: null });
+        alpha = g.fresh ? prog(t, g.t0, 0.3, "out") : 1;
+        S.ringOut = null;
       } else {
         ringG.node = ringG.last = null;
         const f = S.ringOut, fp = f ? (t - f.t0) / 0.3 : 1;
-        if (fp < 1) Object.assign(el.ring.style, { left: f.rect[0] + "px", top: f.rect[1] + "px", width: f.rect[2] + "px", height: f.rect[3] + "px", opacity: 1 - E.out(fp) });
+        if (fp < 1) rects = f.rects, alpha = 1 - E.out(fp);
       }
-      if (n) S.ringOut = null;
-      show(el.ring, !!n || (S.ringOut && t - S.ringOut.t0 < 0.3));
+      S.rects = ok ? rects : null;
+      const rr = ok ? rects.at(-1) : null; // the callout sits beside the last target
+      [el.ring, el.r2].forEach((e, i) => {
+        const r = rects?.[i];
+        show(e, !!r);
+        if (r) Object.assign(e.style, { left: r[0] + "px", top: r[1] + "px", width: r[2] + "px", height: r[3] + "px", opacity: alpha });
+      });
+      show(el.dim, !!rects);
+      if (rects) {
+        const R = 8, hole = ([x, y, w, h]) => `M${x + R} ${y}H${x + w - R}A${R} ${R} 0 0 1 ${x + w} ${y + R}V${y + h - R}A${R} ${R} 0 0 1 ${x + w - R} ${y + h}H${x + R}A${R} ${R} 0 0 1 ${x} ${y + h - R}V${y + R}A${R} ${R} 0 0 1 ${x + R} ${y}Z`;
+        el.dim.style.clipPath = `path(evenodd, "M0 0H${innerWidth}V${innerHeight}H0Z${rects.map(hole).join("")}")`;
+        el.dim.style.opacity = alpha;
+      }
       const num = (S.cap && !(S.old && t < S.old.t1) && S.cap.n) || "";
       if (el.rn.textContent !== String(num)) el.rn.textContent = num;
       if (rr) el.rn.style.top = el.rn.style.left = rr[1] < 16 ? "6px" : ""; // inside the ring when it touches the top edge
