@@ -1,0 +1,66 @@
+{
+ "code-unit-conversion": {
+  "duration": 4.18,
+  "bytes": 44990,
+  "poster_bytes": 34582,
+  "app": "docs/handover/index.html",
+  "digest": "0ce2ef9dba06fd2fe106cb53e3d5cc629170f846f94cd62fdfb0e1c31cce02ac",
+  "segment": "seg-clips-c59c56622cf64466.mp4"
+ },
+ "image-pdf-reading": {
+  "duration": 4.39,
+  "bytes": 63206,
+  "poster_bytes": 25366,
+  "app": "docs/handover/index.html",
+  "digest": "0ce2ef9dba06fd2fe106cb53e3d5cc629170f846f94cd62fdfb0e1c31cce02ac",
+  "segment": "seg-clips-5f27be54f75981d2.mp4"
+ },
+ "management-overview": {
+  "duration": 4.18,
+  "bytes": 47565,
+  "poster_bytes": 30040,
+  "app": "docs/handover/index.html",
+  "digest": "0ce2ef9dba06fd2fe106cb53e3d5cc629170f846f94cd62fdfb0e1c31cce02ac",
+  "segment": "seg-clips-b745694c34bf4cfe.mp4"
+ },
+ "missing-result-alert": {
+  "duration": 4.31,
+  "bytes": 44704,
+  "poster_bytes": 21392,
+  "app": "docs/handover/index.html",
+  "digest": "0ce2ef9dba06fd2fe106cb53e3d5cc629170f846f94cd62fdfb0e1c31cce02ac",
+  "segment": "seg-clips-256e78eaa1a3f903.mp4"
+ },
+ "patient-matching": {
+  "duration": 5.31,
+  "bytes": 58306,
+  "poster_bytes": 18558,
+  "app": "docs/handover/index.html",
+  "digest": "0ce2ef9dba06fd2fe106cb53e3d5cc629170f846f94cd62fdfb0e1c31cce02ac",
+  "segment": "seg-clips-4841827f20f09b3f.mp4"
+ },
+ "provenance": {
+  "duration": 4.68,
+  "bytes": 212741,
+  "poster_bytes": 19300,
+  "app": "docs/handover/index.html",
+  "digest": "0ce2ef9dba06fd2fe106cb53e3d5cc629170f846f94cd62fdfb0e1c31cce02ac",
+  "segment": "seg-clips-732a836f3a84767f.mp4"
+ },
+ "request-missing-result": {
+  "duration": 4.89,
+  "bytes": 110215,
+  "poster_bytes": 20816,
+  "app": "docs/handover/index.html",
+  "digest": "0ce2ef9dba06fd2fe106cb53e3d5cc629170f846f94cd62fdfb0e1c31cce02ac",
+  "segment": "seg-clips-00d7d1ea49222b59.mp4"
+ },
+ "research-export": {
+  "duration": 4.68,
+  "bytes": 236968,
+  "poster_bytes": 28060,
+  "app": "docs/index.html",
+  "digest": "829044a5331572f93ef0cfc693c9ea395f02dd058ef49bd554189313c61934be",
+  "segment": "seg-clips-gap-4e7cbf654d2e54aa.mp4"
+ }
+}
