@@ -149,12 +149,12 @@
       "sub": "The reply is filed to the record as a structured result, with its source."
      },
      "ring": ".pane.detail table.grid",
-     "hold": 3.4
+     "hold": 2.8
     },
     {
      "ring": null,
      "caption": null,
-     "hold": 0.4
+     "hold": 0.2
     }
    ]
   },
@@ -168,14 +168,14 @@
       "title": "Refer to any registered organisation"
      },
      "ring": "[data-act=send]",
-     "hold": 2.4
+     "hold": 1.6
     },
     {
      "ring": null,
      "caption": null,
      "click": "[data-act=send]",
-     "move": 0.6,
-     "hold": 0.6
+     "move": 0.5,
+     "hold": 0.4
     },
     {
      "menu": "#f-send select[name=to]",
