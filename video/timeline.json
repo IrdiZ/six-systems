@@ -269,6 +269,16 @@
      "hold": 0.4
     },
     {
+     "point": ".pane.detail .viewer .box",
+     "move": 0.7,
+     "hold": 0.9
+    },
+    {
+     "point": ".pane.detail table.grid tr:has-text('LV ejection fraction') td:nth-child(2)",
+     "move": 0.6,
+     "hold": 0.6
+    },
+    {
      "point": ".pane.detail [data-act=confirm]",
      "move": 0.6,
      "hold": 0.1
@@ -358,6 +368,18 @@
      },
      "ring": ".pane.detail dd:has-text('matched by fax number')",
      "hold": 3.2
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "point": ".pane.detail .viewer .box",
+     "move": 0.7,
+     "hold": 0.9
+    },
+    {
+     "point": "#i-val",
+     "move": 0.6,
+     "hold": 0.5
     },
     {
      "ring": null,
@@ -534,6 +556,38 @@
       "side": "below"
      },
      "hold": 3.8
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "click": "a[href='#/admin/recog']",
+     "move": 0.6,
+     "hold": 0.4
+    },
+    {
+     "caption": {
+      "title": "Text Recognition",
+      "sub": "Profiles per connection that read values from screen captures, PDFs and faxes.",
+      "at": "a[href='#/admin/recog']",
+      "side": "below"
+     },
+     "hold": 3.2
+    },
+    {
+     "ring": null,
+     "caption": null,
+     "menu": ".pane.detail select[data-recog-min]",
+     "walk": false,
+     "dur": 1.0,
+     "hold": 0.2
+    },
+    {
+     "caption": {
+      "title": "Every read",
+      "sub": "Unverified until a person checks it against the image."
+     },
+     "ring": ".pane.detail dd:has-text('Stays unverified')",
+     "hold": 3.0
     },
     {
      "ring": null,
