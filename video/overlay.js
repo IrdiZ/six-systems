@@ -198,7 +198,10 @@
           const n = tg[0], live = ringRect(n);
           if (ringG.node !== n) Object.assign(ringG, { node: n, t0: t, from: g.fresh || !ringG.last ? null : ringG.last }), busy(t + MOVE);
           rects = [(ringG.last = glide(ringG, live, t))];
-        } else rects = tg.map((x) => ringRect(x, 3)), // tight, so neighbouring areas never cross Object.assign(ringG, { node: g.node, last: rects.at(-1), from: null });
+        } else { // several targets: tight padding, so neighbouring areas never cross
+          rects = tg.map((x) => ringRect(x, 3));
+          Object.assign(ringG, { node: g.node, last: rects.at(-1), from: null });
+        }
         alpha = g.fresh ? prog(t, g.t0, 0.3, "out") : 1;
         S.ringOut = null;
       } else {
