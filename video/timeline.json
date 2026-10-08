@@ -119,7 +119,6 @@
       "title": "Audit trail",
       "sub": "Referral recorded with recipient, format, channel and acknowledgement."
      },
-     "ring": ".pane table.grid tr:has-text('Referral sent')",
      "hold": 4.0
     },
     {
@@ -162,47 +161,21 @@
     {
      "ring": null,
      "caption": null,
-     "select": [
-      "#dept",
-      "Nephrology"
-     ],
-     "move": 1.0,
-     "hold": 0.5
-    },
-    {
-     "click": ".side a:has-text('To file')",
-     "move": 0.8,
-     "hold": 0.4
-    },
-    {
-     "click": [
-      ".pane.list tr:has-text('No patient match')",
-      ".pane.list tr:has-text('Unmatched patient')"
-     ],
-     "move": 0.8,
-     "hold": 0.4
-    },
-    {
-     "caption": {
-      "title": "No patient match",
-      "sub": "No BSN; name and date of birth do not match. Held for manual matching. Source message kept."
-     },
-     "ring": ".pane.detail .block:has(h4:has-text('Resolution'))",
-     "hold": 4.6
-    },
-    {
-     "ring": null,
-     "caption": null,
-     "click": "[data-q-act=link]",
+     "click": ".pane.detail button:has-text('File to patient')",
      "move": 0.8,
      "hold": 0.5
     },
     {
+     "point": ".pane.list tr:has-text('Fax, 1 page')",
+     "move": 0.6,
+     "hold": 0.1
+    },
+    {
      "caption": {
-      "title": "Resolution",
-      "sub": "Linked to the patient record. The match is logged."
+      "title": "Filed",
+      "sub": "Filed to the patient record, with user and time."
      },
-     "ring": ".pane.detail .block:has(h4:has-text('Resolution'))",
+     "ring": ".pane.detail .block:has(h4:has-text('Filing'))",
      "hold": 3.4
     },
     {
@@ -226,7 +199,6 @@
       "title": "Overview",
       "sub": "Results per source and department, by receipt status. Fax senders listed per source."
      },
-     "ring": "tr:has-text('Point-of-care testing')",
      "hold": 4.4
     },
     {
@@ -265,7 +237,6 @@
       "title": "Department Databases",
       "sub": "Existing local registries are read in place. Data is not written back."
      },
-     "ring": ".pane.detail dd:has-text('Read-only')",
      "hold": 3.6
     },
     {
@@ -346,7 +317,6 @@
       "title": "Access Log",
       "sub": "User, action and legal basis per access. Exportable per patient."
      },
-     "ring": ".pane.detail dd:has-text('Explicit consent')",
      "hold": 3.8
     },
     {
