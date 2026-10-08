@@ -28,7 +28,7 @@ SECONDARY_CAPTURE = "1.2.840.10008.5.1.4.1.1.7"
 
 def write_hl7(path: Path, p: Patient, when: datetime, results: list[tuple[str, float]], msg_id: str) -> None:
     rows = [(FACTS[f]["loinc"], FACTS[f]["label"], value, FACTS[f]["unit"]) for f, value in results]
-    write_hl7_rows(path, p, when, rows, msg_id, "BEAKER", HOSPITAL_CODE, p.mrn)
+    write_hl7_rows(path, p, when, rows, msg_id, "LABSYS", HOSPITAL_CODE, p.mrn)
 
 
 def write_hl7_rows(path: Path, p: Patient, when: datetime, rows: list[tuple[str, str, float, str]], msg_id: str,

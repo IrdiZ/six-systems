@@ -10,12 +10,11 @@
     LOST: "Not received",
   };
   const STATUS_LONG = {
-    DATA: "structured, coded, right unit, right patient",
-    CONFLICT: "recovered after code, unit or identity repair",
-    PICTURE: "read off an image or out of a PDF",
-    LOST: "never archived, unlinkable, or unreadable",
+    DATA: "Usable on arrival: coded, right unit, right patient",
+    CONFLICT: "Usable after code, unit or identity repair",
+    PICTURE: "Only recoverable by reading an image or a PDF; needs checking",
+    LOST: "Never archived, not linkable to a patient, or unreadable",
   };
-  const LANES = ["ext_lab", "epic_lab", "echo", "radiology", "pathology", "offline"];
   // Timeline lanes follow a patient's care, so the set depends on the record; this fixes their order.
   const LANE_ORDER = ["gp", "nb_lab", "ext_lab", "epic_lab", "ecg", "echo", "cathlab", "radiology", "pft", "pathology", "mdo"];
   const PATHS = { chest_pain: "Chest pain", lung_nodule: "Lung nodule", kidney: "Kidney follow-up" };
@@ -30,15 +29,18 @@
     pathology: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2"/>',
     offline: '<path d="M4 4l16 16"/><path d="M8.5 8.5A5 5 0 0 0 12 17a5 5 0 0 0 3.5-1.5M12 7a5 5 0 0 1 5 5"/>',
   };
+  // Sources without their own glyph reuse the closest one.
+  Object.assign(ICONS, { gp: ICONS.ext_lab, nb_lab: ICONS.epic_lab, ecg: ICONS.echo, cathlab: ICONS.echo, pft: ICONS.radiology, mdo: ICONS.pathology });
 
   const $ = (s, el = document) => el.querySelector(s);
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   const cv = (s) => `var(--${s})`;
+  const n = (v) => Number(v).toLocaleString("en-GB");
   const pct = (a, b) => (b ? Math.round((100 * a) / b) : 0);
   const unit = (u) => (u || "").replace("umol/L", "µmol/L").replace("mL/min/1.73m2", "mL/min/1.73m²");
   const fmtNum = (v) => (typeof v === "number" ? (Number.isInteger(v) ? v : +v.toFixed(v < 10 ? 2 : 1)) : v);
   const fmtDate = (t, withYear) => {
-    if (!t) return "—";
+    if (!t) return "n/a";
     const d = new Date(t);
     return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", ...(withYear ? { year: "numeric" } : {}) });
   };
@@ -71,14 +73,14 @@
   // ------------------------------------------------------------ hero
   function renderStats() {
     const s = C.summary;
+    $("#lede-pct").textContent = Math.round(s.usable_pct);
     const cards = [
-      { v: s.archive_pct, c: "text", cap: "of the case is in the archive", sub: "Every file opens. The case looks complete.", vs: "what you see" },
-      { v: s.usable_pct, c: "DATA", cap: "is usable as data on arrival", sub: "Structured, coded, right unit, right patient.", vs: "what you can compute on" },
-      { v: s.recovered_pct, c: "CONFLICT", cap: "recovered by this pipeline", sub: `After code maps, unit maths, identity matching, OCR and PDF reading. ${s.wrong} wrong values.`, vs: "after repair" },
+      { v: s.archive_pct, c: "text", cap: "of facts have a file in the archive", sub: "Counted from file presence alone." },
+      { v: s.usable_pct, c: "DATA", cap: "are usable as data on arrival", sub: "Coded, right unit, right patient." },
+      { v: s.recovered_pct, c: "CONFLICT", cap: "recovered by the assembler", sub: `After code maps, unit conversion, patient matching, OCR and PDF reading. ${s.wrong} wrong values against the answer key. ${n(s.by_status.PICTURE)} of the recovered values come from images or PDFs and still need a human check.` },
     ];
     $("#stats").innerHTML = cards.map((k) => `
       <div class="stat" style="--c:${cv(k.c)}">
-        <div class="vs">${k.vs}</div>
         <div class="big" data-to="${k.v}">0<small>%</small></div>
         <div class="cap">${k.cap}</div>
         <div class="sub">${k.sub}</div>
@@ -97,10 +99,10 @@
   let waffleFilter = null;
   function renderWaffle() {
     const s = C.summary;
-    $("#waffle-sub").textContent = `${s.facts} facts across ${C.patients.length} patients. One square each. Hover to inspect, click to open.`;
+    $("#waffle-sub").textContent = `${n(s.facts)} facts across ${C.patients.length} patients. One square each. Hover to inspect, click to open. Click a status to filter.`;
     $("#legend").innerHTML = STATUSES.map((st) => `
-      <button class="lg" data-s="${st}" style="--c:${cv(st)};background:none;border:0;cursor:pointer">
-        <span class="sw"></span>${STATUS_TXT[st]} <b>${s.by_status[st]}</b></button>`).join("");
+      <button class="lg" data-s="${st}" aria-pressed="false" style="--c:${cv(st)}">
+        <span class="sw"></span>${STATUS_TXT[st]} <b>${n(s.by_status[st])}</b></button>`).join("");
     const sorted = [...ALL].sort((a, b) => STATUSES.indexOf(a.f.status) - STATUSES.indexOf(b.f.status) || a.p.pid.localeCompare(b.p.pid));
     const w = $("#waffle");
     w.innerHTML = sorted.map(({ f, p }, i) => `<div class="cell" data-i="${ALL.indexOf(sorted[i])}" style="--c:${cv(f.status)}"></div>`).join("");
@@ -125,32 +127,36 @@
       if (!b) return;
       waffleFilter = waffleFilter === b.dataset.s ? null : b.dataset.s;
       cells.forEach((c) => c.classList.toggle("dim", !!waffleFilter && ALL[+c.dataset.i].f.status !== waffleFilter));
+      document.querySelectorAll("#legend .lg").forEach((l) => {
+        const on = l.dataset.s === waffleFilter;
+        l.classList.toggle("on", on);
+        l.setAttribute("aria-pressed", on);
+      });
     });
   }
 
   // ------------------------------------------------------------ systems
   function renderSystems() {
-    const verdicts = {
-      DATA: "Arrives as data", CONFLICT: "Arrives, needs repair", PICTURE: "Arrives as pictures", LOST: "Never arrives",
-    };
-    $("#systems").innerHTML = LANES.map((k) => {
+    $("#systems").innerHTML = [...LANE_ORDER, "offline"].map((k) => {
       const facts = ALL.filter((x) => x.f.source === k).map((x) => x.f);
       const cnt = count(facts);
-      const top = STATUSES.reduce((a, s) => (cnt[s] > cnt[a] ? s : a), "DATA");
       const files = new Set(facts.map((f) => f.file).filter(Boolean)).size;
+      const fileTxt = k === "offline" ? "" : ` · ${files} ${files === 1 ? "file" : "files"}`;
       return `<div class="sys ${k === "offline" ? "offline" : ""}">
-        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</svg></div>
-        <div><h4>${esc(src(k).label)}</h4><div class="fmt">${esc(src(k).format)}</div></div>
-        <div class="who">${esc(src(k).system)}</div>
-        <div class="count"><b>${facts.length}</b>facts${k === "offline" ? "" : ` · ${files} files`}</div>
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[k] || ""}</svg></div>
+        <div class="who"><h4>${esc(src(k).label)}</h4><div class="fmt">${esc(src(k).format)}</div></div>
+        <div class="sysname">${esc(src(k).system)}</div>
+        <div class="count"><b>${n(facts.length)}</b>${facts.length === 1 ? "fact" : "facts"}${fileTxt}</div>
         ${barHTML(cnt)}
-        <div class="verdict" style="--c:${cv(top)}">${verdicts[top]}</div>
+        <div class="verdict">${pct(cnt.DATA, facts.length)}% usable on arrival</div>
       </div>`;
     }).join("");
   }
 
   // ------------------------------------------------------------ explorer
   const state = { pid: null, view: "archive" };
+  let hashOK = false; // write the URL hash only after the user picks a patient, or when it already named one
+  const syncHash = () => hashOK && history.replaceState(null, "", "#" + state.pid + (state.view === "computable" ? ":computable" : ""));
 
   function renderList() {
     const groups = Object.keys(PATHS);
@@ -167,11 +173,12 @@
     });
   }
 
-  function selectPatient(pid, scroll) {
+  function selectPatient(pid, scroll, auto) {
     state.pid = pid;
+    if (!auto) hashOK = true;
     document.querySelectorAll(".pitem").forEach((b) => b.classList.toggle("on", b.dataset.pid === pid));
     renderPatient();
-    history.replaceState(null, "", "#" + pid + (state.view === "computable" ? ":computable" : ""));
+    syncHash();
     if (scroll) $("#explorer-section").scrollIntoView({ behavior: "smooth" });
   }
 
@@ -202,7 +209,6 @@
             <span class="chip mono">${p.pid}</span>
             <span class="chip mono">BSN ${p.bsn}</span>
             <span class="chip mono">born ${fmtDate(p.dob, true)}</span>
-            <span class="chip">synthetic person</span>
           </div>
         </div>
         <div class="ring-box">${ring(cnt)}<div class="lbl"><b>${cnt.DATA} of ${p.facts.length} facts</b>usable as data on arrival</div></div>
@@ -214,10 +220,11 @@
       </div>
       <div class="view-note" id="view-note"></div>
       <div class="timeline" id="timeline"></div>
+      <p class="muted tl-hint">Scroll sideways to see the full timeline</p>
       <div id="below"></div>`;
     $("#toggle").addEventListener("click", (e) => {
       const b = e.target.closest("button");
-      if (b) setView(b.dataset.v);
+      if (b) { hashOK = true; setView(b.dataset.v); }
     });
     drawTimeline(p);
     setView(state.view, true);
@@ -225,7 +232,7 @@
 
   function setView(v, instant) {
     state.view = v;
-    history.replaceState(null, "", "#" + state.pid + (v === "computable" ? ":computable" : ""));
+    syncHash();
     const p = byPid[state.pid];
     const t = $("#toggle");
     t.classList.toggle("comp", v === "computable");
@@ -239,17 +246,19 @@
     $("#layer-comp").classList.toggle("off", v !== "computable");
     const cnt = count(p.facts);
     $("#view-note").innerHTML = v === "archive"
-      ? `<b>${p.documents.length} documents, every one present and openable.</b> From here, the case looks complete.`
-      : `<b>${cnt.DATA} of ${p.facts.length} facts are usable as data.</b> ${cnt.CONFLICT} needed repair, ${cnt.PICTURE} had to be read off a picture, ${cnt.LOST} never made it.`;
+      ? `<b>${p.documents.length} documents, all in the archive and openable.</b>`
+      : `<b>${cnt.DATA} of ${p.facts.length} facts arrived as structured data.</b> ${cnt.CONFLICT} were converted, ${cnt.PICTURE} are unverified readings of images or PDFs, ${cnt.LOST} were not received.`;
     $("#below").innerHTML = v === "archive" ? docsHTML(p) : factsHTML(p);
     bindBelow(p);
   }
 
   function drawTimeline(p) {
     const box = $("#timeline");
-    const W = Math.max(860, box.clientWidth), left = 200, right = 30, laneH = 56, top = 34;
+    const narrow = box.clientWidth < 700;
+    const W = Math.max(narrow ? 560 : 860, box.clientWidth), left = narrow ? 120 : 200, right = 30, laneH = 56, top = 34;
     const used = new Set([...p.facts.map((f) => f.source), ...p.documents.map((d) => d.source)]);
     const lanes = [...LANE_ORDER.filter((k) => used.has(k)), ...[...used].filter((k) => k !== "offline" && !LANE_ORDER.includes(k)), "offline"];
+    $(".tl-hint").style.display = W > box.clientWidth ? "block" : "none";
     const H = top + laneH * lanes.length + 14;
     const times = [...p.facts.map((f) => f.time), ...p.documents.map((d) => d.time)].filter(Boolean).map((t) => +new Date(t));
     let t0 = Math.min(...times), t1 = Math.max(...times);
@@ -263,8 +272,15 @@
     lanes.forEach((k, i) => {
       const y = top + laneH * i;
       g += `<rect x="0" y="${y}" width="${W}" height="${laneH}" fill="${i % 2 ? "var(--bg2)" : "transparent"}"/>`;
-      g += `<text class="lane-label" x="16" y="${y + laneH / 2 - 3}">${esc(src(k).label)}</text>`;
-      g += `<text class="lane-sub" x="16" y="${y + laneH / 2 + 12}">${esc(src(k).format)}</text>`;
+      if (narrow) {
+        // Narrow plot: wrap the label over two lines and leave out the format line.
+        const words = src(k).label.split(" "), lines = [""];
+        words.forEach((w) => { const l = lines[lines.length - 1]; if (l && (l + " " + w).length > 14) lines.push(w); else lines[lines.length - 1] = l ? l + " " + w : w; });
+        g += lines.map((t, j) => `<text class="lane-label" x="10" y="${y + laneH / 2 + 4 + (j - (lines.length - 1) / 2) * 14}">${esc(t)}</text>`).join("");
+      } else {
+        g += `<text class="lane-label" x="16" y="${y + laneH / 2 - 3}">${esc(src(k).label)}</text>`;
+        g += `<text class="lane-sub" x="16" y="${y + laneH / 2 + 12}">${esc(src(k).format)}</text>`;
+      }
     });
     g += `<line x1="${left - 10}" x2="${left - 10}" y1="${top}" y2="${H - 14}" stroke="var(--line)"/>`;
     for (let i = 0; i <= 6; i++) {
@@ -288,7 +304,7 @@
         <rect width="22" height="22" rx="3" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
         <path d="M6 11.5l3.2 3.2L16 8" fill="none" stroke="var(--DATA)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g></g>`;
     });
-    a += `<text x="${left + 10}" y="${laneY("offline") + 4}" fill="var(--dim)" font-size="12" font-style="italic">nothing here: the archive does not know what it never received</text>`;
+    a += `<text x="${left + 10}" y="${laneY("offline") + 4}" fill="var(--dim)" font-size="12" font-style="italic">No documents. Files that were never archived leave no trace here.</text>`;
 
     // computable layer: facts
     const groups = {};
@@ -318,7 +334,7 @@
       if (!m) return hideTip();
       if (m.dataset.doc) {
         const d = p.documents[+m.dataset.doc];
-        showTip(e, `<b>${esc(d.title)}</b>${fmtDate(d.time, true)} ${fmtTime(d.time)}<br><span class="muted">In the archive ✓</span>`);
+        showTip(e, `<b>${esc(d.title)}</b>${fmtDate(d.time, true)} ${fmtTime(d.time)}<br><span class="muted">In the archive</span>`);
       } else {
         const f = p.facts[+m.dataset.fact];
         showTip(e, `<b>${esc(fdef(f.fact).label)}</b>${valTxt(f)}<br>${chip(f.status)}`);
@@ -338,13 +354,13 @@
     : `${esc(fmtNum(f.got))} ${esc(unit(f.unit))}`);
 
   function thumbHTML(d) {
-    if (d.kind === "hl7" || d.kind === "edi") return `<div class="thumb"><pre>${esc((d.raw || "").split("\n").slice(0, 12).join("\n"))}</pre><span class="ok">✓ archived</span></div>`;
-    if (d.kind === "wsi") return `<div class="thumb"><div class="wsi">.isyntax<br>proprietary slide<br>4 KB opaque</div><span class="ok">✓ archived</span></div>`;
-    return `<div class="thumb ${d.kind === "pdf" ? "pdf" : ""}"><img loading="lazy" src="media/${esc(d.media)}" alt=""><span class="ok">✓ archived</span></div>`;
+    if (d.kind === "hl7" || d.kind === "edi") return `<div class="thumb"><pre>${esc((d.raw || "").split("\n").slice(0, 12).join("\n"))}</pre><span class="ok">In the archive</span></div>`;
+    if (d.kind === "wsi") return `<div class="thumb"><div class="wsi">.isyntax<br>proprietary slide<br>4 KB opaque</div><span class="ok">In the archive</span></div>`;
+    return `<div class="thumb ${d.kind === "pdf" ? "pdf" : ""}"><img loading="lazy" src="media/${esc(d.media)}" alt=""><span class="ok">In the archive</span></div>`;
   }
 
   function docsHTML(p) {
-    return `<div class="panel-title">What the archive shows · ${p.documents.length} documents</div>
+    return `<div class="panel-title">What the archive shows</div>
       <div class="docs">${p.documents.map((d, i) => `
         <button class="doc" data-doc="${i}">${thumbHTML(d)}
           <div class="meta"><div class="t">${esc(d.title)}</div><div class="d">${esc(src(d.source).label)} · ${fmtDate(d.time, true)}</div></div>
@@ -355,11 +371,11 @@
     return STATUSES.map((s) => {
       const list = p.facts.map((f, i) => ({ f, i })).filter((x) => x.f.status === s);
       if (!list.length) return "";
-      return `<div class="panel-title" style="color:${cv(s)}">${STATUS_TXT[s]} · ${list.length}</div>
+      return `<div class="panel-title sq" style="--c:${cv(s)}">${STATUS_TXT[s]} · ${n(list.length)}</div>
         <div class="facts">${list.map(({ f, i }) => `
           <button class="fact" data-fact="${i}" style="--c:${cv(s)}">
             <div class="top"><span class="lab">${esc(fdef(f.fact).label)}</span>${chip(s)}</div>
-            <div class="val ${f.status === "LOST" ? "none" : ""}">${f.status === "LOST" ? "—" : `${esc(fmtNum(f.got))}<small>${esc(unit(f.unit))}</small>`}</div>
+            <div class="val ${f.status === "LOST" ? "none" : ""}">${f.status === "LOST" ? "n/a" : `${esc(fmtNum(f.got))}<small>${esc(unit(f.unit))}</small>`}</div>
             <div class="why">${esc(src(f.source).label)} · ${fmtDate(f.time)} · ${esc(shortReason(f))}</div>
           </button>`).join("")}</div>`;
     }).join("");
@@ -408,7 +424,7 @@
   function openFact(f, p) {
     const d = fdef(f.fact);
     const truth = typeof f.truth_value === "number" ? fmtNum(f.truth_value) : f.truth_value;
-    const got = f.status === "LOST" || f.got == null ? "—" : fmtNum(f.got);
+    const got = f.status === "LOST" || f.got == null ? "none" : fmtNum(f.got);
     const isPdf = (f.file || "").endsWith(".pdf");
     openDrawer(`
       <div class="chips">${chip(f.status)}<span class="chip">${esc(src(f.source).label)}</span><span class="chip mono">${p.pid}</span></div>
@@ -417,7 +433,7 @@
       <div class="cmp">
         <div><div class="k">True value</div><div class="v">${esc(truth)} <small>${esc(unit(f.unit))}</small></div></div>
         <div class="arrow">→</div>
-        <div style="border-color:${cv(f.status)}"><div class="k">What the pipeline got</div><div class="v" style="color:${cv(f.status)}">${esc(got)} <small>${got === "—" ? "" : esc(unit(f.unit))}</small></div></div>
+        <div style="border-color:${cv(f.status)}"><div class="k">What the assembler got</div><div class="v" style="color:${cv(f.status)}">${esc(got)} <small>${got === "none" ? "" : esc(unit(f.unit))}</small></div></div>
       </div>
       <div class="reason" style="--c:${cv(f.status)}"><b>${STATUS_TXT[f.status]}.</b> ${esc(f.reason)}</div>
       ${f.steps && f.steps.length ? `<div class="dt">What it took</div><ul class="steps" style="--c:${cv(f.status)}">${f.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ul>` : ""}
@@ -436,15 +452,15 @@
       <div class="chips"><span class="chip">${esc(src(d.source).label)}</span><span class="chip mono">${esc(d.kind.toUpperCase())}</span><span class="st" style="--c:var(--DATA)">In the archive</span></div>
       <h3>${esc(d.title)}</h3>
       <div class="sub">${esc(p.name)} · ${fmtDate(d.time, true)} ${fmtTime(d.time)}</div>
-      <div class="dt">Linked to the patient by</div><div>${esc(d.link || "—")}</div>
+      <div class="dt">Linked to the patient by</div><div>${esc(d.link || "n/a")}</div>
       <div class="dt">The file</div>${body}
       <div class="file">${esc(d.file)}</div>
-      <div class="dt">What this file actually yields as data</div>
+      <div class="dt">Facts this file yields as data</div>
       <div class="facts" id="doc-facts">${facts.map(({ f, i }) => `
         <button class="fact" data-fact="${i}" style="--c:${cv(f.status)}">
           <div class="top"><span class="lab">${esc(fdef(f.fact).label)}</span>${chip(f.status)}</div>
-          <div class="val ${f.status === "LOST" ? "none" : ""}">${f.status === "LOST" ? "—" : `${esc(fmtNum(f.got))}<small>${esc(unit(f.unit))}</small>`}</div>
-        </button>`).join("") || '<span class="muted">nothing</span>'}</div>`);
+          <div class="val ${f.status === "LOST" ? "none" : ""}">${f.status === "LOST" ? "n/a" : `${esc(fmtNum(f.got))}<small>${esc(unit(f.unit))}</small>`}</div>
+        </button>`).join("") || '<span class="muted">none</span>'}</div>`);
     $("#doc-facts").onclick = (e) => {
       const b = e.target.closest("[data-fact]");
       if (b) openFact(p.facts[+b.dataset.fact], p);
@@ -454,9 +470,15 @@
   // ------------------------------------------------------------ heatmap
   function renderHeat() {
     const cols = FACT_ORDER;
+    const types = new Set(ALL.map((x) => x.f.fact)).size, inCols = ALL.filter((x) => cols.includes(x.f.fact)).length;
+    $("#map-sub").textContent = `Rows are patients. Columns are ${cols.length} of the ${types} fact types, chosen because they show the gap best (${n(inCols)} of ${n(C.summary.facts)} facts). Empty means that care path does not produce it.`;
+    $("#map-legend").innerHTML = `Each square is one fact. ${STATUSES.map(chip).join(" ")}`;
     let h = `<div></div>` + cols.map((k) => `<div class="hc">${esc(fdef(k).label)}</div>`).join("");
-    C.patients.forEach((p) => {
-      h += `<div class="hr" data-pid="${p.pid}">${esc(p.name)} <i>${PATHS[p.path]}</i></div>`;
+    const seen = new Set();
+    Object.keys(PATHS).flatMap((g) => C.patients.filter((p) => p.path === g)).forEach((p) => {
+      const first = !seen.has(p.path);
+      seen.add(p.path);
+      h += `<div class="hr" data-pid="${p.pid}">${esc(p.name)} ${first ? `<i>${PATHS[p.path]}</i>` : ""}</div>`;
       cols.forEach((k) => {
         const fs = p.facts.filter((f) => f.fact === k);
         if (!fs.length) { h += `<div class="hx empty"></div>`; return; }
@@ -472,7 +494,7 @@
       if (!c) return hideTip();
       const fs = byPid[c.dataset.pid].facts.filter((f) => f.fact === c.dataset.k);
       const cnt = count(fs);
-      showTip(e, `<b>${esc(fdef(c.dataset.k).label)}</b>${esc(byPid[c.dataset.pid].name)} · ${fs.length} value${fs.length > 1 ? "s" : ""}<br>${STATUSES.filter((s) => cnt[s]).map((s) => `${chip(s)} ${cnt[s]}`).join(" ")}`);
+      showTip(e, `<b>${esc(fdef(c.dataset.k).label)}</b>${esc(byPid[c.dataset.pid].name)} · ${fs.length > 1 ? `${fs.length} values, click opens the first` : "1 value"}<br>${STATUSES.filter((s) => cnt[s]).map((s) => `${chip(s)} ${cnt[s]}`).join(" ")}`);
     });
     el.addEventListener("mouseleave", hideTip);
     el.addEventListener("click", (e) => {
@@ -500,25 +522,25 @@
     $("#halves").innerHTML = `
       <div class="half" style="--c:var(--CONFLICT)">
         <h3>Exchange between organisations</h3>
-        <div class="q">Using the data in care, across the hospital's edges: neighbour hospitals, regional labs, GPs.</div>
+        <div class="q">Using data in care across organisations: neighbouring hospitals, regional labs, GPs.</div>
         <div class="rows">
-          <div class="row"><b>${extRepair}</b><span>regional-lab values that needed a code map and unit maths before they could sit next to the hospital's own</span></div>
-          <div class="row"><b>${noBsnFiles}</b><span>files that arrived without a BSN; ${C.unlinked.length} could not be linked at all, stranding ${stranded} values</span></div>
-          <div class="row"><b>${faxed}</b><span>emergency results that only ever existed on a fax</span></div>
+          <div class="row"><b>${n(extRepair)}</b><span>regional-lab values that needed a code map and unit conversion before they matched the hospital's own</span></div>
+          <div class="row"><b>${n(noBsnFiles)}</b><span>files that arrived without a BSN; ${C.unlinked.length} could not be linked to any patient, which stranded ${n(stranded)} values</span></div>
+          <div class="row"><b>${n(faxed)}</b><span>emergency results that existed only on a fax</span></div>
         </div>
-        <div class="owner">Owner: <b>clinical care, EHR integration team</b>. Forcing function: the EU EHDS exchange deadlines (2029, 2031).</div>
+        <div class="owner">Likely owner: <b>clinical care, EHR integration team</b>. Driver: EHDS dates for priority data (2029 for patient summaries and ePrescriptions, 2031 for medical images, lab results and discharge reports).</div>
       </div>
       <div class="half" style="--c:var(--PICTURE)">
         <h3>Getting data out for research</h3>
-        <div class="q">Using the archive as data: for studies, registries and AI, in bulk.</div>
+        <div class="q">Using the archive as data for studies, registries and AI, in bulk.</div>
         <div class="rows">
-          <div class="row"><b>${pictures}</b><span>measurements and findings that exist only as pixels or PDF text</span></div>
-          <div class="row"><b>${ocrFail}</b><span>values where even OCR could not read the screen capture</span></div>
-          <div class="row"><b>${raw + slides}</b><span>raw datasets never kept (${raw} CT raw acquisitions) or locked in a vendor format (${slides} slides)</span></div>
+          <div class="row"><b>${n(pictures)}</b><span>measurements and findings that exist only as pixels or PDF text</span></div>
+          <div class="row"><b>${n(ocrFail)}</b><span>values where OCR could not read the screen capture</span></div>
+          <div class="row"><b>${n(raw + slides)}</b><span>datasets never kept or locked in a vendor format: ${raw} CT raw acquisitions, ${slides} slides</span></div>
         </div>
-        <div class="owner">Owner: <b>research and AI, imaging research data platform</b>. Forcing function: EHDS secondary use.</div>
+        <div class="owner">Likely owner: <b>research and AI, imaging research data platform</b>. Driver: EHDS rules for secondary use.</div>
       </div>
-      <div class="ask" style="grid-column:1/-1">Which half hurts more in practice?<span>That is the question this prototype exists to ask.</span></div>`;
+      <p class="open-q">Open question: which of the two problems costs more in practice. The prototype is built to compare them.</p>`;
   }
 
   // ------------------------------------------------------------ export
@@ -538,13 +560,13 @@
     $("#export").innerHTML = `
       <div class="xrow">
         <button class="btn" id="run-export">Run research export</button>
-        <span class="muted">${usable.length} recovered facts from ${C.patients.length} patients → CSV + FHIR bundle</span>
+        <span class="muted">${n(usable.length)} recovered facts from ${C.patients.length} patients → CSV + FHIR bundle</span>
       </div>
       <div class="pipeline">
-        <div class="pstep" data-k="0"><b>1 · Select</b><span>only facts recovered correctly</span></div>
-        <div class="pstep" data-k="1"><b>2 · Pseudonymise</b><span>BSN → HMAC-SHA256, random salt, never stored</span></div>
-        <div class="pstep" data-k="2"><b>3 · Shift dates</b><span>±30 days per patient, intervals kept</span></div>
-        <div class="pstep" data-k="3"><b>4 · Leak check</b><span>scan output for every BSN, name, birth date, hospital number</span></div>
+        <div class="pstep" data-k="0"><b>Select</b><span>only facts recovered correctly</span></div>
+        <div class="pstep" data-k="1"><b>Pseudonymise</b><span>BSN → HMAC-SHA256, random salt, never stored (in this demo)</span></div>
+        <div class="pstep" data-k="2"><b>Shift dates</b><span>±30 days per patient, intervals kept</span></div>
+        <div class="pstep" data-k="3"><b>Leak check</b><span>scan output for every BSN, name, birth date, hospital number</span></div>
       </div>
       <div id="export-out"></div>`;
     $("#run-export").onclick = () => runExport(usable);
@@ -588,7 +610,7 @@
     const url = (s, type) => URL.createObjectURL(new Blob([s], { type }));
     $("#export-out").innerHTML = `
       <div class="xrow" style="justify-content:space-between;margin-bottom:6px">
-        <span class="leak" style="color:${leaks.length ? "var(--LOST)" : "var(--DATA)"}">${leaks.length ? `✕ ${leaks.length} identifiers leaked` : `✓ Leak check passed: 0 of ${needles.length} identifiers found`}</span>
+        <span class="leak" style="color:${leaks.length ? "var(--LOST)" : "var(--DATA)"}">${leaks.length ? `Leak check failed. ${leaks.length} identifiers appear in the output.` : `Leak check passed. None of the ${needles.length} identifiers appear in the output.`}</span>
         <span class="xrow">
           <a class="btn ghost" download="six-systems-research.csv" href="${url(csv, "text/csv")}">Download CSV</a>
           <a class="btn ghost" download="six-systems-observations.fhir.json" href="${url(fhir, "application/json")}">Download FHIR bundle</a>
@@ -596,7 +618,7 @@
       </div>
       <table class="xtable"><thead><tr>${cols.map((c) => `<th>${c}</th>`).join("")}</tr></thead>
       <tbody>${rows.slice(0, 8).map((r) => `<tr>${cols.map((c) => `<td>${esc(fmtNum(r[c]))}</td>`).join("")}</tr>`).join("")}</tbody></table>
-      <p class="muted" style="font-size:13px;margin:12px 0 0">Showing 8 of ${rows.length} rows. The Python build also de-identifies the DICOM files (tags blanked, dates shifted, burned-in name banner masked) and runs the same leak check.</p>`;
+      <p class="muted" style="font-size:13px;margin:12px 0 0">Showing 8 of ${n(rows.length)} rows. The Python build also de-identifies DICOM files (tags blanked, dates shifted, burned-in name banner masked) and runs the same leak check.</p>`;
   }
 
   // ------------------------------------------------------------ unlinked + footer
@@ -605,13 +627,13 @@
       <div class="unl">
         <div>
           <span class="st" style="--c:var(--LOST)">Unlinked</span>
-          <h4 style="margin-top:10px">${esc(u.title)} from ${esc(src(u.source).label.toLowerCase())}</h4>
+          <h4 style="margin-top:10px">${esc(u.title)}</h4>
           <p class="muted" style="font-size:14px">Addressed to <b style="color:var(--text)">${esc(u.who)}</b>, received ${fmtDate(u.time, true)}.</p>
-          <p style="font-size:14px">${esc(u.reason)}. The birth date on the file does not match the hospital's record, and there is no BSN to fall back on. So the results sit in an inbox, attached to no one, until a person notices.</p>
+          <p style="font-size:14px">${esc(u.reason)}. The file cannot be matched, so the results wait in an inbox until a person notices.</p>
         </div>
         <pre>${esc(u.raw || u.excerpt)}</pre>
       </div>`).join("") || '<p class="muted">None this run.</p>';
-    $("#foot-meta").innerHTML = `Generated ${esc(C.generated.replace("T", " "))}<br>${C.patients.length} synthetic patients · ${C.summary.facts} facts<br><a href="${REPO}">Source on GitHub →</a>`;
+    $("#foot-meta").innerHTML = `Generated ${esc(C.generated.replace("T", " "))}<br>${C.patients.length} synthetic patients · ${n(C.summary.facts)} facts<br><a href="${REPO}">Source on GitHub →</a>`;
   }
 
   // ------------------------------------------------------------ boot
@@ -626,7 +648,8 @@
   // deep link: #P004 or #P004:computable
   const [hp, hv] = location.hash.slice(1).split(":");
   if (hv === "computable") state.view = "computable";
-  selectPatient(byPid[hp] ? hp : C.patients[0].pid);
+  hashOK = !!byPid[hp];
+  selectPatient(byPid[hp] ? hp : C.patients[0].pid, !!byPid[hp], true);
   addEventListener("hashchange", () => {
     const [pid, view] = location.hash.slice(1).split(":");
     if (!byPid[pid]) return;
@@ -634,5 +657,9 @@
     selectPatient(pid);
   });
   let rt;
-  addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => state.pid && renderPatient(), 200); });
+  let lastW = innerWidth;
+  addEventListener("resize", () => {
+    clearTimeout(rt);
+    rt = setTimeout(() => { if (innerWidth !== lastW) { lastW = innerWidth; if (state.pid) renderPatient(); } }, 200);
+  });
 })();
