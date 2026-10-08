@@ -24,7 +24,8 @@ def main() -> None:
     for p in cases["patients"]:
         for d in p["documents"]:
             if d["kind"] in ("hl7", "edi"):
-                d["raw"] = (ROOT / d["file"]).read_bytes().decode().replace("\r", "\n").strip()
+                # CRLF comes from Windows checkouts, bare CR from HL7 segment separators.
+                d["raw"] = (ROOT / d["file"]).read_bytes().decode().replace("\r\n", "\n").replace("\r", "\n").strip()
     for u in cases["unlinked"]:
         u["raw"] = (ROOT / u["file"]).read_text().strip()
 
