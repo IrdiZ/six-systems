@@ -16,6 +16,8 @@
     LOST: "never archived, unlinkable, or unreadable",
   };
   const LANES = ["ext_lab", "epic_lab", "echo", "radiology", "pathology", "offline"];
+  // Timeline lanes follow a patient's care, so the set depends on the record; this fixes their order.
+  const LANE_ORDER = ["gp", "nb_lab", "ext_lab", "epic_lab", "ecg", "echo", "cathlab", "radiology", "pft", "pathology", "mdo"];
   const PATHS = { chest_pain: "Chest pain", lung_nodule: "Lung nodule", kidney: "Kidney follow-up" };
   const FACT_ORDER = ["troponin_poc", "troponin", "creatinine", "hb", "egfr", "glucose", "lvef", "ivs_thickness",
     "lv_diameter", "ct_exam", "ct_raw_data", "calcium_score", "nodule_size", "path_diagnosis", "tumour_size",
@@ -246,17 +248,19 @@
   function drawTimeline(p) {
     const box = $("#timeline");
     const W = Math.max(860, box.clientWidth), left = 200, right = 30, laneH = 56, top = 34;
-    const H = top + laneH * LANES.length + 14;
+    const used = new Set([...p.facts.map((f) => f.source), ...p.documents.map((d) => d.source)]);
+    const lanes = [...LANE_ORDER.filter((k) => used.has(k)), ...[...used].filter((k) => k !== "offline" && !LANE_ORDER.includes(k)), "offline"];
+    const H = top + laneH * lanes.length + 14;
     const times = [...p.facts.map((f) => f.time), ...p.documents.map((d) => d.time)].filter(Boolean).map((t) => +new Date(t));
     let t0 = Math.min(...times), t1 = Math.max(...times);
     const pad = Math.max((t1 - t0) * 0.06, 3600e3 * 2);
     t0 -= pad; t1 += pad;
     const x = (t) => left + ((+new Date(t) - t0) / (t1 - t0)) * (W - left - right);
-    const laneY = (k) => top + laneH * LANES.indexOf(k) + laneH / 2;
+    const laneY = (k) => top + laneH * lanes.indexOf(k) + laneH / 2;
     const short = t1 - t0 < 6 * 864e5;
 
     let g = "";
-    LANES.forEach((k, i) => {
+    lanes.forEach((k, i) => {
       const y = top + laneH * i;
       g += `<rect x="0" y="${y}" width="${W}" height="${laneH}" fill="${i % 2 ? "var(--bg2)" : "transparent"}"/>`;
       g += `<text class="lane-label" x="16" y="${y + laneH / 2 - 3}">${esc(src(k).label)}</text>`;
@@ -277,8 +281,9 @@
       placed[lane] = placed[lane] || [];
       const near = placed[lane].filter((v) => Math.abs(v - xx) < 26).length;
       placed[lane].push(xx);
-      const yy = laneY(lane) + (near ? (near % 2 ? -1 : 1) * Math.ceil(near / 2) * 13 : 0);
-      a += `<g class="mk" data-doc="${i}" transform="translate(${xx - 11},${yy - 11})">
+      // Documents at the same moment fill a 3-row grid (middle, top, bottom), then a new column.
+      const yy = laneY(lane) + [0, -14, 14][near % 3], dx = Math.floor(near / 3) * 26;
+      a += `<g class="mk" data-doc="${i}" transform="translate(${xx - 11 + dx},${yy - 11})">
         <rect width="22" height="22" rx="3" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
         <path d="M6 11.5l3.2 3.2L16 8" fill="none" stroke="var(--DATA)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g>`;
     });
@@ -292,10 +297,13 @@
     });
     let c = "";
     Object.values(groups).forEach((idxs) => {
+      // Same-time results stack in columns of up to 3, so a full lab panel stays a compact block.
+      const cols = Math.ceil(idxs.length / 3), rows = Math.min(3, idxs.length);
       idxs.forEach((i, j) => {
-        const f = p.facts[i], xx = x(f.time) + (j - (idxs.length - 1) / 2) * 15, yy = laneY(f.source);
+        const col = Math.floor(j / 3), row = j % 3;
+        const f = p.facts[i], xx = x(f.time) + (col - (cols - 1) / 2) * 15, yy = laneY(f.source) + (row - (rows - 1) / 2) * 15;
         const lost = f.status === "LOST";
-        c += `<circle class="mk" data-fact="${i}" cx="${xx}" cy="${yy}" r="${lost ? 6.5 : 7}"
+        c += `<circle class="mk" data-fact="${i}" cx="${xx}" cy="${yy}" r="${lost ? 5.5 : 6.5}"
           fill="${lost ? "var(--surface)" : cv(f.status)}" stroke="${cv(f.status)}" stroke-width="${lost ? 2 : 0}"
           ${lost ? 'stroke-dasharray="3 2.5"' : ""}/>`;
       });
@@ -618,6 +626,12 @@
   const [hp, hv] = location.hash.slice(1).split(":");
   if (hv === "computable") state.view = "computable";
   selectPatient(byPid[hp] ? hp : C.patients[0].pid);
+  addEventListener("hashchange", () => {
+    const [pid, view] = location.hash.slice(1).split(":");
+    if (!byPid[pid]) return;
+    state.view = view === "computable" ? "computable" : "archive";
+    selectPatient(pid);
+  });
   let rt;
   addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => state.pid && renderPatient(), 200); });
 })();
