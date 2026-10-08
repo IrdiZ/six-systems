@@ -1903,11 +1903,11 @@ const ADMIN = {
   inbound: { label: "Received" },
   outbound: { label: "Sent" },
   mapping: { label: "Code and Unit Conversion" },
-  recog: { label: "Text Recognition" },
   sources: { label: "Department Databases" },
   channels: { label: "Connections" },
   directory: { label: "Institutions" },
   access: { label: "Access Log" },
+  recog: { label: "Text Recognition" },
 };
 
 function renderAdmin(tab, key) {
