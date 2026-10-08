@@ -174,13 +174,13 @@ def to_local(fact: str, value: float) -> float:
 # Six source systems, as the viewer shows them.
 SOURCES = {
     "epic_lab":  {"label": "Internal lab",        "system": "EHR lab module (Epic Beaker-like)", "format": "HL7v2 ORU^R01"},
-    "ext_lab":   {"label": "Regional lab",        "system": "Neighbour hospital / regional lab", "format": "EDIFACT-style MEDLAB"},
+    "ext_lab":   {"label": "Regional lab",        "system": "Neighbouring hospital / regional lab", "format": "EDIFACT-style MEDLAB"},
     "radiology": {"label": "Radiology",           "system": "Imaging archive (Sectra-like PACS)", "format": "DICOM + PDF report"},
     "echo":      {"label": "Echo / cardiology",   "system": "Ultrasound device into the PACS",   "format": "DICOM Secondary Capture"},
     "pathology": {"label": "Pathology",           "system": "Shared regional pathology lab",     "format": "PDF + proprietary slide"},
     "offline":   {"label": "Never archived",      "system": "Fax, scanner memory, paper",        "format": "none"},
     "gp":        {"label": "General practice",    "system": "GP information system (HIS)",       "format": "HIS export, NHG Tabel 45"},
-    "nb_lab":    {"label": "Referring hospital lab", "system": "Neighbour hospital LIS",          "format": "HL7v2 ORU^R01"},
+    "nb_lab":    {"label": "Referring hospital lab", "system": "Neighbouring hospital LIS",          "format": "HL7v2 ORU^R01"},
     "pft":       {"label": "Lung function",       "system": "Pulmonary function lab",            "format": "PDF report"},
     "cathlab":   {"label": "Catheterisation lab", "system": "Cardiology reporting system",       "format": "PDF report"},
     "ecg":       {"label": "ECG",                 "system": "ECG management system",             "format": "PDF report"},
