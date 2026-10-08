@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>One Patient, Six Systems</title>
-<meta name="description" content="Simulated hospital departments hand over data in their native formats. The archive shows 97% of the case; only about half of it is usable as data.">
+<meta name="description" content="Simulated hospital departments hand over data in their native formats. The archive holds 97% of the facts; only 56% are usable as data.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&text=0123456789&display=swap">
@@ -14,7 +14,7 @@
 <body>
 
 <header id="top">
-  <a class="brand" href="index.html">DEMO</a>
+  <a class="brand" href="index.html">Six Systems</a>
   <nav>
     <a href="explained.html">Explained</a>
     <a class="on" href="index.html">The gap</a>
@@ -24,9 +24,8 @@
 
 <header class="hero">
   <div class="wrap">
-    <div class="eyebrow"><span class="pulse"></span>Synthetic data · health-data interoperability prototype</div>
     <h1>One Patient, <span class="grad">Six Systems</span></h1>
-    <p class="lede">Forty synthetic patients move through a Dutch academic hospital, a neighbouring hospital, a regional lab and a shared pathology lab. Every department hands over data in its own native format. On screen, the case looks complete. <strong>Underneath, much of it is not data.</strong></p>
+    <p class="lede">Forty synthetic patients move through a Dutch academic hospital, a neighbouring hospital, a regional lab and a shared pathology lab. Each department hands over data in its own format. In the archive every file opens, so the case looks complete. Only <span id="lede-pct">56</span>% of the facts in those files are available as data.</p>
 
     <p style="margin:-18px 0 30px"><a class="btn ghost" href="explained.html">New here? Read what this is, in plain language →</a></p>
 
@@ -49,22 +48,16 @@
 <main>
   <section class="wrap" id="systems-section">
     <div class="section-head">
-      <span class="num">01</span>
-      <div>
-        <h2>Six systems, six formats</h2>
-        <p class="muted">Each tile is one source. The bar shows what became of the facts it carried.</p>
-      </div>
+      <h2>The sources and what they deliver</h2>
+      <p class="muted">Each tile is one source. The bar shows what became of the facts it carried.</p>
     </div>
     <div class="systems" id="systems"></div>
   </section>
 
   <section class="wrap" id="explorer-section">
     <div class="section-head">
-      <span class="num">02</span>
-      <div>
-        <h2>Open a patient</h2>
-        <p class="muted">Flip between what the archive shows and what you can actually compute on. Click anything to see where it came from.</p>
-      </div>
+      <h2>Open a patient</h2>
+      <p class="muted">Flip between what the archive shows and what you can compute on. Click anything to see where it came from.</p>
     </div>
     <div class="explorer">
       <aside class="plist" id="plist"></aside>
@@ -74,44 +67,33 @@
 
   <section class="wrap" id="map-section">
     <div class="section-head">
-      <span class="num">03</span>
-      <div>
-        <h2>Coverage map</h2>
-        <p class="muted">Rows are patients, columns are the facts a care path produces. Empty means that care path never produces it.</p>
-      </div>
+      <h2>Coverage map</h2>
+      <p class="muted" id="map-sub"></p>
     </div>
+    <div class="map-legend" id="map-legend"></div>
     <div class="heat-wrap"><div class="heat" id="heat"></div></div>
   </section>
 
   <section class="wrap" id="halves-section">
     <div class="section-head">
-      <span class="num">04</span>
-      <div>
-        <h2>Two halves of one problem</h2>
-        <p class="muted">The same gap shows up in two places, with different owners and different fixes.</p>
-      </div>
+      <h2>Exchange between organisations and research export</h2>
+      <p class="muted">The same gap appears in two places, with different owners and different fixes.</p>
     </div>
     <div class="halves" id="halves"></div>
   </section>
 
   <section class="wrap" id="export-section">
     <div class="section-head">
-      <span class="num">05</span>
-      <div>
-        <h2>One-click research export</h2>
-        <p class="muted">Today this is a manual job, redone for every study. Here: pseudonymised, date-shifted, checked for leaks, in your browser.</p>
-      </div>
+      <h2>One-click research export</h2>
+      <p class="muted">In many hospitals this is a manual job, redone for each study. Here the export runs in your browser: pseudonymised, date-shifted and leak-checked.</p>
     </div>
     <div class="export" id="export"></div>
   </section>
 
   <section class="wrap" id="unlinked-section">
     <div class="section-head">
-      <span class="num">06</span>
-      <div>
-        <h2>The inbox nobody owns</h2>
-        <p class="muted">Files that arrived but could not be tied to any patient.</p>
-      </div>
+      <h2>Files that could not be linked to a patient</h2>
+      <p class="muted">These files arrived at the hospital. No patient record matched them.</p>
     </div>
     <div id="unlinked"></div>
   </section>
@@ -120,11 +102,11 @@
 <footer class="wrap foot">
   <div>
     <h4>How this works</h4>
-    <p>A simulator writes each department's files in its native format (HL7v2, EDIFACT-style lab files, DICOM CT, DICOM screen captures, PDF reports, a proprietary slide file) and a hidden answer key. An assembler reads the files, links them to patients, harmonises codes and units, reads numbers out of images and PDFs, and is then scored against the answer key it never saw.</p>
+    <p>A simulator writes each department's files in its native format (HL7v2, EDIFACT-style lab files, DICOM, PDF reports, a proprietary slide file) and a hidden answer key. An assembler reads the files, links them to patients, harmonises codes and units, and reads numbers out of images and PDFs. The answer key then scores the result. The assembler never sees it.</p>
   </div>
   <div>
-    <h4>Honest limits</h4>
-    <p>All data is synthetic; all organisations are fictional. File formats are simplified, realistic in shape, not certified. OCR succeeds this often only because we generated clean images. This shows the shape of the problem, not any hospital's real data flows. Not a medical device.</p>
+    <h4>Limits</h4>
+    <p>All data is synthetic and all organisations are fictional. File formats are simplified: realistic in shape, not certified. OCR works here because the images are clean. This is not a medical device.</p>
   </div>
   <div class="foot-meta" id="foot-meta"></div>
 </footer>
