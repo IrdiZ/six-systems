@@ -365,13 +365,15 @@
      "ring": null,
      "caption": null,
      "point": ".pane.detail .viewer .box",
+     "dx": 40,
+     "dy": -20,
      "move": 0.7,
      "hold": 0.9
     },
     {
-     "point": "#i-val",
+     "point": "#i-pid",
      "move": 0.6,
-     "hold": 0.5
+     "hold": 0.6
     },
     {
      "ring": null,

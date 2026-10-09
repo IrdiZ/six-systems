@@ -143,7 +143,7 @@ class Rec:
             self.settle()
         if "point" in st:  # the cursor glides to an element without clicking
             b = self.loc(st["point"]).bounding_box()
-            self.pos = (b["x"] + min(b["width"] / 2, 60), b["y"] + b["height"] / 2)
+            self.pos = (b["x"] + min(b["width"] / 2, 60) + st.get("dx", 0), b["y"] + b["height"] / 2 + st.get("dy", 0))  # dx, dy: a spot beside it (text inside an image)
             if live:
                 ov("move", *self.pos, self.t, st.get("move", 0.7), "inOut")
                 self.frames(st.get("move", 0.7))
