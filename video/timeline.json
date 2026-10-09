@@ -589,22 +589,13 @@
      "hold": 0.6
     },
     {
-     "mark": "close",
-     "card": {
-      "light": true,
-      "kicker": "Regional exchange",
-      "title": "Alongside the <em>regional platform.</em>",
-      "sub": "Regional platforms handle a growing share of transport between institutions. Results that still arrive by fax, mail, scan or local database are handled here too."
-     },
-     "hold": 5.6
-    },
-    {
      "card": {
       "kicker": "Prototype",
       "title": "Synthetic data. <em>Fictional organisations.</em>",
       "sub": "github.com/IrdiZ/six-systems"
      },
-     "hold": 3.2
+     "hold": 3.2,
+     "mark": "close"
     }
    ]
   }
