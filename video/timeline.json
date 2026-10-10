@@ -171,7 +171,7 @@
       "title": "Refer to any registered organisation"
      },
      "ring": "[data-act=send]",
-     "hold": 1.6
+     "hold": 1.2
     },
     {
      "ring": null,
@@ -212,15 +212,12 @@
     {
      "scroll": "#f-send .body",
      "by": 600,
-     "dur": 0.8,
-     "hold": 1.6
-    },
-    {
-     "hold": 3.0
+     "dur": 0.7,
+     "hold": 0.8
     },
     {
      "click": "#f-send button.primary",
-     "move": 0.6,
+     "move": 0.5,
      "hold": 0.8
     }
    ]
