@@ -395,7 +395,7 @@
      "mark": "management",
      "card": {
       "kicker": "Management",
-      "title": "Configuration <em>and oversight.</em>",
+      "title": "Data <em>management.</em>",
       "sub": "Results per source, code and unit mappings, connections, institutions, access and text recognition."
      },
      "hold": 2.8
@@ -437,9 +437,10 @@
     {
      "caption": {
       "title": "Code and Unit Conversion",
-      "sub": "Per sender, to LOINC and UCUM. Reviewed and versioned; original values kept."
+      "sub": "Per sender, to LOINC and UCUM. Reviewed and versioned; original values kept.",
+      "at": "a[href='#/admin/mapping']",
+      "side": "below"
      },
-     "ring": ".pane.list tr:has-text('TNTHS')",
      "hold": 3.6
     },
     {
