@@ -104,7 +104,7 @@ Videos need Playwright and ffmpeg. See [video/README.md](video/README.md).
 
 ## License
 
-Copyright 2026 Irdi Zeneli and Danilo (github.com/danilosolciaa).
+Copyright 2026 Irdi Zeneli and Danilo Solcia.
 
 This project is under the [PolyForm Noncommercial License 1.0.0](LICENSE.md). You may read, run and change the code for
 noncommercial purposes, such as study, research and personal projects. You may not use it for a commercial purpose.
