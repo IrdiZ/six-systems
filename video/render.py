@@ -63,6 +63,7 @@ class Rec:
         self.f = self.shots = self.force = 0
         self.debt, self.jpg = 0.0, None
         self.marks = []  # [label, seconds into the scene]: timecodes for the voiceover script
+        self.pos = None  # last cursor position, kept through the off-camera replay
 
     t = property(lambda self: self.f / self.fps)
 
@@ -109,9 +110,13 @@ class Rec:
             pg.evaluate("h => (location.hash = h)", st["route"])
             self.settle()
         if "caption" in st:
-            ov("caption", st["caption"], self.t)
+            c = st["caption"]  # {"at": selector} puts a caption without a ring beside that element
+            ov("caption", c, self.t, isinstance(c, dict) and c.get("at") and self.loc(c["at"]).element_handle() or None)
         if "ring" in st:
-            ov("ring", st["ring"] and self.loc(st["ring"]).element_handle(), self.t)
+            # a selector, a list (first match), {"all": selector} (one ring around every match), or {"each": [...]} (a ring per item)
+            one = lambda r: pg.locator(r["all"]).element_handles() if isinstance(r, dict) else self.loc(r).element_handle()
+            r = st["ring"]
+            ov("ring", r and ({"each": [one(x) for x in r["each"]]} if isinstance(r, dict) and "each" in r else one(r)), self.t)
         if "zoom" in st and live:
             z = st["zoom"]
             rect = isinstance(z, list) and all(isinstance(v, (int, float)) for v in z)
@@ -133,8 +138,28 @@ class Rec:
                 ov("move", x, y, self.t, st.get("move", 0.7), "inOut")
                 self.frames(st.get("move", 0.7))
             pg.mouse.click(x, y)
+            self.pos = (x, y)
             ov("ripple", x, y, self.t)
             self.settle()
+        if "point" in st:  # the cursor glides to an element without clicking
+            b = self.loc(st["point"]).bounding_box()
+            self.pos = (b["x"] + min(b["width"] / 2, 60) + st.get("dx", 0), b["y"] + b["height"] / 2 + st.get("dy", 0))  # dx, dy: a spot beside it (text inside an image)
+            if live:
+                ov("move", *self.pos, self.t, st.get("move", 0.7), "inOut")
+                self.frames(st.get("move", 0.7))
+        if "menu" in st:  # open a select's option list: run down it and keep the value, or move to "pick" and choose it
+            l = self.loc(st["menu"])
+            b = l.bounding_box()
+            if live:
+                ov("move", b["x"] + min(b["width"] / 2, 80), b["y"] + b["height"] / 2, self.t, st.get("move", 0.7), "inOut")
+                self.frames(st.get("move", 0.7))
+                ov("ripple", b["x"] + min(b["width"] / 2, 80), b["y"] + b["height"] / 2, self.t)
+                pick = st.get("pick") and l.evaluate("(n, t) => [...n.options].findIndex((o) => o.text === t)", st["pick"])
+                ov("menu", l.element_handle(), self.t, st.get("dur", 2.5), pick if pick is not None and pick >= 0 else None, st.get("walk", True))
+                self.frames(st.get("dur", 2.5))
+            if st.get("pick"):  # the choice lands when the menu closes
+                l.select_option(label=st["pick"])
+                self.settle()
         if "select" in st:  # [selector, option label]
             l = self.loc(st["select"][0])
             b = l.bounding_box()
@@ -143,6 +168,7 @@ class Rec:
                 ov("move", x, y, self.t, st.get("move", 0.7), "inOut")
                 self.frames(st.get("move", 0.7))
             l.select_option(label=st["select"][1])
+            self.pos = (x, y)
             ov("ripple", x, y, self.t)
             self.settle()
         if "key" in st:
@@ -204,7 +230,7 @@ def render_scene(scene, g, port, preview, fdir, out):
                 r.step(st, live=False)
             r.settle()
             r.rest = g["cursor"]
-            page.evaluate("([x, y]) => __ov.cursor(x, y)", scene.get("cursor", g["cursor"]))
+            page.evaluate("([x, y]) => __ov.cursor(x, y)", r.pos or scene.get("cursor", g["cursor"]))
             for st in scene["steps"]:
                 r.step(st)
             b.close()

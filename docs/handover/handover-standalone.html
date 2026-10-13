@@ -267,6 +267,14 @@ a.link { color: var(--accent); } a.link:hover { text-decoration: underline; }
 .viewer.doc .stage { display: block; max-height: 62vh; overflow: auto; background: #2b3036; padding: 12px; cursor: default; }
 .viewer.doc .frame { width: calc(var(--z, 1) * 100%); margin: 0 auto; }
 .viewer.doc .frame img { width: 100%; max-width: none; max-height: none; box-shadow: 0 1px 4px rgba(0, 0, 0, .4); }
+/* detail panes: tables are exactly the pane's width and wrap at word boundaries; nothing scrolls sideways */
+.pane.detail .block { overflow-x: visible; }
+.pane.detail .block .grid { table-layout: auto; width: 100%; }
+.pane.detail .block .grid td, .pane.detail .block .grid th { white-space: normal; overflow-wrap: anywhere; word-break: normal; }
+.pane.detail .block .grid td:first-child { white-space: normal; }
+.pane.detail .block .grid td.nowrap, .pane.detail .block .grid .st { white-space: nowrap; }
+.pane.detail dl.kv dd select { max-width: 100%; }
+.pane.detail dl.kv dd select[data-recog-hook] { width: 100%; }
 </style>
 </head>
 <body>
@@ -1652,7 +1660,7 @@ function intakeDetail(i) {
       <div class="inline">${ok ? "" : `<button data-q-act="i-dir" data-key="${i.key}">Register sender as institution</button>`}
         <button class="primary" data-q-act="i-file" data-key="${i.key}" ${ok ? "" : "disabled"}>File to patient</button>
         ${!i.pid ? `<button data-q-act="ask" data-key="${i.key}">Request again</button>` : ""}
-        <button data-q-act="i-reject" data-key="${i.key}">Reject</button></div>${S.asked[i.key] ? `<p class="note dim">${esc(S.asked[i.key])}</p>` : ""}` : `<div>${esc(i.status)}</div>`}</div>
+        <button data-q-act="i-reject" data-key="${i.key}">Reject</button></div>${S.asked[i.key] ? `<p class="note dim">${esc(S.asked[i.key])}</p>` : ""}` : `<dl class="kv"><dt>Status</dt><dd>${esc(i.status)}</dd>${i.filedAt ? `<dt>Filed to</dt><dd>${esc(patient(i.pid).name)}</dd><dt>Filed by</dt><dd>${esc(i.filedBy)}, ${esc(fmtTime(i.filedAt))}</dd>` : ""}</dl>`}</div>
     ${scanFile(i) ? uploadView(scanFile(i)) : chatImage(i) ? viewer(chatImage(i)) : ""}
     ${originOf(i)}
     ${["fax", "chat"].includes(i.channel) ? `<div class="block"><h4>${i.channel === "fax" ? "Text read from the fax (OCR)" : "Message"}</h4><pre class="raw">${esc(i.text)}</pre></div>` : ""}`;
@@ -1738,20 +1746,12 @@ function printPage(it) {
 const rowStatus = (o) => o.status === "Adds structured value" ? td(st("DATA", o.status), "", `${o.m.p.name}: ${o.upd.map((h) => LABEL[h.fact]).join(", ")}`)
   : ["No patient match", "Duplicate", "Not parsed"].includes(o.status) ? td(st("LOST", o.status), "", o.status)
   : o.status === "Differs from received" ? td(st("PICTURE", o.status), "", o.status) : tdt(`${o.status}${o.m.p ? ", " + o.m.p.name : ""}`);
-function sourceDetail(d, x) {
-  const kpi = (l, v) => `<div class="kpi"><label>${l}</label><b>${v}</b></div>`;
-  const heads = x ? Object.keys(x.out[0]?.r || {}) : [];
+function sourceDetail(d) {
   return `
     <div class="block"><dl class="kv"><dt>Type</dt><dd>${esc(d.kind)}</dd><dt>Connection</dt><dd>${esc(d.conn)}</dd><dt>Account</dt><dd>${esc(d.account)}</dd>
-      <dt>Access</dt><dd>Read-only. Nothing is written back to the source.</dd><dt>Patient matching</dt><dd>${esc(d.match)}</dd>
+      <dt>Access</dt><dd>Read-only</dd><dt>Patient matching</dt><dd>${esc(d.match)}</dd>
       <dt>Schedule</dt><dd>${esc(d.schedule)}</dd><dt>Owner</dt><dd>${esc(d.owner)}</dd><dt>Last sync</dt><dd>${esc(d.synced)}</dd></dl>
-      <div class="inline"><button data-q-act="db-test" data-key="${d.id}">Test connection</button><button data-q-act="db-sync" data-key="${d.id}">Sync now</button>
-        ${x?.upd ? `<button class="primary" data-q-act="db-apply" data-key="${d.id}">Update ${plural(x.upd, "result")}</button>` : ""}</div></div>
-    <div class="block"><h4>Column mapping</h4>${table([["Source column", "26%"], ["Field", "30%"], ["Transformation"]], d.cols.map((c) => `<tr>${td(`<code>${esc(c[0])}</code>`, "", c[0])}${tdt(c[1])}${tdt(c[2])}</tr>`))}</div>
-    ${x ? `<div class="block"><h4>Data quality, last sync</h4><div class="kpis mini">${kpi("Rows", x.rows)}${kpi("Matched", x.matched)}${kpi("No patient match", x.nomatch)}${kpi("Duplicates", x.dup)}${kpi("Not parsed", x.bad)}${kpi("New structured values", x.upd)}</div>
-      ${x.upd ? `<p class="dim" style="margin:8px 0 0">${plural(x.upd, "value")} on screen as unverified or not received ${x.upd === 1 ? "is" : "are"} held here as data. Updating replaces them; the received value stays in the audit trail.</p>` : ""}</div>
-      <div class="block"><h4>Rows as stored in the source</h4>${table([...heads.map((h) => [esc(h)]), ["Result of mapping", "30%"]], x.out.map((o) => `<tr>${heads.map((h) => tdt(o.r[h])).join("")}${rowStatus(o)}</tr>`))}</div>`
-      : `<div class="block"><p class="empty" style="padding:0">First sync pending.</p></div>`}`;
+      <div class="inline"><button data-q-act="db-test" data-key="${d.id}">Test connection</button><button data-q-act="db-sync" data-key="${d.id}">Sync now</button></div></div>`;
 }
 
 function channelDetail(c) {
@@ -2185,7 +2185,7 @@ function recogDetail(t) {
       <dt>Every read</dt><dd>Stays unverified until a person verifies it against the image</dd>
       <dt>Active</dt><dd><label><input type="checkbox" data-recog-on="${t.id}" ${t.on ? "checked" : ""}> ${t.on ? "Reading new documents" : "Off: new documents are filed as images, nothing is read"}</label></dd></dl></div>
     <div class="block"><h4>Reads</h4>${table([["Patient"], ["Read", "28%"], ["Value", "18%", "num"], ["Confidence", "92px", "num"]],
-      rs.map((r) => `<tr class="row" data-href="${r.href}">${td(`${esc(r.who)}<br><span class="dim">${esc(r.time)}</span>`)}${td(r.line ? `<code>${esc(r.line)}</code>` : `<span class="dim">–</span>`, "nowrap")}${td(r.value ? esc(r.value) : `<span class="dim">–</span>`, "num nowrap", r.status)}${td(conf(r), "num nowrap")}</tr>`))}</div>`;
+      rs.map((r) => `<tr class="row" data-href="${r.href}">${td(`${esc(r.who)}<br><span class="dim">${esc(r.time)}</span>`)}${td(r.line ? `<code>${esc(r.line)}</code>` : `<span class="dim">–</span>`)}${td(r.value ? esc(r.value) : `<span class="dim">–</span>`, !r.value || /^[<>]?[\d.,]+(\s|$)/.test(r.value) ? "num nowrap" : "", r.status)}${td(conf(r), "num nowrap")}</tr>`))}</div>`;
 }
 function recogDialog() {
   const hooks = [...CHANNELS.map((c) => ["channel", c.id, `Connection: ${c.name}`]), ...DIR.map((d) => ["institution", d.name, `Institution: ${d.name}`])];
@@ -2216,11 +2216,11 @@ const ADMIN = {
   inbound: { label: "Received" },
   outbound: { label: "Sent" },
   mapping: { label: "Code and Unit Conversion" },
-  recog: { label: "Text Recognition" },
   sources: { label: "Department Databases" },
   channels: { label: "Connections" },
   directory: { label: "Institutions" },
   access: { label: "Access Log" },
+  recog: { label: "Text Recognition" },
 };
 
 function renderAdmin(tab, key) {
@@ -2463,7 +2463,7 @@ function reconAct(a, key) {
   if (a === "i-file") {
     const pid = $("#i-pid").value; if (!pid) return $("#i-pid").focus();
     fileResult(pid, { fact: i.fact, value: $("#i-val")?.value, via: chanName(i.channel), by: "User, To file", origin: i.from, title: i.title, upload: scanFile(i) || undefined });
-    Object.assign(i, { pid, status: "Filed" });
+    Object.assign(i, { pid, status: "Filed", filedBy: "User", filedAt: now() });
     logAccess({ pid, action: "Filed document", object: i.subject, basis: "Treatment relationship", system: chanName(i.channel) });
     return flash(`Filed to ${patient(pid).name}; routed to the ${DEPTS[deptOf(patient(pid))].label} worklist`);
   }
