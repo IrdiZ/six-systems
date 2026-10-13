@@ -74,10 +74,11 @@
   function renderStats() {
     const s = C.summary;
     $("#lede-pct").textContent = Math.round(s.usable_pct);
+    $("#lede-n").textContent = $("#note-n").textContent = C.patients.length;
     const cards = [
-      { v: s.archive_pct, c: "text", cap: "of facts have a file in the archive", sub: "Counted from file presence alone." },
-      { v: s.usable_pct, c: "DATA", cap: "are usable as data on arrival", sub: "Coded, right unit, right patient." },
-      { v: s.recovered_pct, c: "CONFLICT", cap: "recovered by the assembler", sub: `After code maps, unit conversion, patient matching, OCR and PDF reading. ${s.wrong} wrong values against the answer key. ${n(s.by_status.PICTURE)} of the recovered values come from images or PDFs and still need a human check.` },
+      { v: s.archive_pct, c: "text", cap: "of facts have a file in the archive", sub: "This counts the files that are present, not their content." },
+      { v: s.usable_pct, c: "DATA", cap: "are usable as data on arrival", sub: "They have a code, the right unit and the right patient." },
+      { v: s.recovered_pct, c: "CONFLICT", cap: "recovered by the assembler", sub: `${s.wrong} wrong values against the answer key. ${s.by_status.PICTURE} of the recovered values come from images or PDFs and still need a human check.` },
     ];
     $("#stats").innerHTML = cards.map((k) => `
       <div class="stat" style="--c:${cv(k.c)}">
@@ -99,15 +100,16 @@
   let waffleFilter = null;
   function renderWaffle() {
     const s = C.summary;
-    $("#waffle-sub").textContent = `${n(s.facts)} facts across ${C.patients.length} patients. One square each. Hover to inspect, click to open. Click a status to filter.`;
+    $("#waffle-sub").textContent = `Each square is one fact: one result, measurement or finding. There are ${n(s.facts)} facts for ${C.patients.length} patients. The colour shows how the fact arrived. Select a square to see its source, or a status to show only that group.`;
     $("#legend").innerHTML = STATUSES.map((st) => `
-      <button class="lg" data-s="${st}" aria-pressed="false" style="--c:${cv(st)}">
+      <button class="lg" data-s="${st}" aria-pressed="false" title="${esc(STATUS_LONG[st])}" style="--c:${cv(st)}">
         <span class="sw"></span>${STATUS_TXT[st]} <b>${n(s.by_status[st])}</b></button>`).join("");
     const sorted = [...ALL].sort((a, b) => STATUSES.indexOf(a.f.status) - STATUSES.indexOf(b.f.status) || a.p.pid.localeCompare(b.p.pid));
     const w = $("#waffle");
     w.innerHTML = sorted.map(({ f, p }, i) => `<div class="cell" data-i="${ALL.indexOf(sorted[i])}" style="--c:${cv(f.status)}"></div>`).join("");
     const cells = [...w.children];
-    cells.forEach((c, i) => setTimeout(() => c.classList.add("in"), 250 + i * 4));
+    // The whole grid fades in within one second. A fixed delay per square left the card half empty for seconds.
+    cells.forEach((c, i) => setTimeout(() => c.classList.add("in"), 250 + (750 * i) / cells.length));
     w.addEventListener("mousemove", (e) => {
       const c = e.target.closest(".cell");
       if (!c) return hideTip();
@@ -137,6 +139,9 @@
 
   // ------------------------------------------------------------ systems
   function renderSystems() {
+    const real = Object.keys(C.sources).filter((k) => k !== "offline");
+    const noData = real.filter((k) => { const b = C.summary.by_source[k]; return b && b.DATA + b.CONFLICT === 0; });
+    $("#sys-sum").innerHTML = `<b>${noData.length} of ${real.length} sources deliver no result as data, on arrival or after conversion.</b> A person or software must read their images and PDF reports. The tile "${esc(src("offline").label)}" is not a source: it counts the facts that no archive received.`;
     $("#systems").innerHTML = [...LANE_ORDER, "offline"].map((k) => {
       const facts = ALL.filter((x) => x.f.source === k).map((x) => x.f);
       const cnt = count(facts);
@@ -216,7 +221,7 @@
       <div class="toggle ${state.view === "computable" ? "comp" : ""}" id="toggle">
         <div class="knob"></div>
         <button data-v="archive">Archive view</button>
-        <button data-v="computable">Computable view</button>
+        <button data-v="computable">Data view</button>
       </div>
       <div class="view-note" id="view-note"></div>
       <div class="timeline" id="timeline"></div>
@@ -471,7 +476,7 @@
   function renderHeat() {
     const cols = FACT_ORDER;
     const types = new Set(ALL.map((x) => x.f.fact)).size, inCols = ALL.filter((x) => cols.includes(x.f.fact)).length;
-    $("#map-sub").textContent = `Rows are patients. Columns are ${cols.length} of the ${types} fact types, chosen because they show the gap best (${n(inCols)} of ${n(C.summary.facts)} facts). Empty means that care path does not produce it.`;
+    $("#map-sub").textContent = `Each row is one patient and each column is one type of fact. The colour shows how the fact arrived. A column with one colour shows that the source decides the outcome, not the patient. The map has ${cols.length} of the ${types} fact types (${n(inCols)} of ${n(C.summary.facts)} facts). An empty box means that the care path of the patient does not produce the fact.`;
     $("#map-legend").innerHTML = `Each square is one fact. ${STATUSES.map(chip).join(" ")}`;
     let h = `<div></div>` + cols.map((k) => `<div class="hc">${esc(fdef(k).label)}</div>`).join("");
     const seen = new Set();
