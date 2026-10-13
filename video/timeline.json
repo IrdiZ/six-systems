@@ -25,9 +25,9 @@
     {
      "mark": "intro",
      "card": {
-      "kicker": "Prototype · synthetic data",
-      "title": "One patient. <em>Six systems.</em>",
-      "sub": "What reaches the record, and what it takes to make it usable.",
+      "kicker": "Prototype · synthetic patient data",
+      "title": "Results exchange <em>for hospital departments.</em>",
+      "sub": "Receiving, verifying, requesting and forwarding results from laboratories, referring hospitals and departmental systems.",
       "cut": true
      },
      "hold": 3.4
@@ -403,8 +403,8 @@
      "mark": "management",
      "card": {
       "kicker": "Management",
-      "title": "Sources, mappings, <em>connections and access.</em>",
-      "sub": "For data management and the head of department."
+      "title": "Configuration <em>and oversight.</em>",
+      "sub": "Results per source, code and unit mappings, connections, institutions, access and text recognition."
      },
      "hold": 2.8
     },
@@ -505,27 +505,31 @@
     },
     {
      "menu": "form select[name=type]",
-     "move": 0.6,
-     "dur": 1.8,
-     "hold": 0.2
+     "move": 0.4,
+     "dur": 0.8,
+     "hold": 0.1,
+     "walk": false
     },
     {
      "menu": "form select[name=channel]",
-     "move": 0.6,
-     "dur": 1.5,
-     "hold": 0.2
+     "move": 0.4,
+     "dur": 0.8,
+     "hold": 0.1,
+     "walk": false
     },
     {
      "menu": "form select[name=rel]",
-     "move": 0.5,
-     "dur": 1.1,
-     "hold": 0.2
+     "move": 0.4,
+     "dur": 0.8,
+     "hold": 0.1,
+     "walk": false
     },
     {
      "menu": "form select[name=check]",
-     "move": 0.5,
-     "dur": 1.6,
-     "hold": 0.2
+     "move": 0.4,
+     "dur": 0.8,
+     "hold": 0.1,
+     "walk": false
     },
     {
      "click": "form button:has-text('Cancel')",
@@ -589,7 +593,7 @@
      "card": {
       "kicker": "Prototype",
       "title": "Synthetic data. <em>Fictional organisations.</em>",
-      "sub": "github.com/IrdiZ/six-systems"
+      "sub": "Not for clinical use. github.com/IrdiZ/six-systems"
      },
      "hold": 3.2,
      "mark": "close"
