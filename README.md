@@ -101,3 +101,11 @@ Videos need Playwright and ffmpeg. See [video/README.md](video/README.md).
 - **OCR readings are pinned.** Tesseract versions read the same pixels differently. `assemble/ocr_reference.json` keeps the reference build's readings per image, so every machine assembles the same case. Delete it to read with your own Tesseract.
 - **OCR has it easy here.** The screen captures use clean fonts; real ones are messier. Even so, Tesseract misreads "cm" as "¢m" and fails on some values. The pages show this rather than hide it.
 - **It shows the shape of the problem.** It is modelled on public information about a typical Dutch academic hospital, not on any hospital's real data flows.
+
+## License
+
+Copyright 2026 Irdi Zeneli and Danilo (github.com/danilosolciaa).
+
+This project is under the [PolyForm Noncommercial License 1.0.0](LICENSE.md). You may read, run and change the code for
+noncommercial purposes, such as study, research and personal projects. You may not use it for a commercial purpose.
+For a commercial licence, contact the authors.
