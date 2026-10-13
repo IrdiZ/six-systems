@@ -26,7 +26,7 @@
      "mark": "intro",
      "card": {
       "kicker": "Prototype · synthetic patient data",
-      "title": "Results exchange <em>for hospital departments.</em>",
+      "title": "Results exchange <em>for hospital departments</em>",
       "sub": "Receiving, verifying, requesting and forwarding results from laboratories, referring hospitals and departmental systems.",
       "cut": true
      },
@@ -395,7 +395,7 @@
      "mark": "management",
      "card": {
       "kicker": "Management",
-      "title": "Data <em>management.</em>",
+      "title": "Data <em>management</em>",
       "sub": "Results per source, code and unit mappings, connections, institutions, access and text recognition."
      },
      "hold": 3.4
