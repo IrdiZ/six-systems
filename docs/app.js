@@ -78,7 +78,7 @@
     const cards = [
       { v: s.archive_pct, c: "text", cap: "of facts have a file in the archive", sub: "This counts the files that are present, not their content." },
       { v: s.usable_pct, c: "DATA", cap: "are usable as data on arrival", sub: "They have a code, the right unit and the right patient." },
-      { v: s.recovered_pct, c: "CONFLICT", cap: "recovered by the assembler", sub: `This software turns the files into data, with ${s.wrong} wrong values against the answer key.` },
+      { v: s.recovered_pct, c: "CONFLICT", cap: "recovered by the assembler", sub: `${s.wrong} wrong values against the answer key. ${s.by_status.PICTURE} of the recovered values come from images or PDFs and still need a human check.` },
     ];
     $("#stats").innerHTML = cards.map((k) => `
       <div class="stat" style="--c:${cv(k.c)}">

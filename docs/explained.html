@@ -107,7 +107,7 @@
     <div class="hn" id="numbers">
       <div><b><span data-n="archivePct"></span><small>%</small></b><strong>of facts have a file in the archive</strong><span class="sub">A clinician opens the record and it looks complete.</span></div>
       <div><b><span data-n="usablePct"></span><small>%</small></b><strong>arrive as data that a computer can use</strong><span class="sub">These facts need no extra work.</span></div>
-      <div><b><span data-n="recoveredPct"></span><small>%</small></b><strong>are usable after automatic repair</strong><span class="sub">Software converts codes and units, matches patients and reads images.</span></div>
+      <div><b><span data-n="recoveredPct"></span><small>%</small></b><strong>are recovered by software</strong><span class="sub"><span data-n="picture"></span> of these values come from images or PDFs. A clinician must still check them.</span></div>
     </div>
     <p class="syn">All <span data-n="patients"></span> patients, values and organisations are synthetic.</p>
     <div class="navrow">
@@ -140,11 +140,11 @@
   <p>Each feature addresses one cause of the gap. The numbers come from the simulated case.</p>
   <div class="features">
 
-    <div class="feature" data-feature="missing-result-alert" data-preview-alt="The record opens with an alert. One expected result, a faxed troponin, never arrived and is marked Not received.">
+    <div class="feature" data-feature="missing-result-alert" data-preview-alt="The record opens with an alert. An expected result, a faxed troponin, never arrived and is marked Not received.">
       <h3>Missing-result alert</h3>
       <div class="demo" data-demo="missing-result-alert"></div>
       <p>The clinician sees at once which expected results never arrived. One example is a faxed troponin that no system received.</p>
-      <div class="fn"><b data-n="lost"></b><span>results not received, across <span data-n="lostPatients"></span> patients</span></div>
+      <div class="fn"><b data-n="lost"></b><span>results on fax, or in a file that matched no patient, across <span data-n="lostPatients"></span> patients</span></div>
       <a class="fl" id="l-missing" href="handover/#/clinic/cardiology/intake">See it in the clinical tool →</a>
     </div>
 
