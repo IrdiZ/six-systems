@@ -86,7 +86,7 @@
       return el("dm-crop", el("dm-im", `<img src="media/${esc(f.media.png)}" alt="">` +
           el("dm-bx", "", ["w", 8, 8], `left:${b[0]}%;top:${b[1]}%;width:${b[2]}%;height:${b[3]}%`, "i"), 0, `--cy:${b[1] + b[3] / 2}%`)) +
         el("dm-c dm-r", sp("dm-el", esc(DEF.lvef.label)) + sp("dm-v", val(f.got, f.unit), ["i", 24]) +
-          sp("dm-sw", sp("", chip("PICTURE", "", ["i", 32]), ["o", 54, 4]) + sp("dm-s dm-ok", "Verified", ["i", 56], "--c:var(--DATA)")));
+          sp("dm-sw", chip("PICTURE", "", ["i", 32])));
     },
 
     "request-missing-result"() {

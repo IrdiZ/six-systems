@@ -75,7 +75,14 @@ SCROLL_THROUGH = """async () => {
     window.scrollTo(0, y);
     await new Promise((r) => setTimeout(r, 50));
   }
-  window.scrollTo(0, 0);
+  // End on a demo, not at the top: a demo that is out of view has no animation, so a check there cannot fail.
+  const demo = document.querySelector(".demo-frame");
+  if (demo) {
+    demo.scrollIntoView({ block: "center" });
+    await new Promise((r) => setTimeout(r, 350));
+  } else {
+    window.scrollTo(0, 0);
+  }
 }"""
 
 MEASURE = """(renderedSelector) => {
@@ -283,6 +290,8 @@ def demo_rows(m, reduced, skip_demos):
     missing = [f"demo `{slug}`" for slug in m["unlabelled"]]
     if m["strayUnlabelled"]:
         missing.append(f"{m['strayUnlabelled']} `.demo-frame` outside a mount point")
+    if m["built"] < m["mounts"]:
+        rows.append((FAIL, "demos built", f"{count}. A demo that does not build leaves an empty card"))
     rows.append((FAIL, "demo labels", f"{count}. No aria-label: {short(missing, 8)}") if missing
                 else (PASS, "demo labels", f"{count}. Each has an aria-label"))
     if reduced:
