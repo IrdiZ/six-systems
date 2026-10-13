@@ -107,14 +107,6 @@
      "walk": false
     },
     {
-     "caption": {
-      "title": "Result request",
-      "sub": "Sent via ZorgMail to the emergency department of the referring hospital."
-     },
-     "ring": "#f-req select[name=ch0]",
-     "hold": 3.2
-    },
-    {
      "ring": null,
      "caption": null,
      "click": "#f-req button.primary",
