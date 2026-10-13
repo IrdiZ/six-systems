@@ -10,21 +10,36 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&text=0123456789&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600&family=Atkinson+Hyperlegible+Mono&display=swap">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="explain-demos.css">
 <style>
   .ex { max-width: 960px; margin: 0 auto; padding: 0 24px; }
   .ex p, .ex li { font-size: 17px; line-height: 1.65; color: var(--muted); max-width: 740px; }
   .ex p strong, .ex li strong { color: var(--text); }
   .ex h2 { font-size: 24px; margin: 52px 0 12px; }
   .ex-hero { padding: 40px 0 32px; border-bottom: 1px solid var(--line); background: var(--surface); }
-  .ex-hero h1 { margin: 0; }
-  .tldr { background: var(--bg2); border: 1px solid var(--line); padding: 16px 18px; margin: 20px 0 0; max-width: 740px; }
-  .tldr p { margin: 0; font-size: 18px; color: var(--text); }
+  .ex-hero h1 { margin: 0 0 10px; }
+  .ex-hero p { margin: 0; }
+  .hn { display: grid; grid-template-columns: repeat(3, 1fr); margin: 20px 0 12px; border: 1px solid var(--line); background: var(--bg2); }
+  .hn > div { padding: 16px 18px; border-left: 3px solid var(--c); }
+  .hn > div + div { box-shadow: -1px 0 0 var(--line); }
+  .hn > div:nth-child(1) { --c: var(--text); }
+  .hn > div:nth-child(2) { --c: var(--DATA); }
+  .hn > div:nth-child(3) { --c: var(--CONFLICT); }
+  .hn b { display: block; font-size: 40px; font-weight: 600; line-height: 1; color: var(--c); }
+  .hn b small { font-size: 20px; }
+  .hn strong { display: block; margin-top: 8px; font-size: 15px; line-height: 1.35; }
+  .hn span.sub { display: block; margin-top: 2px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+  .ex-hero .syn { font-size: 14px; color: var(--dim); }
   .navrow { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+  .ex p.guide { border-left: 3px solid var(--line2); padding-left: 14px; color: var(--text); }
+  .ex p.note { font-size: 15px; }
+  .note a { color: var(--accent); }
 
   .features { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 22px 0; }
   .feature { background: var(--surface); border: 1px solid var(--line); padding: 18px; display: flex; flex-direction: column; }
-  .feature h3 { font-size: 18px; margin: 0 0 6px; }
+  .feature h3 { font-size: 18px; margin: 0 0 8px; }
   .feature p { margin: 0 0 14px; font-size: 15px; line-height: 1.55; }
+  .feature p.fmt { margin-top: -8px; font-size: 13px; line-height: 1.45; color: var(--dim); }
   .feature .fn { margin-top: auto; display: flex; align-items: baseline; gap: 10px; border-top: 1px solid var(--hair); padding-top: 10px; }
   .feature .fn b { font-size: 26px; font-weight: 600; color: var(--text); }
   .feature .fn span { font-size: 13px; line-height: 1.4; color: var(--muted); }
@@ -33,16 +48,20 @@
 
   .journey { position: relative; margin: 26px 0; padding-left: 30px; max-width: 740px; }
   .journey::before { content: ""; position: absolute; left: 7px; top: 8px; bottom: 8px; width: 1px; background: var(--line); }
-  .stop { position: relative; margin-bottom: 26px; }
+  .stop { position: relative; margin-bottom: 28px; }
   .stop .dot { position: absolute; left: -29px; top: 5px; width: 14px; height: 14px; border-radius: 3px; background: var(--c); }
   .stop .dot.hollow { background: var(--surface); border: 2px dashed var(--c); }
   .stop .when { font: 12px var(--mono); color: var(--dim); }
   .stop h3 { font-size: 17px; margin: 2px 0 6px; }
   .stop p { margin: 0 0 10px; font-size: 16px; }
-  .stop pre { margin: 0 0 10px; background: var(--surface); border: 1px solid var(--line); padding: 10px 12px; font-size: 12px; color: var(--text); overflow: auto; max-height: 240px; }
+  .stop details { margin: 0 0 10px; }
+  .stop summary { font-size: 13px; color: var(--accent); cursor: pointer; }
+  .stop pre { margin: 8px 0 0; background: var(--surface); border: 1px solid var(--line); padding: 10px 12px; font-size: 12px; color: var(--text); overflow: auto; max-height: 240px; }
   .stop pre mark { background: color-mix(in srgb, var(--c) 20%, transparent); color: var(--text); padding: 0 2px; }
-  .stop img { display: block; max-width: 420px; width: 100%; border: 1px solid var(--line); }
-  .stop .verdict { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: var(--text); margin-top: 2px; }
+  .stop img { display: block; max-width: 420px; width: 100%; margin-bottom: 10px; border: 1px solid var(--line); }
+  .stop .verdict { border-left: 3px solid var(--c); padding: 2px 0 2px 12px; }
+  .stop .verdict .st { display: flex; font-weight: 600; }
+  .stop .verdict p { margin: 2px 0 0; font-size: 15px; color: var(--text); }
 
   .four { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin: 20px 0; border: 1px solid var(--line); background: var(--surface); }
   .fc { padding: 16px; border-left: 3px solid var(--c); border-bottom: 1px solid var(--line); }
@@ -54,12 +73,6 @@
   .fc .n { font-size: 28px; font-weight: 600; margin-top: 8px; color: var(--c); }
   .fc .n small { font-size: 13px; color: var(--muted); font-weight: 400; }
 
-  .numbers { display: grid; gap: 0; margin: 20px 0; border: 1px solid var(--line); background: var(--surface); }
-  .nm { display: grid; grid-template-columns: 100px 1fr; gap: 16px; align-items: center; padding: 14px 18px; border-left: 3px solid var(--c); border-bottom: 1px solid var(--line); }
-  .nm:last-child { border-bottom: 0; }
-  .nm b { font-size: 34px; font-weight: 600; color: var(--c); }
-  .nm p { margin: 0; font-size: 15px; }
-
   .limits li { margin-bottom: 6px; }
   .gl { display: grid; grid-template-columns: 170px 1fr; gap: 0; border-top: 1px solid var(--line); margin: 18px 0 48px; max-width: 740px; }
   .gl > div { padding: 8px 0; border-bottom: 1px solid var(--hair); font-size: 15px; line-height: 1.5; }
@@ -67,10 +80,10 @@
   .gl > div:nth-child(even) { color: var(--muted); }
 
   @media (max-width: 700px) {
-    .features, .four { grid-template-columns: 1fr; }
+    .features, .four, .hn { grid-template-columns: 1fr; }
+    .hn > div + div { box-shadow: 0 -1px 0 var(--line); }
     .fc:nth-child(odd) { border-right: 0; }
     .fc:nth-child(n+3) { border-bottom: 1px solid var(--line); }
-    .nm { grid-template-columns: 1fr; gap: 4px; }
     .gl { grid-template-columns: 1fr; }
     .gl > div:nth-child(odd) { border-bottom: 0; padding-bottom: 0; }
   }
@@ -90,9 +103,13 @@
 <header class="ex-hero">
   <div class="ex">
     <h1>How much of a complete patient file is usable data?</h1>
-    <div class="tldr">
-      <p>In this simulation of a Dutch hospital with 40 synthetic patients, only <span data-n="usablePct"></span>% of the facts in a complete patient file arrive as data that a computer can use.</p>
+    <p>We simulated a Dutch hospital and scored every fact in every patient file.</p>
+    <div class="hn" id="numbers">
+      <div><b><span data-n="archivePct"></span><small>%</small></b><strong>of facts have a file in the archive</strong><span class="sub">A clinician opens the record and it looks complete.</span></div>
+      <div><b><span data-n="usablePct"></span><small>%</small></b><strong>arrive as data that a computer can use</strong><span class="sub">These facts need no extra work.</span></div>
+      <div><b><span data-n="recoveredPct"></span><small>%</small></b><strong>are recovered by software</strong><span class="sub"><span data-n="picture"></span> of these values come from images or PDFs. A clinician must still check them.</span></div>
     </div>
+    <p class="syn">All <span data-n="patients"></span> patients, values and organisations are synthetic.</p>
     <div class="navrow">
       <a class="btn" href="index.html">The gap →</a>
       <a class="btn ghost" href="handover/">Clinical tool →</a>
@@ -104,85 +121,97 @@
 
   <h2 id="problem">The problem</h2>
   <p>Hospitals store every scan, result and report as a file for a person to read. Little of it arrives as data that a computer can use.</p>
-  <p>A result may be a photo of a screen, a fax or a PDF. Other results arrive with local codes, other units or no patient number.</p>
-  <p>We cannot use real patient data. This simulation uses <span data-n="sources">11</span> sending systems and <span data-n="patients">40</span> patients to measure the gap.</p>
+  <p>A result can be a photo of a screen, a fax or a PDF. Other results arrive with local codes, different units or no patient number.</p>
+  <p>We cannot use real patient data. This simulation has <span data-n="sources"></span> sending systems and <span data-n="patients"></span> synthetic patients. One program turns their files into data. We call it <strong>the assembler</strong>.</p>
+  <p class="guide">Read the story of one patient first. Then the four outcomes. Then what the tool does about each.</p>
 
-  <h2 id="features">Features</h2>
+  <h2 id="journey"><span id="j-name">One patient, file by file</span></h2>
+  <p id="j-intro"></p>
+  <div class="journey" id="journey-list"></div>
+
+  <h2 id="outcomes">The four outcomes</h2>
+  <p>The simulator writes the true values to a hidden answer key. The assembler never sees this key. The score counts how many true values are in the assembled data.</p>
+  <p>Each true fact ends in one of four outcomes.</p>
+  <div class="four" id="four"></div>
+  <p>Against the answer key, the assembler produced <strong><span data-n="wrong"></span> wrong values</strong>.</p>
+  <p class="muted"><em>The percentages reflect how this simulation was built. They show the mechanism, not a measured rate at any hospital.</em></p>
+
+  <h2 id="features">What the tool does about it</h2>
   <p>Each feature addresses one cause of the gap. The numbers come from the simulated case.</p>
   <div class="features">
 
-    <div class="feature" data-feature="missing-result-alert">
+    <div class="feature" data-feature="missing-result-alert" data-preview-alt="The record opens with an alert. An expected result, a faxed troponin, never arrived and is marked Not received.">
       <h3>Missing-result alert</h3>
-      <p>The clinician sees up front which expected results never arrived, for example a faxed troponin that no system received.</p>
-      <div class="fn"><b data-n="lost"></b><span>results missing from the patient record: on fax or paper, or in a file no patient matched. They affect <span data-n="lostPatients"></span> patients</span></div>
+      <div class="demo" data-demo="missing-result-alert"></div>
+      <p>The clinician sees at once which expected results never arrived. One example is a faxed troponin that no system received.</p>
+      <div class="fn"><b data-n="lost"></b><span>results on fax, or in a file that matched no patient, across <span data-n="lostPatients"></span> patients</span></div>
       <a class="fl" id="l-missing" href="handover/#/clinic/cardiology/intake">See it in the clinical tool →</a>
     </div>
 
-    <div class="feature" data-feature="provenance">
-      <h3>Provenance per value</h3>
-      <p>Every document shows who sent it, through which connection, in which format and which repairs the assembler applied.</p>
-      <div class="fn"><b data-n="docs"></b><span>documents, each with its origin, from <span data-n="sources"></span> sources</span></div>
+    <div class="feature" data-feature="provenance" data-preview-alt="A click on a regional lab report shows who sent it, through which connection, in which format and which repairs were applied.">
+      <h3>Origin of each document</h3>
+      <div class="demo" data-demo="provenance"></div>
+      <p>The clinician sees who sent each document and through which connection. The record also shows the format and the repairs that the assembler applied.</p>
+      <div class="fn"><b data-n="docs"></b><span>documents from <span data-n="sources"></span> sources, each with its origin</span></div>
       <a class="fl" id="l-prov" href="handover/#/clinic/cardiology/intake">See it in the clinical tool →</a>
     </div>
 
-    <div class="feature" data-feature="code-unit-conversion">
+    <div class="feature" data-feature="code-unit-conversion" data-preview-alt="A regional lab result with a local code and a different unit is converted to the hospital's code and unit on arrival.">
       <h3>Code and unit conversion on arrival</h3>
-      <p>Local codes map to LOINC, units convert and decimal commas are read correctly. Inputs include HL7v2, EDIFACT and GP exports.</p>
+      <div class="demo" data-demo="code-unit-conversion"></div>
+      <p>The clinician sees each lab result with the hospital's own code and unit. The assembler converts local codes, units and decimal commas on arrival.</p>
+      <p class="fmt">Input formats: HL7v2, EDIFACT and GP exports. Target code system: LOINC.</p>
       <div class="fn"><b data-n="converted"></b><span>results converted on arrival</span></div>
       <a class="fl" href="handover/#/admin/mapping">See it in the clinical tool →</a>
     </div>
 
-    <div class="feature" data-feature="patient-matching">
+    <div class="feature" data-feature="patient-matching" data-preview-alt="Files are matched to the patient by BSN, then hospital number, then name and birth date. A file with none of these waits in the To file list.">
       <h3>Patient matching across organisations</h3>
-      <p>The assembler matches on BSN, then hospital number, then name and birth date. Files without a match wait in a To file list.</p>
+      <div class="demo" data-demo="patient-matching"></div>
+      <p>The clinician sees results from other organisations in the correct patient record. The assembler matches on BSN, then hospital number, then name and birth date. A file without a match waits in the To file list.</p>
       <div class="fn"><b data-n="byMrn"></b><span>files matched by hospital number; <span data-n="unlinked"></span> files not linkable</span></div>
       <a class="fl" href="handover/#/clinic/cardiology/intake">See it in the clinical tool →</a>
     </div>
 
-    <div class="feature" data-feature="image-pdf-reading">
+    <div class="feature" data-feature="image-pdf-reading" data-preview-alt="A value read from an echo screen capture is marked Unverified until a clinician checks it against the image.">
       <h3>Values from images and PDFs</h3>
-      <p>The assembler reads echo screens with OCR and PDF reports with pattern matching. A result stays Unverified until a clinician verifies it. A DICOM SR gives values without OCR.</p>
-      <div class="fn"><b data-n="picture"></b><span>values read from images and PDFs, <span data-n="ocr"></span> of them from images</span></div>
+      <div class="demo" data-demo="image-pdf-reading"></div>
+      <p>The clinician sees values that exist only in an image or a PDF. Each value stays Unverified until a clinician checks it against the source.</p>
+      <p class="fmt">Echo screen captures: OCR. PDF reports: pattern matching. A DICOM SR gives values without OCR.</p>
+      <div class="fn"><b data-n="picture"></b><span>values read from images and PDFs, <span data-n="ocr"></span> from images</span></div>
       <a class="fl" id="l-echo" href="handover/#/clinic/cardiology/intake">See it in the clinical tool →</a>
     </div>
 
-    <div class="feature" data-feature="request-missing-result">
+    <div class="feature" data-feature="request-missing-result" data-preview-alt="A clinician asks the sender for the missing result through the sender's connection. The request is logged as sent.">
       <h3>Request a missing result</h3>
-      <p>The clinician requests a missing result from the sender. The request goes through the sender's connection, or through a one-time upload link.</p>
+      <div class="demo" data-demo="request-missing-result"></div>
+      <p>The clinician asks the sender for a missing result from inside the record. The request goes through the sender's connection or through a one-time upload link.</p>
       <div class="fn"><b data-n="fax"></b><span>results exist only on fax or paper</span></div>
       <a class="fl" href="handover/#/admin/outbound">See it in the clinical tool →</a>
     </div>
 
-    <div class="feature" data-feature="management-overview">
+    <div class="feature" data-feature="management-overview" data-preview-alt="The overview shows, per sender, how many results arrive structured, converted, unverified or not received.">
       <h3>Management overview by sender</h3>
-      <p>Per source and per department, the overview shows how many results arrive as data, converted, unverified or not received.</p>
+      <div class="demo" data-demo="management-overview"></div>
+      <p>A manager sees how many results each sender delivers as data. The overview counts the four outcomes per sender and per department.</p>
       <div class="fn"><b data-n="paperSources"></b><span>of <span data-n="sources"></span> sources deliver no result as data</span></div>
       <a class="fl" href="handover/#/admin/overview">See it in the clinical tool →</a>
     </div>
 
-    <div class="feature" data-feature="research-export">
+    <div class="feature" data-feature="research-export" data-preview-alt="The export replaces the BSN by a pseudonym, shifts the dates and checks that no identifier remains.">
       <h3>Research export</h3>
-      <p>The browser export pseudonymises patients, shifts dates per patient and runs a leak check on the output. DICOM de-identification runs in the Python build.</p>
+      <div class="demo" data-demo="research-export"></div>
+      <p>A researcher gets a data set without patient identity. The export replaces each patient by a pseudonym, shifts the dates per patient and checks the output for leaks.</p>
+      <p class="fmt">The export runs in the browser. DICOM de-identification runs in the Python build.</p>
       <div class="fn"><b data-n="patients"></b><span>patients and <span data-n="exportFacts"></span> facts in the export</span></div>
       <a class="fl" href="index.html#export-section">See it in The gap →</a>
     </div>
 
   </div>
 
-  <h2 id="journey"><span id="j-name">One patient's week</span></h2>
-  <p id="j-intro"></p>
-  <div class="journey" id="journey-list"></div>
-
-  <h2 id="numbers">The numbers</h2>
-  <div class="numbers" id="numbers"></div>
-  <p class="muted"><em>The percentages reflect how this simulation was built. They show the mechanism, not a measured rate at any hospital.</em></p>
-  <p>The simulator writes the true values to a hidden answer key that the assembler never sees. The score counts how many true values survive in the assembled data.</p>
-  <p>Every true fact ends with one of four statuses.</p>
-  <div class="four" id="four"></div>
-
-  <h2 id="question">The question</h2>
+  <h2 id="question">Two problems, two owners</h2>
   <p>The gap shows up in two places, and each has a different owner.</p>
-  <p><strong>Care between organisations.</strong> Results from a neighbouring hospital or regional lab arrive with different codes and units, sometimes without a patient number, sometimes by fax. Doctors re-type, re-check or miss them. The Dutch exchange law (the Wegiz) is in force. Its rules for exchanging the patient summary now follow the dates of the EU's European Health Data Space (EHDS): patient summaries by 2029, lab results and images by 2031.</p>
+  <p><strong>Care between organisations.</strong> Results from a neighbouring hospital or regional lab arrive with different codes and units, sometimes without a patient number, sometimes by fax. Doctors re-type, re-check or miss them. The Dutch exchange law (the Wegiz) is in force. Its rules for exchanging the patient summary now follow the dates of the EU's European Health Data Space (EHDS). The dates are 2029 for patient summaries and 2031 for lab results and images.</p>
   <p><strong>Research and AI.</strong> Researchers need thousands of cases as data. Key measurements sit inside images and PDFs, scanners discard raw data, and every study repeats the same manual export. European rules (the EHDS) are starting to require that this reuse is possible.</p>
   <p>The prototype asks one question: which of the two problems costs more in practice? The answer decides what to build next.</p>
 
@@ -199,6 +228,7 @@
 
   <h2 id="glossary">Glossary</h2>
   <div class="gl">
+    <div>Assembler</div><div>The program in this prototype that turns the received files into data. It converts codes and units, matches files to patients and reads images and PDFs.</div>
     <div>Archive</div><div>The system where hospitals store scans, reports and other files. PACS is the image part. It is built for viewing, not for extracting data.</div>
     <div>Provenance</div><div>The record of where a value came from and what happened to it on the way.</div>
     <div>HL7v2</div><div>A message standard from the 1990s that most hospital systems still use to send results.</div>
@@ -229,7 +259,7 @@
   const num = (v) => (typeof v === "number" ? +(+v).toFixed(v < 10 ? 2 : 1) : v);
   const mark = (text, needle) => needle ? esc(text).split("\n").map((l, i, a) => (typeof needle === "function" ? needle(l, i, a) : l.includes(needle)) ? `<mark>${l}</mark>` : l).join("\n") : esc(text);
 
-  // Numbers for the feature cards, all computed from the same data as the other pages.
+  // Numbers for the hero and the feature cards, all computed from the same data as the other pages.
   const facts = C.patients.flatMap((x) => x.facts);
   const docs = C.patients.flatMap((x) => x.documents);
   const asData = (k) => facts.filter((f) => f.source === k && (f.status === "DATA" || f.status === "CONFLICT")).length;
@@ -239,8 +269,10 @@
   const N = {
     sources: Object.keys(C.sources).filter((k) => k !== "offline").length,
     patients: C.patients.length,
-    facts: S.facts,
+    archivePct: Math.round(S.archive_pct),
     usablePct: Math.round(S.usable_pct),
+    recoveredPct: Math.round(S.recovered_pct),
+    wrong: S.wrong,
     lost: missing.length,
     lostPatients: new Set(missing.map((f) => f.pid)).size,
     docs: docs.length,
@@ -263,34 +295,34 @@
     const poc = F("troponin_poc");
     if (poc) out.push({ c: "LOST", hollow: true, when: poc.time, title: "Emergency room at the neighbouring hospital",
       body: `${first} arrives at a smaller hospital nearby. A bedside troponin test (a heart-damage marker) reads <strong>${num(poc.truth_value)} ng/L</strong>. The hospital faxes the result to the academic hospital.`,
-      verdict: "Faxed on paper. No system received the value." });
+      verdict: "The result went by fax. No system received the value." });
     const extT = F("troponin", "ext_lab"), extDoc = D("edi");
     if (extT && extDoc) {
       const unitStep = (extT.steps || []).find((x) => x.includes("→") && x.includes("×")) || "";
       out.push({ c: "CONFLICT", when: extT.time, title: "Blood test at the regional lab",
-        body: `A regional lab runs the high-sensitivity troponin T test. Its file uses a local code (<code>TNTHS</code>) instead of LOINC and a different unit (µg/L instead of ng/L)${/RSL\+NV\+\d+,/.test(extDoc.raw) ? ", and it writes a comma as the decimal separator" : ""}. The assembler translates the file to match the hospital's own results${unitStep ? `: <em>${esc(unitStep)}</em>` : ""}.`,
-        pre: extDoc.raw, needle: (l, i, a) => l.startsWith("RSL") && /^INV\+TNTHS/.test(a[i - 1] || ""), verdict: "Usable after code and unit conversion." });
+        body: `A regional lab runs the high-sensitivity troponin T test. Its file uses a local code (<code>TNTHS</code>) and not the international LOINC code. The unit is µg/L and not ng/L${/RSL\+NV\+\d+,/.test(extDoc.raw) ? ", and the decimal separator is a comma" : ""}. The assembler translates the file to match the hospital's own results${unitStep ? `: <em>${esc(unitStep)}</em>` : ""}.`,
+        pre: extDoc.raw, needle: (l, i, a) => l.startsWith("RSL") && /^INV\+TNTHS/.test(a[i - 1] || ""), verdict: "The value is usable after code and unit conversion." });
     }
     const epT = F("troponin", "epic_lab"), hl7 = D("hl7");
     if (epT && hl7) out.push({ c: "DATA", when: epT.time, title: "Blood test inside the academic hospital",
       body: `${first} is transferred. The hospital's own lab measures troponin again: <strong>${num(epT.got)} ng/L</strong>. This file uses LOINC codes and standard units. The patient's BSN is on the message.`,
-      pre: hl7.raw, needle: "OBX|1", verdict: "Usable on arrival." });
+      pre: hl7.raw, needle: "OBX|1", verdict: "The value is usable on arrival." });
     const lvef = F("lvef", "echo"), echo = D("sc", "echo");
     if (lvef && echo && lvef.status === "PICTURE") out.push({ c: "PICTURE", when: lvef.time, title: "Heart ultrasound (echo)",
-      body: `An ultrasound measures how well the heart pumps: an ejection fraction of <strong>${num(lvef.truth_value)}%</strong>. The machine stores its measurements as a picture of its screen (a DICOM Secondary Capture). The assembler reads the numbers from the image with OCR. OCR can misread, for example "cm" as "¢m".`,
-      img: echo.media, verdict: "Recovered by OCR. Not verified." });
+      body: `An ultrasound measures how well the heart pumps: an ejection fraction of <strong>${num(lvef.truth_value)}%</strong>. The machine stores its measurements as a picture of its screen. The assembler reads the numbers from the picture with OCR, software that reads text in images. OCR can misread, for example "cm" as "¢m".`,
+      img: echo.media, verdict: "OCR recovered the value. A clinician must still verify it." });
     const raw = F("ct_raw_data");
     if (raw) out.push({ c: "LOST", hollow: true, when: raw.time, title: "CT scan of the heart arteries",
       body: `The CT scanner records raw measurement data, then turns it into images. The archive keeps the images. The scanner discards the raw data, so nobody can reprocess it later, for example with better AI.`,
-      verdict: "The images arrive as data. The raw acquisition is lost." });
+      verdict: "The images arrive as data. The raw scanner data is lost." });
     const calc = F("calcium_score");
     if (calc && calc.status === "PICTURE") out.push({ c: "PICTURE", when: calc.time, title: "The radiologist's report",
       body: `The report gives a coronary calcium score of <strong>${num(calc.truth_value)}</strong>. It exists only as a sentence in a PDF. The assembler finds it by searching for a fixed phrase. This works because the report always uses the same wording.`,
-      verdict: "Recovered from PDF text by pattern matching." });
+      verdict: "Pattern matching recovered the value from the PDF text." });
     const cag = F("cag_result");
     if (cag && cag.status === "PICTURE") out.push({ c: "PICTURE", when: cag.time, title: "Heart catheterisation",
       body: `A catheter procedure shows the state of the heart arteries. The conclusion, <strong>"${esc(cag.truth_value)}"</strong>, exists only as text in a PDF report. The assembler extracts it by pattern matching.`,
-      verdict: "Recovered from PDF text by pattern matching." });
+      verdict: "Pattern matching recovered the conclusion from the PDF text." });
     return out.sort((x, y) => (x.when < y.when ? -1 : 1));
   }
   const ranked = C.patients.filter((x) => x.path === "chest_pain").map((x) => ({ p: x, stops: stopsFor(x) }))
@@ -299,18 +331,18 @@
   const first = p.name.split(" ")[0];
   const withFile = p.facts.filter((f) => f.file).length;
   document.getElementById("j-name").textContent = `${p.name}: one patient, file by file`;
-  document.getElementById("j-intro").innerHTML = `${esc(p.name)} (${p.pid}) is a synthetic patient with chest pain. Below are the files the assembler received.`;
+  document.getElementById("j-intro").innerHTML = `${esc(p.name)} (${p.pid}) is a synthetic patient with chest pain. These are the files that the assembler received, in order of time.`;
   document.getElementById("journey-list").innerHTML = stops.map((s) => `
     <div class="stop" style="--c:var(--${s.c})">
       <div class="dot ${s.hollow ? "hollow" : ""}"></div>
       <div class="when">${d(s.when)}</div>
       <h3>${s.title}</h3>
       <p>${s.body}</p>
-      ${s.pre ? `<pre>${mark(s.pre, s.needle)}</pre>` : ""}
+      ${s.pre ? `<details><summary>Show the raw file</summary><pre>${mark(s.pre, s.needle)}</pre></details>` : ""}
       ${s.img ? `<img src="media/${esc(s.img)}" alt="Ultrasound screen capture with measurements burned into the image" loading="lazy">` : ""}
-      <div class="verdict"><span class="st" style="--c:var(--${s.c})">${LABEL[s.c]}</span>${s.verdict}</div>
+      <div class="verdict"><span class="st">${LABEL[s.c]}</span><p>${s.verdict}</p></div>
     </div>`).join("") + `
-    <p style="font-size:15px">In the archive, ${withFile} of ${p.facts.length} facts have a file. As data, <strong>${p.summary.by_status.DATA} of ${p.facts.length}</strong> facts arrived usable. <a href="index.html#${p.pid}:computable" style="color:var(--accent)">See ${esc(first)} in The gap →</a></p>`;
+    <p class="note">In the archive, ${withFile} of ${p.facts.length} facts have a file. As data, <strong>${p.summary.by_status.DATA} of ${p.facts.length}</strong> facts arrived usable. <a href="index.html#${p.pid}:computable">See ${esc(first)} in The gap →</a></p>`;
 
   // Deep links for this patient in the clinical tool.
   const base = `handover/#/clinic/cardiology/${p.pid}`;
@@ -319,21 +351,16 @@
   document.getElementById("l-echo").href = p.documents.some((x) => x.kind === "sc" && x.source === "echo") ? `${base}/echo` : `${base}/all`;
 
   const four = [
-    ["DATA", "Arrived coded, in the right unit and tied to the right patient.", "the hospital's own lab results"],
-    ["CONFLICT", "Arrived, then needed conversion of codes, units or decimal commas, or matching to a patient without a BSN.", "regional lab and GP results"],
-    ["PICTURE", "Only available as an image or as text in a PDF. The assembler reads it with OCR or pattern matching, so the value is not verified at source.", "ultrasound measurements, report findings"],
-    ["LOST", "Never stored, stored in a format nothing can open, or not linkable to a patient.", "faxes, raw scanner data, an unmatched lab file"],
+    ["DATA", "The fact arrived with a standard code, the right unit and the right patient.", "the hospital's own lab results"],
+    ["CONFLICT", "The fact arrived with a local code, a different unit or no BSN. The assembler repaired it.", "regional lab and GP results"],
+    ["PICTURE", "The fact exists only as an image or as text in a PDF. The assembler reads it, and a clinician must check it.", "ultrasound measurements, report findings"],
+    ["LOST", "The fact was never stored, has a format that nothing can open, or has no link to a patient.", "faxes, raw scanner data, an unmatched lab file"],
   ];
   document.getElementById("four").innerHTML = four.map(([k, body, eg]) => `
     <div class="fc" style="--c:var(--${k})"><h4>${LABEL[k]}</h4><div class="ex1">${body}<br><i>e.g. ${eg}</i></div>
     <div class="n">${fmt(S.by_status[k])} <small>of ${fmt(S.facts)} facts</small></div></div>`).join("");
-
-  document.getElementById("numbers").innerHTML = [
-    ["accent", S.archive_pct, "of all true facts have <strong>a file in the archive</strong>. A clinician sees this: the case looks complete."],
-    ["DATA", S.usable_pct, "arrive <strong>usable as data</strong> without any work. A computer, a colleague elsewhere or a researcher receives this."],
-    ["CONFLICT", S.recovered_pct, `are <strong>recovered by the assembler</strong> after code maps, unit conversion, patient matching, OCR and PDF reading, with ${S.wrong} wrong values.`],
-  ].map(([c, v, t]) => `<div class="nm" style="--c:var(--${c})"><b>${Math.round(v)}%</b><p>${t}</p></div>`).join("");
 })();
 </script>
+<script src="explain-demos.js"></script>
 </body>
 </html>

@@ -4,3 +4,4 @@ __pycache__/
 raw/
 out/
 .DS_Store
+scripts/out/

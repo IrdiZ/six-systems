@@ -1,7 +1,7 @@
 # Handover
 
 Status and next steps for this repo. Read this first when you start a new session.
-Last update: 2026-10-08.
+Last update: 2026-10-14.
 
 ## Current state
 
@@ -50,6 +50,13 @@ Needs Tesseract (`brew install tesseract`). The build is deterministic (seed 7).
 4. **"Expected but missing" detection.** The demo knows a fax is missing only because of the answer key. A real system must infer it, e.g. from an ER visit with no troponin result, or an order with no result.
 
 Done on 2026-10-08: timeline lanes follow each patient's sources (all 2,044 markers checked); hovered markers stay in place; fast-cut video (`video/timeline-pitch.json`); disclaimer on all pages; status labels Structured / Converted / Unverified / Not received; one design language across all three pages (shared top bar); Wegiz text corrected (BgZ now follows the EHDS dates, 2029 and 2031).
+
+Done on 2026-10-14: Explained has a new order (numbers, problem, one patient, four outcomes, features) and plain text; each of the eight feature cards has a small animation (`docs/explain-demos.js`, `docs/explain-demos.css`, built from `window.CASES`, no video); The gap has shorter text and a computed summary line for the sources; `docs/media` was rebuilt, because 35 images came from an older build than `docs/data/cases.js` (the echo image showed other values than the data); `scripts/check-pages.py` checks all three pages at 1440 and 390 px (`python scripts/check-pages.py`, or `--base-url` for the live site).
+
+Open after 2026-10-14:
+- The clinical tool has no phone layout: about 500 px of content is cut off at 390 px wide. The check script lists it as a known issue.
+- The demos lose some text below 340 px wide.
+- The recorded tour video still shows the old echo image.
 
 ## Pages
 
