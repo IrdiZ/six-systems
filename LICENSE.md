@@ -1,4 +1,4 @@
-Required Notice: Copyright 2026 Irdi Zeneli and Danilo (github.com/danilosolciaa). https://github.com/IrdiZ/six-systems
+Required Notice: Copyright 2026 Irdi Zeneli and Danilo Solcia. https://github.com/IrdiZ/six-systems
 
 # PolyForm Noncommercial License 1.0.0
 
