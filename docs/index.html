@@ -25,12 +25,12 @@
 <header class="hero">
   <div class="wrap">
     <h1>One Patient, <span class="grad">Six Systems</span></h1>
-    <p class="lede">Forty synthetic patients move through a Dutch academic hospital, a neighbouring hospital, a regional lab and a shared pathology lab. Each department hands over data in its own format. In the archive every file opens, so the case looks complete. Only <span id="lede-pct">56</span>% of the facts in those files are available as data.</p>
+    <p class="lede">This page follows <span id="lede-n"></span> synthetic patients through a hospital, a neighbouring hospital and two laboratories. Every file opens in the archive, so each case looks complete. Only <span id="lede-pct"></span>% of the facts in those files are usable as data on arrival.</p>
 
     <p style="margin:-18px 0 30px"><a class="btn ghost" href="explained.html">New here? Read what this is, in plain language →</a></p>
 
     <div class="stats" id="stats"></div>
-    <p class="muted" style="margin:-14px 0 28px;font-size:13px">The percentages reflect how this simulation was built. They show the mechanism, not a measured rate at any hospital.</p>
+    <p class="muted hero-note">All <span id="note-n"></span> patients, values and organisations are synthetic. The percentages show the mechanism, not a measured rate at any hospital.</p>
 
     <div class="waffle-card">
       <div class="waffle-head">
@@ -49,15 +49,16 @@
   <section class="wrap" id="systems-section">
     <div class="section-head">
       <h2>The sources and what they deliver</h2>
-      <p class="muted">Each tile is one source. The bar shows what became of the facts it carried.</p>
+      <p class="muted">Each tile is one source: a department or an outside organisation that sends results. The bar shows how its facts arrived.</p>
     </div>
+    <p class="sys-sum" id="sys-sum"></p>
     <div class="systems" id="systems"></div>
   </section>
 
   <section class="wrap" id="explorer-section">
     <div class="section-head">
       <h2>Open a patient</h2>
-      <p class="muted">Flip between what the archive shows and what you can compute on. Click anything to see where it came from.</p>
+      <p class="muted">This shows one patient in two ways: the files in the archive, and the facts you can use as data. Select a file or a fact to see its source.</p>
     </div>
     <div class="explorer">
       <aside class="plist" id="plist"></aside>
@@ -67,7 +68,7 @@
 
   <section class="wrap" id="map-section">
     <div class="section-head">
-      <h2>Coverage map</h2>
+      <h2>Which facts arrive as data, per patient</h2>
       <p class="muted" id="map-sub"></p>
     </div>
     <div class="map-legend" id="map-legend"></div>
@@ -77,7 +78,7 @@
   <section class="wrap" id="halves-section">
     <div class="section-head">
       <h2>Exchange between organisations and research export</h2>
-      <p class="muted">The same gap appears in two places, with different owners and different fixes.</p>
+      <p class="muted">The gap causes two different problems. One is in care between organisations. The other is in the supply of data for research.</p>
     </div>
     <div class="halves" id="halves"></div>
   </section>
@@ -85,7 +86,7 @@
   <section class="wrap" id="export-section">
     <div class="section-head">
       <h2>One-click research export</h2>
-      <p class="muted">In many hospitals this is a manual job, redone for each study. Here the export runs in your browser: pseudonymised, date-shifted and leak-checked.</p>
+      <p class="muted">A research export gives a study the data without the identity of the patients. Here it runs in your browser: it replaces each BSN, shifts the dates and checks the output for identifiers.</p>
     </div>
     <div class="export" id="export"></div>
   </section>
@@ -93,7 +94,7 @@
   <section class="wrap" id="unlinked-section">
     <div class="section-head">
       <h2>Files that could not be linked to a patient</h2>
-      <p class="muted">These files arrived at the hospital. No patient record matched them.</p>
+      <p class="muted">These files arrived at the hospital. No patient record matched them, so their results are in no patient record.</p>
     </div>
     <div id="unlinked"></div>
   </section>
