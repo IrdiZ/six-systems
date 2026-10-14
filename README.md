@@ -1,12 +1,26 @@
 # One Patient, Six Systems
 
-**Having every file about a patient is not the same as having the data.** This prototype simulates how hospital departments hand over data in their native formats. Then it measures how much of a "complete" patient case is actually usable as data.
+Having every file about a patient is not the same as having the data.
+
+> **Synthetic data only.** Every patient, value and organisation in this repository is invented. No real patient data was used.
+
+<!-- Demo GIF of the clinical tool goes here -->
+
+## What it measures
+
+This prototype simulates how hospital departments hand over data in their native formats. Then it measures how much of a "complete" patient case is usable as data.
+
+## Live demo
 
 | Page | What it shows |
 |---|---|
 | [Explained](https://irdiz.github.io/six-systems/explained.html) | The idea in plain language, with one patient's journey through the files |
 | [The gap](https://irdiz.github.io/six-systems/) | Every fact for 40 patients, the archive view next to the computable view |
 | [Clinical tool](https://irdiz.github.io/six-systems/handover/) | How a clinician could work with it: worklist, verify, request, management |
+
+## Results
+
+The current build has 40 patients and 1,664 facts.
 
 | | |
 |---|---|
@@ -80,27 +94,36 @@ video/      renders the clinical tool to MP4 from a timeline file
 
 The assembler never reads `truth.json`. Scoring compares its output with the answer key afterwards. That makes the numbers honest: not "how much did we find", but "how much of the truth survived".
 
-## Run it
+## Quick start
 
-Needs Python 3.11+, [uv](https://docs.astral.sh/uv/) and Tesseract (`brew install tesseract`).
+Needs Python 3.11+, [uv](https://docs.astral.sh/uv/) and Tesseract (macOS: `brew install tesseract`; Linux: `apt install tesseract-ocr`; Windows: the UB Mannheim installer).
 
 ```sh
 uv sync
 uv run python build.py                      # simulate → assemble → export → docs/
-python docs/handover/standalone.py          # the clinical tool as one offline HTML file
-open docs/index.html
+python -m http.server -d docs               # then open http://localhost:8000
 ```
+
+The build is deterministic (seed 7). The raw files go to `raw/` and `out/`, which Git ignores.
+
+To make the clinical tool as one offline HTML file (about 6 MB, not tracked in Git), run `python docs/handover/standalone.py`. It writes `docs/handover/handover-standalone.html`.
 
 Videos need Playwright and ffmpeg. See [video/README.md](video/README.md).
 
-## Honest limits
+## Limitations
 
 - **All data is synthetic.** Every person, value and organisation is invented. BSNs pass the 11-proof check but belong to no one.
 - **Not a medical device and not a product.** It is a question in the form of software.
 - **Formats are simplified.** Realistic in shape, not certified in detail.
 - **OCR readings are pinned.** Tesseract versions read the same pixels differently. `assemble/ocr_reference.json` keeps the reference build's readings per image, so every machine assembles the same case. Delete it to read with your own Tesseract.
 - **OCR has it easy here.** The screen captures use clean fonts; real ones are messier. Even so, Tesseract misreads "cm" as "¢m" and fails on some values. The pages show this rather than hide it.
+- **The clinical tool has no phone layout.** Use a desktop screen. About 500 px of content is cut off at 390 px wide.
 - **It shows the shape of the problem.** It is modelled on public information about a typical Dutch academic hospital, not on any hospital's real data flows.
+
+## Authors
+
+- **Irdi Zeneli** ([@IrdiZ](https://github.com/IrdiZ)): the simulator, the assembler, the research export, the Explained and The gap pages, and the page checks.
+- **Danilo Solcia** ([@danilosolciaa](https://github.com/danilosolciaa)): the clinical tool (`docs/handover/`), the video pipeline (`video/`) and the extended 40-patient test catalogue.
 
 ## License
 
